@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sovereign-engine"
+dynamic = ["version"]
+description = "Pure, typed quant engine for SovereignDesk: bond maths, curves, short-rate, money-market and linkage models."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "numpy>=2.2",
+  "scipy>=1.15",
+  "pandas>=2.2",
+  "statsmodels>=0.14.4",
+  "scikit-learn>=1.6",
+  # CPU-only build: same `xgboost` module, ~5 MB instead of ~54 MB plus the CUDA NCCL wheel on Linux.
+  # It ships no macOS wheels, so macOS falls back to the regular package.
+  "xgboost-cpu>=3.0; sys_platform != 'darwin'",
+  "xgboost>=3.0; sys_platform == 'darwin'",
+]
+
+[tool.hatch.version]
+path = "src/sovereign_engine/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sovereign_engine"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["src", "tests"]
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["scipy.*", "statsmodels.*", "sklearn.*", "xgboost.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+xfail_strict = true
+filterwarnings = ["error"]

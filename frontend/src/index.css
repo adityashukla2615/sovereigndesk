@@ -1,0 +1,32 @@
+@import 'tailwindcss';
+
+/* Terminal palette. Components use these tokens (bg-term-panel, text-term-up, ...), never raw hex. */
+@theme {
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --color-term-bg: #000000;
+  --color-term-panel: #0b0b0b;
+  --color-term-line: #2a2a2a;
+  --color-term-amber: #ffb000;
+  --color-term-text: #e8e6e3;
+  --color-term-muted: #7d7d7d;
+  --color-term-up: #2fd16b;
+  --color-term-down: #ff4d4d;
+  --color-term-accent: #4fb3ff;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--color-term-bg);
+    color: var(--color-term-amber);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+}

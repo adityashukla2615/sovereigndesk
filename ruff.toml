@@ -1,0 +1,33 @@
+# Shared lint/format config for every Python file in the repo (engine, backend, scripts, tasks.py).
+target-version = "py312"
+line-length = 100
+src = ["engine/src", "engine/tests", "backend", "backend/tests", "scripts"]
+extend-exclude = ["frontend", "data"]
+
+[lint]
+select = [
+  "E", "W",  # pycodestyle
+  "F",       # pyflakes
+  "I",       # isort
+  "N",       # pep8-naming
+  "UP",      # pyupgrade
+  "B",       # bugbear
+  "C4",      # comprehensions
+  "SIM",     # simplify
+  "PT",      # pytest style
+  "ASYNC",   # async pitfalls
+  "S",       # bandit (security)
+  "RUF",
+]
+
+[lint.per-file-ignores]
+"**/tests/**" = ["S101"]                     # assert is the point of a test
+"tasks.py" = ["S603", "S607"]                # task runner shells out to known tools by design
+"scripts/**" = ["S603", "S607"]
+
+[lint.isort]
+known-first-party = ["sovereign_engine", "app"]
+
+[format]
+quote-style = "double"
+line-ending = "lf"

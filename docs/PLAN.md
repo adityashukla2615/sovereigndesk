@@ -15,6 +15,7 @@ The folder holds only `PROJECT_BRIEF.md`. The goal is **SovereignDesk**: a live,
 | Python | 3.14 locally (cp314 Windows wheels confirmed on PyPI for numpy, scipy, pandas, sklearn, statsmodels, pydantic-core, psycopg; XGBoost ships py3-none). `requires-python >=3.12` because XGBoost 3.x needs it, which still meets the brief's "3.11+". CI runs 3.12 and 3.14; Docker uses `python:3.12-slim`. |
 | Node | 24 locally; CI runs 22 and 24; npm. |
 | No Docker or make locally | Compose files and the Makefile still get written. The real task runner is a stdlib-only `tasks.py`, and the Makefile delegates to it. CI builds the images and runs make on Ubuntu, so both get exercised there. |
+| Toolchain pins (Phase 1) | TypeScript stays on 5.9: TS 7's native compiler drops the JS API that typescript-eslint and openapi-typescript need. `xgboost-cpu` replaces `xgboost` everywhere except macOS (5 MB instead of 54 MB plus the CUDA NCCL wheel). The backend uses `httpx2`, the pydantic-maintained successor that Starlette 1.x's TestClient expects. Dev tools are pinned in `requirements-dev.txt`. |
 | Probe findings | The FRED key works. The TIC holders table moved to `slt_table5.txt` (`mfh.txt` has been stale since Jan 2023). The RBI homepage shows current repo/SDF/MSF/CRR/SLR and T-bill cut-offs in scrapable form. The FiscalData MSPD security-level endpoint is live. Live values differ a lot from older memory, which is why nothing gets hardcoded. |
 
 ## Architecture

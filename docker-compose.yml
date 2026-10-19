@@ -1,0 +1,62 @@
+# Full stack: `docker compose up --build` (or `make up`), then open http://localhost:8080.
+# Local development without Docker uses SQLite and in-memory pub/sub instead: `py tasks.py dev`.
+name: sovereigndesk
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - path: backend/.env
+        required: false
+    environment:
+      SD_ENV: prod
+      SD_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-sovereign}:${POSTGRES_PASSWORD:-sovereign}@db:5432/${POSTGRES_DB:-sovereigndesk}
+      SD_REDIS_URL: redis://redis:6379/0
+      SD_CORS_ORIGINS: '["http://localhost:8080"]'
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: timescale/timescaledb:2.30.2-pg17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sovereign}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sovereign}
+      POSTGRES_DB: ${POSTGRES_DB:-sovereigndesk}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:8.10-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  pgdata:
