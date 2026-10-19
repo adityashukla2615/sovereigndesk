@@ -36,6 +36,11 @@ python_version = "3.12"
 files = ["app", "tests"]
 plugins = ["pydantic.mypy"]
 warn_unreachable = true
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = ["apscheduler.*"]
+ignore_missing_imports = true
 
 [tool.pydantic-mypy]
 init_forbid_extra = true
@@ -43,6 +48,7 @@ init_typed = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
 xfail_strict = true
 filterwarnings = ["error"]

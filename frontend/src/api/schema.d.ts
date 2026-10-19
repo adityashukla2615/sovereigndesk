@@ -21,10 +21,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Data Status */
+        get: operations["getDataStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data/series/{series_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Series Data */
+        get: operations["getSeries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** DataStatus */
+        DataStatus: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Offline */
+            offline: boolean;
+            /** Sources */
+            sources: components["schemas"]["SourceStatus"][];
+            /** Series */
+            series: components["schemas"]["SeriesStatus"][];
+            /** Quality Counts */
+            quality_counts: {
+                [key: string]: number;
+            };
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /** HealthResponse */
         HealthResponse: {
             /**
@@ -45,6 +102,69 @@ export interface components {
             offline: boolean;
             /** Fred Key Configured */
             fred_key_configured: boolean;
+        };
+        /**
+         * Quality
+         * @enum {string}
+         */
+        Quality: "LIVE" | "CACHED" | "SEED" | "SIMULATED" | "SYNTHETIC" | "MISSING";
+        /** SeriesData */
+        SeriesData: {
+            meta: components["schemas"]["SeriesStatus"];
+            /** Dates */
+            dates: string[];
+            /** Values */
+            values: number[];
+        };
+        /** SeriesStatus */
+        SeriesStatus: {
+            /** Series Id */
+            series_id: string;
+            /** Source */
+            source: string;
+            /** Title */
+            title: string;
+            /** Units */
+            units: string;
+            /** Frequency */
+            frequency: string;
+            quality: components["schemas"]["Quality"];
+            /** Label */
+            label: string;
+            /** As Of */
+            as_of: string | null;
+            /** Last Value */
+            last_value: number | null;
+            /** Rows */
+            rows: number;
+        };
+        /** SourceStatus */
+        SourceStatus: {
+            /** Source */
+            source: string;
+            /** Status */
+            status: string;
+            /** Last Attempt At */
+            last_attempt_at: string | null;
+            /** Last Success At */
+            last_success_at: string | null;
+            /** Message */
+            message: string;
+            /** Rows */
+            rows: number;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -71,6 +191,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    getDataStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataStatus"];
+                };
+            };
+        };
+    };
+    getSeries: {
+        parameters: {
+            query?: {
+                start?: string | null;
+                end?: string | null;
+            };
+            header?: never;
+            path: {
+                series_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesData"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

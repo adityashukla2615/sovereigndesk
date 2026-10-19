@@ -15,6 +15,9 @@ services:
       SD_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-sovereign}:${POSTGRES_PASSWORD:-sovereign}@db:5432/${POSTGRES_DB:-sovereigndesk}
       SD_REDIS_URL: redis://redis:6379/0
       SD_CORS_ORIGINS: '["http://localhost:8080"]'
+      SD_OFFLINE: ${SD_OFFLINE:-false}
+    volumes:
+      - rawcache:/srv/data/cache
     ports:
       - "8000:8000"
     depends_on:
@@ -60,3 +63,4 @@ services:
 
 volumes:
   pgdata:
+  rawcache:

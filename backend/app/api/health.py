@@ -6,7 +6,8 @@ from pydantic import BaseModel
 
 import app
 import sovereign_engine
-from app.config import Settings, get_settings
+from app.api.deps import get_app_settings
+from app.config import Settings
 
 router = APIRouter(tags=["system"])
 
@@ -21,7 +22,7 @@ class HealthResponse(BaseModel):
 
 
 @router.get("/health", operation_id="getHealth")
-def health(settings: Annotated[Settings, Depends(get_settings)]) -> HealthResponse:
+def health(settings: Annotated[Settings, Depends(get_app_settings)]) -> HealthResponse:
     return HealthResponse(
         status="ok",
         version=app.__version__,

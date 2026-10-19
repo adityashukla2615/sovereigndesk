@@ -12,6 +12,7 @@ from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+REPO_ROOT = BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
@@ -32,6 +33,21 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     offline: bool = False
     """Boot from the seed snapshot only; never touch the network."""
+    data_dir: Path = REPO_ROOT / "data"
+    """Holds ``seed/`` (committed real-data snapshots) and ``cache/`` (raw responses, ignored)."""
+    scheduler_enabled: bool = True
+    """Run the background refresh jobs (ignored when offline)."""
+    fail_sources: list[str] = []
+    """Sources to treat as down, for demonstrating the STALE badge (e.g. ``["fred"]``)."""
+    http_timeout_s: float = 30.0
+
+    @property
+    def seed_dir(self) -> Path:
+        return self.data_dir / "seed"
+
+    @property
+    def cache_dir(self) -> Path:
+        return self.data_dir / "cache"
 
 
 @lru_cache

@@ -47,12 +47,24 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: docker compose build
-      - run: docker compose up --detach --wait --wait-timeout 180
+      # Offline: CI must not depend on upstream data sites; the stack boots from the seed.
+      - run: SD_OFFLINE=true docker compose up --detach --wait --wait-timeout 300
       - name: Probe the stack through nginx
         run: |
           set -euo pipefail
           curl -fsS http://localhost:8080/api/health | tee /dev/stderr | grep -q '"status":"ok"'
           curl -fsS http://localhost:8080/ | grep -q '<title>SovereignDesk</title>'
+          # The seed snapshot was migrated into TimescaleDB and is served with SEED badges.
+          curl -fsS http://localhost:8080/api/data/status | python3 -c '
+          import json, sys
+          seeded = json.load(sys.stdin)["quality_counts"].get("SEED", 0)
+          print("SEED series:", seeded)
+          sys.exit(seeded < 100)'
+          curl -fsS http://localhost:8080/api/data/series/ust/par/10Y | python3 -c '
+          import json, sys
+          rows = len(json.load(sys.stdin)["values"])
+          print("10Y rows:", rows)
+          sys.exit(rows < 1000)'
           # WebSocket upgrade must survive the proxy: expect 101 Switching Protocols.
           # RFC 6455 wants a fresh random 16-byte nonce per handshake.
           nonce=$(head -c 16 /dev/urandom | base64)

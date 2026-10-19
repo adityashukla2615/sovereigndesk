@@ -5,3 +5,5 @@
 *.jpg binary
 *.xlsx binary
 *.pdf binary
+# Recorded upstream responses are kept byte-for-byte (TIC serves CRLF).
+backend/tests/fixtures/sources/** -text

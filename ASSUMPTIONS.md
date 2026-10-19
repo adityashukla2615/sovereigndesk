@@ -10,6 +10,25 @@ Every modelling assumption in SovereignDesk, and what is real data versus simula
   - The Federal Reserve's Gürkaynak–Sack–Wright NSS parameters and fitted yields (`feds200628.csv`, two dates).
 - Worked examples quoted from 31 CFR Part 356 Appendix B and the RBI primer *Government Securities Market in India* are also used as test anchors.
 
+## US data sources (backend, Phase 3)
+
+Values are stored exactly as published, with the source's units: yields in %, WALCL in USD millions, RRPONTSYD in USD billions, TIC holdings in USD billions. Series IDs are namespaced by source (`fred/…`, `ust/par/…`, `fiscal/…`, `tic/…`). The catalog is `backend/app/data/catalog.py`. Every FRED ID in it was checked against the FRED API on 2026-10-19.
+
+| Source | What | Notes |
+|---|---|---|
+| FRED | 39 series: CMT yields, policy rates, Fed balance sheet, prices, GDP, MTS receipts and outlays, BEA interest payments, VIX, dollar index, Kim–Wright term premium, USD/INR, India 10Y | `"."` marks a missing observation (e.g. bond-market holidays) and is dropped |
+| Treasury | Daily par yield curve, 14 tenors (1M … 30Y) | Columns are matched by header name, because tenors were added over time: 2M in 2018, 4M in 2022, 6W in 2025 |
+| FiscalData | Debt to the penny, average interest rates (marketable), interest expense, MSPD table 3 (security level) | "Interest on public issues" is the sum of the *Interest expense on public issues* category; "total" adds Government Account Series. MSPD reports each CUSIP's outstanding amount on its first issue row only |
+| TIC | Major foreign holders, monthly, from 2000 | `slt_table5.txt` (latest 13 months) is merged over `mfhhis01.txt` (history), and the newer table wins where they overlap. `mfh.txt` is stale since Jan 2023 and is not used |
+
+How data flows:
+
+- **Fetching.** Live data comes first. Requests retry 429, 5xx and transport errors with exponential backoff (4 attempts). A failed request falls back to the last good raw response on disk, and if there is none, the source is marked down.
+- **Seed.** The committed seed (`data/seed`, built by `py tasks.py seed` from live responses only) fills series that have never been fetched.
+- **Refresh.** Each refresh re-fetches the last two years so revisions land. Older history comes from the seed. Jobs run on weekdays (ET): FiscalData 16:30, TIC 16:45, FRED 17:30, Treasury 18:30. A catch-up for stale sources runs 5 s after startup.
+- **Quality tags.** A series is **LIVE** if its source was fetched successfully within the last 36 h. It is **CACHED (age)** if the last success is older than that, or if the source is currently failing or served a cached raw response. It is **SEED (date)** if it has only ever come from the snapshot. A source outage can be demonstrated with `SD_FAIL_SOURCES=["fred"]`. Discontinued series stay SEED, because no refresh window reaches their last observation. Examples are IOER, which was replaced by IORB in July 2021, and TIC countries that have dropped out of the major-holders table.
+- **Secrets.** The FRED key is sent only as a query parameter. It is excluded from cache keys, cache files, provenance URLs and the seed manifest, and redacted from logs and error messages.
+
 ## Bond conventions (engine, Phase 2)
 
 Each convention is defined in `engine/src/sovereign_engine/bonds/conventions.py`, with its sources and the date it was checked.

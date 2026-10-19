@@ -25,10 +25,163 @@
           }
         }
       }
+    },
+    "/api/data/status": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Data Status",
+        "operationId": "getDataStatus",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/data/series/{series_id}": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Series Data",
+        "operationId": "getSeries",
+        "parameters": [
+          {
+            "name": "series_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Series Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesData"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "DataStatus": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "offline": {
+            "type": "boolean",
+            "title": "Offline"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceStatus"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesStatus"
+            },
+            "type": "array",
+            "title": "Series"
+          },
+          "quality_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Quality Counts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "offline",
+          "sources",
+          "series",
+          "quality_counts"
+        ],
+        "title": "DataStatus"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
       "HealthResponse": {
         "properties": {
           "status": {
@@ -68,6 +221,213 @@
           "fred_key_configured"
         ],
         "title": "HealthResponse"
+      },
+      "Quality": {
+        "type": "string",
+        "enum": [
+          "LIVE",
+          "CACHED",
+          "SEED",
+          "SIMULATED",
+          "SYNTHETIC",
+          "MISSING"
+        ],
+        "title": "Quality"
+      },
+      "SeriesData": {
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/SeriesStatus"
+          },
+          "dates": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Dates"
+          },
+          "values": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Values"
+          }
+        },
+        "type": "object",
+        "required": [
+          "meta",
+          "dates",
+          "values"
+        ],
+        "title": "SeriesData"
+      },
+      "SeriesStatus": {
+        "properties": {
+          "series_id": {
+            "type": "string",
+            "title": "Series Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "units": {
+            "type": "string",
+            "title": "Units"
+          },
+          "frequency": {
+            "type": "string",
+            "title": "Frequency"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/Quality"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "last_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Value"
+          },
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "series_id",
+          "source",
+          "title",
+          "units",
+          "frequency",
+          "quality",
+          "label",
+          "as_of",
+          "last_value",
+          "rows"
+        ],
+        "title": "SeriesStatus"
+      },
+      "SourceStatus": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "status",
+          "last_attempt_at",
+          "last_success_at",
+          "message",
+          "rows"
+        ],
+        "title": "SourceStatus"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
       }
     }
   }
