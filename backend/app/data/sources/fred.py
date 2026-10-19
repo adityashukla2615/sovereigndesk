@@ -64,5 +64,7 @@ class FredAdapter:
             provenance = Provenance(self.source, body.url, body.fetched_at, body.from_cache)
             outcome.frames.append(SeriesFrame(spec, tidy(points), provenance))
         if not outcome.frames and outcome.errors:
-            raise SourceError(f"fred: every series failed, e.g. {next(iter(outcome.errors.values()))}")
+            raise SourceError(
+                f"fred: every series failed, e.g. {next(iter(outcome.errors.values()))}"
+            )
         return outcome

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 Frequency = Literal["D", "W", "M", "Q"]
-SourceName = Literal["fred", "treasury", "fiscaldata", "tic"]
+SourceName = Literal["fred", "treasury", "fiscaldata", "tic", "rbi", "fbil", "nsdl"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,10 +115,18 @@ FISCAL_SERIES: tuple[SeriesSpec, ...] = (
         "M",
     ),
     _fiscal(
-        "avg_rate/frn", "Treasury Floating Rate Notes (FRN)", "Average interest rate, FRNs", "%", "M"
+        "avg_rate/frn",
+        "Treasury Floating Rate Notes (FRN)",
+        "Average interest rate, FRNs",
+        "%",
+        "M",
     ),
     _fiscal(
-        "avg_rate/marketable", "Total Marketable", "Average interest rate, total marketable", "%", "M"
+        "avg_rate/marketable",
+        "Total Marketable",
+        "Average interest rate, total marketable",
+        "%",
+        "M",
     ),
     _fiscal(
         "interest/public_issues",
@@ -130,7 +138,105 @@ FISCAL_SERIES: tuple[SeriesSpec, ...] = (
     _fiscal("interest/total", "*", "Interest expense, all categories (month)", "USD", "M"),
 )
 
-STATIC_SERIES: tuple[SeriesSpec, ...] = FRED_SERIES + TREASURY_SERIES + FISCAL_SERIES
+
+def _rbi(remote: str, title: str, units: str = "%") -> SeriesSpec:
+    return SeriesSpec(f"rbi/{remote}", "rbi", remote, title, units, "D")
+
+
+IN_RBI_SERIES: tuple[SeriesSpec, ...] = (
+    _rbi("repo", "RBI policy repo rate"),
+    _rbi("sdf", "Standing deposit facility rate (LAF floor)"),
+    _rbi("msf", "Marginal standing facility rate (LAF ceiling)"),
+    _rbi("bank_rate", "Bank Rate"),
+    _rbi("fixed_reverse_repo", "Fixed reverse repo rate"),
+    _rbi("crr", "Cash reserve ratio", "% of NDTL"),
+    _rbi("slr", "Statutory liquidity ratio", "% of NDTL"),
+    _rbi("usdinr", "FBIL INR/USD reference rate, as shown on RBI's homepage", "INR"),
+)
+
+
+def _mmo(remote: str, title: str, units: str, key: str | None = None) -> SeriesSpec:
+    return SeriesSpec(f"rbi/mmo/{key or remote}", "rbi", remote, title, units, "D")
+
+
+_SEGMENTS = (
+    ("overnight", "Overnight segment (call + TREPS + market repo + corporate repo)"),
+    ("call", "Call money"),
+    ("treps", "Triparty repo (TREPS), overnight"),
+    ("market_repo", "Market repo, overnight"),
+    ("notice", "Notice money (2-14 days)"),
+    ("term", "Term money (15 days-1 year)"),
+)
+
+IN_MMO_SERIES: tuple[SeriesSpec, ...] = (
+    _mmo("call_rate", "Weighted average call rate (WACR)", "%", key="wacr"),
+    *(
+        spec
+        for key, name in _SEGMENTS
+        for spec in (
+            *(
+                ()
+                if key == "call"
+                else (_mmo(f"{key}_rate", f"{name}: weighted average rate", "%"),)
+            ),
+            _mmo(f"{key}_volume", f"{name}: volume", "INR cr"),
+            _mmo(f"{key}_low", f"{name}: lowest rate", "%"),
+            _mmo(f"{key}_high", f"{name}: highest rate", "%"),
+        )
+    ),
+    _mmo("sdf_amount", "SDF deposits outstanding (today's and earlier operations)", "INR cr"),
+    _mmo("sdf_rate", "SDF rate in today's operations", "%"),
+    _mmo("msf_amount", "MSF borrowing outstanding (today's and earlier operations)", "INR cr"),
+    _mmo("msf_rate", "MSF rate in today's operations", "%"),
+    _mmo("vrr_amount", "Variable rate repo outstanding (injection)", "INR cr"),
+    _mmo("vrrr_amount", "Variable rate reverse repo outstanding (absorption)", "INR cr"),
+    _mmo("ltro_amount", "Long-term repo operations outstanding (LTRO, TLTRO, SLTRO)", "INR cr"),
+    _mmo("slf_amount", "Standing liquidity facilities availed from RBI", "INR cr"),
+    _mmo(
+        "net_liquidity",
+        "Net liquidity injected (+) / absorbed (-), all operations outstanding",
+        "INR cr",
+    ),
+    _mmo("crr_balance", "Scheduled commercial banks: cash balances with RBI", "INR cr"),
+    _mmo("crr_requirement", "Average daily cash reserve requirement for the fortnight", "INR cr"),
+    _mmo("gov_surplus_cash", "Government surplus cash balance reckoned for auction", "INR cr"),
+    _mmo("durable_liquidity", "Net durable liquidity, surplus (+) / deficit (-)", "INR cr"),
+)
+
+FBIL_TBILL_TENORS = ("7D", "14D", *(f"{m}M" for m in range(1, 13)))
+
+IN_FBIL_SERIES: tuple[SeriesSpec, ...] = (
+    *(
+        SeriesSpec(f"fbil/tbill/{t}", "fbil", f"tbill/{t}", f"FBIL T-bill benchmark, {t}", "%", "D")
+        for t in FBIL_TBILL_TENORS
+    ),
+    SeriesSpec("fbil/mibor/ON", "fbil", "mibor/ON", "FBIL overnight MIBOR", "%", "D"),
+    SeriesSpec("fbil/usdinr", "fbil", "usdinr", "FBIL reference rate, INR per USD", "INR", "D"),
+)
+
+_FPI_CLASSES = (
+    ("equity", "equity"),
+    ("debt", "debt (general limit + VRR + FAR)"),
+    ("debt_general", "debt, general limit"),
+    ("debt_vrr", "debt, voluntary retention route"),
+    ("debt_far", "debt, fully accessible route"),
+    ("hybrid", "hybrid"),
+    ("total", "all classes"),
+)
+
+IN_NSDL_SERIES: tuple[SeriesSpec, ...] = tuple(
+    SeriesSpec(
+        f"nsdl/fpi/{key}_{unit}", "nsdl", f"{key}_{unit}", f"FPI net investment, {name}", label, "D"
+    )
+    for key, name in _FPI_CLASSES
+    for unit, label in (("inr", "INR cr"), ("usd", "USD mn"))
+)
+
+INDIA_SERIES: tuple[SeriesSpec, ...] = (
+    IN_RBI_SERIES + IN_MMO_SERIES + IN_FBIL_SERIES + IN_NSDL_SERIES
+)
+
+STATIC_SERIES: tuple[SeriesSpec, ...] = FRED_SERIES + TREASURY_SERIES + FISCAL_SERIES + INDIA_SERIES
 BY_ID: dict[str, SeriesSpec] = {spec.series_id: spec for spec in STATIC_SERIES}
 
 

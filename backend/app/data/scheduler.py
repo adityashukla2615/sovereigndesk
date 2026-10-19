@@ -8,6 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 from app.data.service import DataService
 
 TIMEZONE = "America/New_York"
+INDIA_TIMEZONE = "Asia/Kolkata"
 
 # (hour, minute) ET on weekdays. Treasury posts the par curve by about 6 pm; FRED updates its
 # daily rates in the late afternoon; TIC releases at 4 pm on release days; FiscalData's debt
@@ -17,6 +18,14 @@ REFRESH_TIMES: dict[str, tuple[int, int]] = {
     "tic": (16, 45),
     "fred": (17, 30),
     "treasury": (18, 30),
+}
+
+# (hour, minute) IST, every day: RBI posts the previous day's Money Market Operations in the
+# morning and FBIL its T-bill and FX benchmarks by early evening; NSDL updates after the close.
+INDIA_REFRESH_TIMES: dict[str, tuple[int, int]] = {
+    "rbi": (10, 30),
+    "fbil": (18, 15),
+    "nsdl": (20, 30),
 }
 
 
@@ -32,6 +41,16 @@ def build_scheduler(service: DataService, *, startup_delay_s: float = 5.0) -> Ba
         scheduler.add_job(
             service.refresh,
             CronTrigger(day_of_week="mon-fri", hour=hour, minute=minute, timezone=TIMEZONE),
+            args=[source],
+            id=f"refresh:{source}",
+            replace_existing=True,
+        )
+    for source, (hour, minute) in INDIA_REFRESH_TIMES.items():
+        if source not in service.adapters:
+            continue
+        scheduler.add_job(
+            service.refresh,
+            CronTrigger(hour=hour, minute=minute, timezone=INDIA_TIMEZONE),
             args=[source],
             id=f"refresh:{source}",
             replace_existing=True,

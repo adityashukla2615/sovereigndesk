@@ -11,7 +11,7 @@ import logging
 import os
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlencode
@@ -41,6 +41,7 @@ class FetchedBody:
     """Request URL without secret parameters."""
     fetched_at: datetime
     from_cache: bool
+    """True when the live request failed and this is the last saved copy (possibly stale)."""
 
 
 class RawCache:
@@ -77,6 +78,10 @@ class RawCache:
         )
 
 
+def _cache_key(identity: str) -> str:
+    return hashlib.sha256(identity.encode()).hexdigest()[:32]
+
+
 def _retryable(exc: BaseException) -> bool:
     if isinstance(exc, httpx2.TransportError):
         return True
@@ -110,7 +115,7 @@ class Fetcher:
 
     def get(self, source: str, url: str, params: Mapping[str, str] | None = None) -> FetchedBody:
         public = self.public_url(url, params)
-        key = hashlib.sha256(public.encode()).hexdigest()[:32]
+        key = _cache_key(public)
         retrying = Retrying(
             stop=stop_after_attempt(self.attempts),
             wait=self.wait,
@@ -126,13 +131,57 @@ class Fetcher:
             cached = self.cache.read(source, key)
             if cached is None:
                 raise SourceError(f"{source}: {reason} (no cached copy)") from None
-            log.warning("%s: live fetch failed (%s); using cached copy of %s", source, reason, public)
+            log.warning(
+                "%s: live fetch failed (%s); using cached copy of %s", source, reason, public
+            )
             return cached
         fetched_at = self.clock()
         self.cache.write(source, key, response.content, public, fetched_at)
         return FetchedBody(response.content, public, fetched_at, from_cache=False)
 
+    def post(
+        self, source: str, url: str, form: Mapping[str, str], *, key_fields: tuple[str, ...]
+    ) -> FetchedBody:
+        """Form POST (e.g. an ASP.NET postback). Only ``key_fields`` identify it in the cache,
+        because hidden fields such as __VIEWSTATE change on every page load."""
+        identity = self.public_url(url, {k: form[k] for k in key_fields if k in form})
+        key = _cache_key("POST " + identity)
+        retrying = Retrying(
+            stop=stop_after_attempt(self.attempts),
+            wait=self.wait,
+            retry=retry_if_exception(_retryable),
+            reraise=False,
+            sleep=self.sleep,
+        )
+        try:
+            response = retrying(self._send, url, dict(form))
+        except (RetryError, httpx2.HTTPError) as exc:
+            cause = exc.last_attempt.exception() if isinstance(exc, RetryError) else exc
+            cached = self.cache.read(source, key)
+            if cached is None:
+                raise SourceError(
+                    f"{source}: POST {identity} failed: {redact(str(cause))}"
+                ) from None
+            return cached
+        fetched_at = self.clock()
+        self.cache.write(source, key, response.content, identity, fetched_at)
+        return FetchedBody(response.content, identity, fetched_at, from_cache=False)
+
+    def saved(
+        self, source: str, url: str, params: Mapping[str, str] | None = None
+    ) -> FetchedBody | None:
+        """The body an earlier live ``get`` of this request saved, for documents that never change
+        once published (a press release by id), so they are not downloaded twice. It is a live
+        response from its ``fetched_at``, not a fallback, so ``from_cache`` is False."""
+        cached = self.cache.read(source, _cache_key(self.public_url(url, params)))
+        return None if cached is None else replace(cached, from_cache=False)
+
     def _request(self, url: str, params: Mapping[str, str] | None) -> httpx2.Response:
         response = self.client.get(url, params=dict(params or {}))
+        response.raise_for_status()
+        return response
+
+    def _send(self, url: str, form: dict[str, str]) -> httpx2.Response:
+        response = self.client.post(url, data=form)
         response.raise_for_status()
         return response

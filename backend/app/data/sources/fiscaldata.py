@@ -53,7 +53,9 @@ class FiscalDataAdapter:
         self.fetcher = fetcher
         self.specs = specs
 
-    def _pages(self, endpoint: str, params: dict[str, str]) -> Iterator[tuple[dict[str, str], FetchedBody]]:
+    def _pages(
+        self, endpoint: str, params: dict[str, str]
+    ) -> Iterator[tuple[dict[str, str], FetchedBody]]:
         page, pages = 1, 1
         while page <= pages:
             query = {**params, "page[size]": str(PAGE_SIZE), "page[number]": str(page)}
@@ -104,7 +106,9 @@ class FiscalDataAdapter:
             raise SourceError(f"fiscaldata: every dataset failed: {outcome.errors}")
         return outcome
 
-    def _debt(self, specs: list[SeriesSpec], start: date | None, end: date | None) -> list[SeriesFrame]:
+    def _debt(
+        self, specs: list[SeriesSpec], start: date | None, end: date | None
+    ) -> list[SeriesFrame]:
         fields = ["record_date", *[s.remote for s in specs]]
         records, provenance = self._query(DEBT_TO_PENNY, fields, start, end)
         frames = []
@@ -117,7 +121,9 @@ class FiscalDataAdapter:
             frames.append(SeriesFrame(spec, tidy(points), provenance))
         return frames
 
-    def _avg_rates(self, specs: list[SeriesSpec], start: date | None, end: date | None) -> list[SeriesFrame]:
+    def _avg_rates(
+        self, specs: list[SeriesSpec], start: date | None, end: date | None
+    ) -> list[SeriesFrame]:
         fields = ["record_date", "security_type_desc", "security_desc", "avg_interest_rate_amt"]
         records, provenance = self._query(AVG_INTEREST_RATES, fields, start, end)
         frames = []
@@ -132,7 +138,9 @@ class FiscalDataAdapter:
             frames.append(SeriesFrame(spec, tidy(points), provenance))
         return frames
 
-    def _interest(self, specs: list[SeriesSpec], start: date | None, end: date | None) -> list[SeriesFrame]:
+    def _interest(
+        self, specs: list[SeriesSpec], start: date | None, end: date | None
+    ) -> list[SeriesFrame]:
         fields = ["record_date", "expense_catg_desc", "month_expense_amt"]
         records, provenance = self._query(INTEREST_EXPENSE, fields, start, end)
         frames = []
@@ -182,4 +190,6 @@ class FiscalDataAdapter:
             )
         if last is None or not rows:
             raise SourceError("fiscaldata: MSPD table 3 returned no securities")
-        return MspdSnapshot(rows, Provenance(self.source, last.url, last.fetched_at, last.from_cache))
+        return MspdSnapshot(
+            rows, Provenance(self.source, last.url, last.fetched_at, last.from_cache)
+        )

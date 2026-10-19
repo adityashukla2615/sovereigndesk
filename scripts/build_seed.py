@@ -4,7 +4,9 @@
     py tasks.py seed --sources fred,tic    # rebuild some sources, keep the rest
 
 Needs network access and, for FRED, FRED_API_KEY in backend/.env. Every file written comes from
-a live response: if a request fails the build stops rather than snapshot a cached copy.
+a live response: if a request fails the build stops rather than snapshot a cached copy. RBI's
+press releases never change once published, so a release saved by an earlier live crawl is
+reused rather than downloaded again; its fetch time is the original one.
 """
 
 import argparse
@@ -26,12 +28,17 @@ from app.data.sources import build_adapters, make_client
 from app.data.sources.fiscaldata import FiscalDataAdapter
 from app.logs import configure_logging
 
-SOURCES = ("fred", "treasury", "fiscaldata", "tic")
+SOURCES = ("fred", "treasury", "fiscaldata", "tic", "rbi", "fbil", "nsdl")
 STARTS: dict[str, date | None] = {
     "fred": date(2005, 1, 1),
     "treasury": date(2010, 1, 1),
     "fiscaldata": date(2005, 1, 1),
     "tic": None,  # whole files: history from 2000 plus the latest 13 months
+    # MMO releases since the SDF replaced the fixed-rate reverse repo as the LAF floor
+    # (8 April 2022): about 1,650 releases, fetched one per second.
+    "rbi": date(2022, 4, 8),
+    "fbil": date(2022, 4, 1),
+    "nsdl": None,  # the current month's report
 }
 # Seed sub-directories each source owns (cleared before a rebuild so dropped series vanish).
 DIRS = {
@@ -39,6 +46,9 @@ DIRS = {
     "treasury": ["ust"],
     "fiscaldata": ["fiscal", "fiscaldata"],
     "tic": ["tic"],
+    "rbi": ["rbi"],
+    "fbil": ["fbil"],
+    "nsdl": ["nsdl"],
 }
 
 

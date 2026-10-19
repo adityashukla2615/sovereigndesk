@@ -62,6 +62,53 @@ The runoff pace QT starts with is the one observed in the last 13 weeks of H.4.1
 | Debt projection | Like-for-like rollover. Deficits (last 12 months) are financed at the stock/term mix. Both yield paths are held flat: today's curve against the simulated one. TIPS earn the real coupon plus 2.5% inflation and are reissued as nominal debt; FRNs pay the 3-month yield plus 10 bp. GDP and receipts grow 4% a year in nominal terms. |
 | Clock | One wall-clock second is one simulated minute (SPEED changes this). Ticks run at 4 Hz, and each tick message carries the full US state. The markets re-anchor when newer real data arrives and keep their shocks. |
 
+## India data sources (backend, Phase 5)
+
+Values are stored as published: amounts in ₹ crore, rates in %. Series IDs are `rbi/…`, `rbi/mmo/…`, `fbil/…` and `nsdl/fpi/…`.
+
+| Source | What | Notes |
+|---|---|---|
+| RBI homepage | Policy repo, SDF, MSF, Bank Rate, fixed reverse repo, CRR, SLR; FBIL's INR/USD reference rate | Rates are stamped with the IST date the page is read, as the rates in force that day. The reference rate keeps the page's own "as at 1.00pm of <date>", and is a week fresher than FBIL's public JSON. The box's T-bill cut-offs are not stored: they carry no auction date (its "as on" footnote belongs to the G-sec yields) |
+| RBI Money Market Operations | A release for every calendar day since 2024 (in 2022–23 most 2nd and 4th Saturdays and a few holidays have none): WACR with volume and range; TREPS, market repo, notice and term money; RBI's operations; net liquidity; banks' cash balances and the CRR requirement; government surplus cash; net durable liquidity | Crawled from 8 Apr 2022, when the SDF became the corridor floor. The press-release page lists only about the latest ten days; earlier days are listed month by month through the archive (an ASP.NET form). One request a second. CCIL's segments come from here: the release's footnote reads "Based on RBI / CCIL" |
+| FBIL | T-bill benchmarks 7D–12M, overnight MIBOR, INR/USD reference rate | The public JSON the FBIL site itself reads (`/wasdm/<product>/fetchfiltered?authenticated=false`), in 31-day windows. The public data runs about a week behind: on 20 Oct 2026 it ended at 12 Oct. Over a holiday MIBOR is fixed for the whole break (a "4D" fixing, say); it is stored as that day's overnight rate |
+| NSDL | Daily FPI net investment by class (equity, debt by route, hybrid, total), ₹ crore and US$ million | Current month only. NSDL's archive arrives with the linkage work (Phase 9) |
+
+How a Money Market Operations release is read:
+
+- **Facility amounts are stocks.** MSF, SDF, VRR, VRRR and the legacy long-term repos (LTRO, TLTRO, SLTRO) are summed over today's operations and the earlier ones still outstanding, so a Friday's 3-day SDF still counts on the Sunday. Read this way, the release's own net-liquidity row F equals MSF + VRR + long-term repos + SLF − SDF − VRRR to the crore. It holds on 1,595 of the 1,596 releases in the seed (8 Apr 2022 to 18 Oct 2026). The exception is 23 Dec 2024: RBI printed a ₹1,50,004 cr fine-tuning repo on the sub-header row, and the parser does not guess its direction, so VRR is understated that day.
+- **Holidays.** Releases cover weekends and holidays too, because the SDF and MSF never close. On Sundays, bank holidays and non-working Saturdays the money markets are shut: volumes are 0 and no rates are stored.
+- **Dates.** Values RBI dates separately keep their own "as on" date: cash balances (the release day), government surplus cash (0–4 days earlier) and net durable liquidity (13–33 days earlier). Releases write dates both as "October 24, 2023" and as "24/10/2023".
+- **WACR leaves the corridor.** Of 1,214 trading days, real WACR printed below the SDF rate on 257 (222 of them in surplus, with RBI absorbing net) and above the MSF rate on 80 (66 in deficit, 50 of them in 2023). The widest gaps are thin Saturday sessions, policy-change days and financial-year ends: on 31 Mar 2023 WACR was 7.37% against an MSF of 6.75%.
+- **Aggregate NDTL** is implied by the fortnight's reserve requirement: NDTL = CRR requirement ÷ CRR. For the fortnight ending 31 Oct 2026 that is ₹8,33,309 cr ÷ 3% ≈ ₹278 lakh crore.
+- **Refresh.** Daily, IST: RBI 10:30, FBIL 18:15, NSDL 20:30. RBI looks back 7 days and FBIL 30, so a daily refresh never crawls the archive. A release never changes once published, so a copy saved by an earlier crawl is parsed rather than downloaded again.
+
+Not yet, and where each arrives: MOSPI CPI and RBI's MPC decision history in Phase 8 (CPI was rebased to 2024 = 100 in Feb 2026 and must be chain-linked); FBIL G-sec par yields in Phase 7; RBI's Weekly Statistical Supplement (forex reserves, currency in circulation) and NSDL's history in Phase 9.
+
+## Indian banks and RBI rules (engine, Phase 5)
+
+**Rules** (`sovereign_engine/india/rules.py`), each checked against its source on 2026-10-20. CRR and SLR themselves come from RBI's data, never from code.
+
+| Rule | Value | Source |
+|---|---|---|
+| Call/notice borrowing, scheduled commercial banks (incl. foreign banks and SFBs) | 100% of capital funds as a fortnightly daily average; 125% on any day | RBI/2021-22/61, Call, Notice and Term Money Markets Directions (25 Jun 2021), Table 1 |
+| Call/notice borrowing, primary dealers | 225% of net owned funds, fortnightly average | same |
+| Term money | within board-approved limits | same |
+| Lending | RBI sets **no** limit; banks lend within board-approved internal limits. The model's 25% (fortnightly average) and 50% (any day) of capital funds are an **assumption**, the brief's figures | same |
+| CRR | the fortnightly average must reach CRR × NDTL; the daily minimum is 99% of the requirement from the fortnight beginning 16 Oct 2026 (90% before), for all scheduled banks | RBI/2026-27/290 (9 Oct 2026) |
+| MSF | banks may dip into the SLR by up to 2% of NDTL (restored from 3% on 1 Jan 2022); standalone PDs have no MSF access | RBI/2021-22/138 |
+
+The participation check runs on every trade: it rejects a trade that would take the day's outstanding over the daily cap, or put the fortnight's daily average over the average cap even if every remaining day carried nothing. The rejection says which cap and by how much.
+
+**Bank universe (SYNTHETIC).** 40 institutions with generic codes: 12 PSB, 16 PVT, 6 FGN, 4 SFB and 2 standalone PDs. Their NDTL adds up exactly to the real aggregate above. Everything else is illustrative and not fitted to any bank's data:
+
+| Item | Choice |
+|---|---|
+| Group share of NDTL | PSB 55%, PVT 39%, FGN 4.5%, SFB 1.5% |
+| Size within a group | lognormal, σ = 0.8, rescaled to the group's share; PSB-01 is the largest |
+| Capital funds / NDTL | PSB 8.5%, PVT 13%, FGN 10%, SFB 14% |
+| SLR holdings | the SLR plus 2.25–6.75% of NDTL (uniform); the excess backs repo and MSF |
+| Primary dealers | NDTL 0; net owned funds ₹1,500–4,000 cr (uniform) |
+
 ## Bond conventions (engine, Phase 2)
 
 Each convention is defined in `engine/src/sovereign_engine/bonds/conventions.py`, with its sources and the date it was checked.

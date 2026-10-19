@@ -31,7 +31,10 @@ def seeded(settings: Settings) -> Iterator[TestClient]:
 def test_status_reports_sources_series_and_seed_badges(seeded: TestClient) -> None:
     body = seeded.get("/api/data/status").json()
     assert body["offline"] is True
-    assert {s["source"] for s in body["sources"]} == {"fred", "treasury", "fiscaldata", "tic"}
+    assert {s["source"] for s in body["sources"]} == {
+        *("fred", "treasury", "fiscaldata", "tic"),
+        *("rbi", "fbil", "nsdl"),
+    }
     assert all(s["status"] == "never" for s in body["sources"])
     series = {s["series_id"]: s for s in body["series"]}
     ten = series["ust/par/10Y"]

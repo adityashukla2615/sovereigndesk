@@ -80,7 +80,9 @@ def parse_history(content: bytes) -> Holdings:
         for month, year in zip(months, years, strict=False):
             m, y = _MONTHS.get(month.strip().lower()[:3]), year.strip()
             dates.append(_month_end(int(y), m) if m and y.isdigit() else None)
-        first = i + 2 if i + 1 < len(rows) and rows[i + 1][1:2] and "--" in rows[i + 1][1] else i + 1
+        first = (
+            i + 2 if i + 1 < len(rows) and rows[i + 1][1:2] and "--" in rows[i + 1][1] else i + 1
+        )
         _read_rows(rows, first, dates, holdings)
     if not holdings:
         raise SourceError("tic: mfhhis01 has no Country blocks")

@@ -1,7 +1,7 @@
 # Installed by `py tasks.py setup`. mypy, pytest and the JS checks are slower, so they run in
 # `py tasks.py check` and CI rather than on every commit.
 # Recorded upstream responses must stay byte-for-byte, so no hook may rewrite them.
-exclude: ^backend/tests/fixtures/sources/
+exclude: ^backend/tests/fixtures/(sources|india)/
 repos:
   - repo: local
     hooks:

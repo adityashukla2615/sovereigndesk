@@ -65,6 +65,11 @@ jobs:
           rows = len(json.load(sys.stdin)["values"])
           print("10Y rows:", rows)
           sys.exit(rows < 1000)'
+          curl -fsS http://localhost:8080/api/data/series/rbi/mmo/wacr | python3 -c '
+          import json, sys
+          rows = len(json.load(sys.stdin)["values"])
+          print("WACR rows:", rows)
+          sys.exit(rows < 1000)'
           # WebSocket upgrade must survive the proxy: expect 101 Switching Protocols.
           # RFC 6455 wants a fresh random 16-byte nonce per handshake.
           nonce=$(head -c 16 /dev/urandom | base64)

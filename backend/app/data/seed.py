@@ -105,7 +105,11 @@ def write_mspd(seed_dir: Path, snapshot: MspdSnapshot) -> SeedTable:
     for row in snapshot.rows:
         writer.writerow(
             [
-                "" if (v := getattr(row, c)) is None else v.isoformat() if isinstance(v, date) else v
+                ""
+                if (v := getattr(row, c)) is None
+                else v.isoformat()
+                if isinstance(v, date)
+                else v
                 for c in _MSPD_COLUMNS
             ]
         )

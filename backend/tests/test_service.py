@@ -9,7 +9,7 @@ from sqlalchemy import Engine
 from app.config import Settings
 from app.data.catalog import SeriesSpec
 from app.data.quality import Quality
-from app.data.service import DataService
+from app.data.service import REFRESH_LOOKBACK, DataService
 from app.data.sources.base import FetchOutcome, SeriesFrame, SourceError
 from app.db.session import make_engine, make_session_factory, upgrade_database
 from tests.support import frame, write_seed
@@ -23,6 +23,7 @@ class FakeAdapter:
 
     def __init__(self) -> None:
         self.calls = 0
+        self.starts: list[date | None] = []
         self.frames: list[SeriesFrame] = []
         self.errors: dict[str, str] = {}
         self.fail: str | None = None
@@ -31,6 +32,7 @@ class FakeAdapter:
         self, series_ids: set[str] | None = None, start: date | None = None, end: date | None = None
     ) -> FetchOutcome:
         self.calls += 1
+        self.starts.append(start)
         if self.fail:
             raise SourceError(self.fail)
         return FetchOutcome(list(self.frames), dict(self.errors))
@@ -173,3 +175,18 @@ def test_unknown_series_and_empty_seed(online: Settings, make_service: ServiceFa
     assert service.mspd() == ([], Quality.MISSING)
     statics = {i.series_id: i for i in service.series_info()}
     assert statics["fred/DGS10"].quality is Quality.MISSING  # catalogued, never loaded
+
+
+def test_refresh_windows_are_per_source(online: Settings, make_service: ServiceFactory) -> None:
+    adapter = FakeAdapter()
+    service = make_service(online, adapter, Clock(NOW))
+    service.adapters.update(rbi=adapter, fbil=adapter)
+    for source in ("fred", "rbi", "fbil"):
+        service.refresh(source)
+    today = NOW.date()
+    # RBI pages its archive by month: a daily refresh must not crawl two years of it.
+    assert adapter.starts == [
+        today - REFRESH_LOOKBACK,
+        today - timedelta(days=7),
+        today - timedelta(days=30),
+    ]

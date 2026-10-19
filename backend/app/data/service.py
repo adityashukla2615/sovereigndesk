@@ -23,6 +23,8 @@ log = logging.getLogger(__name__)
 
 REFRESH_LOOKBACK = timedelta(days=730)
 """Refreshes re-fetch two years so revisions land; full history comes from the seed."""
+SOURCE_LOOKBACK: Mapping[str, timedelta] = {"rbi": timedelta(days=7), "fbil": timedelta(days=30)}
+"""Shorter windows for page-by-page sources, so a daily refresh never crawls RBI's archive."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,7 +148,9 @@ class DataService:
                     continue
                 frame = read_series(self.settings.seed_dir, entry)
                 upsert(session, SeriesRow, [_spec_row(entry.spec)])
-                rows = _observations(entry.series_id, entry.source, frame, fetched_at(entry), Quality.SEED)
+                rows = _observations(
+                    entry.series_id, entry.source, frame, fetched_at(entry), Quality.SEED
+                )
                 loaded += upsert(session, Observation, rows)
             if session.scalar(select(func.count()).select_from(MspdSecurity)) == 0:
                 for table in manifest.tables:
@@ -166,7 +170,9 @@ class DataService:
         try:
             if source in self.settings.fail_sources:
                 raise SourceError(f"{source}: simulated outage (SD_FAIL_SOURCES)")
-            outcome = adapter.fetch(start=now.date() - REFRESH_LOOKBACK)
+            outcome = adapter.fetch(
+                start=now.date() - SOURCE_LOOKBACK.get(source, REFRESH_LOOKBACK)
+            )
         except SourceError as exc:
             message = redact(str(exc))
             log.warning("refresh %s failed: %s", source, message)
@@ -207,7 +213,9 @@ class DataService:
             for frame in frames:
                 upsert(session, SeriesRow, [_spec_row(frame.spec)])
                 prov = frame.provenance
-                rows = _observations(frame.spec.series_id, prov.source, frame.data, prov.fetched_at, Quality.LIVE)
+                rows = _observations(
+                    frame.spec.series_id, prov.source, frame.data, prov.fetched_at, Quality.LIVE
+                )
                 stored += upsert(session, Observation, rows)
         return stored
 
@@ -268,7 +276,9 @@ class DataService:
             }
             latest = {o.series_id: o for o in session.scalars(_latest_rows(series_ids))}
             return [
-                self._info(meta, summary.get(meta.series_id), latest.get(meta.series_id), sources, now)
+                self._info(
+                    meta, summary.get(meta.series_id), latest.get(meta.series_id), sources, now
+                )
                 for meta in session.scalars(metas)
             ]
 
@@ -283,7 +293,9 @@ class DataService:
         source = sources.get(meta.source)
         failing = source is not None and source.status in ("error", "cached")
         last_success = source.last_success_at if source else None
-        quality = classify(last.quality if last else None, last_success, now, source_failing=failing)
+        quality = classify(
+            last.quality if last else None, last_success, now, source_failing=failing
+        )
         seed_date = as_utc(last.fetched_at).date() if last is not None else None
         return SeriesInfo(
             series_id=meta.series_id,
@@ -304,7 +316,9 @@ class DataService:
         infos = self.series_info({series_id})
         if not infos:
             return None
-        query = select(Observation.date, Observation.value).where(Observation.series_id == series_id)
+        query = select(Observation.date, Observation.value).where(
+            Observation.series_id == series_id
+        )
         if start:
             query = query.where(Observation.date >= start)
         if end:
@@ -316,7 +330,9 @@ class DataService:
     def latest_values(self, series_ids: Iterable[str]) -> dict[str, tuple[date, float]]:
         """Latest (date, value) of each requested series that has data."""
         with self.sessions() as session:
-            return {o.series_id: (o.date, o.value) for o in session.scalars(_latest_rows(series_ids))}
+            return {
+                o.series_id: (o.date, o.value) for o in session.scalars(_latest_rows(series_ids))
+            }
 
     def mspd(self) -> tuple[list[MspdRow], Quality]:
         """Securities outstanding at the latest MSPD month-end, with the snapshot's quality."""

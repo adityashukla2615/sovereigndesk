@@ -7,7 +7,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.config import Settings
 from app.data.catalog import SeriesSpec
-from app.data.scheduler import REFRESH_TIMES, build_scheduler
+from app.data.scheduler import INDIA_REFRESH_TIMES, REFRESH_TIMES, build_scheduler
 from app.data.seed import read_manifest, read_series
 from app.data.service import DataService
 from tests.support import SEED_FETCHED, frame, write_seed
@@ -16,7 +16,7 @@ SPEC = SeriesSpec("fred/TEST", "fred", "TEST", "Test", "%", "D")
 
 
 class _StubService:
-    adapters = dict.fromkeys(REFRESH_TIMES)
+    adapters = dict.fromkeys([*REFRESH_TIMES, *INDIA_REFRESH_TIMES])
 
     def refresh(self, source: str) -> None: ...
 
@@ -26,7 +26,11 @@ class _StubService:
 def test_scheduler_registers_a_daily_job_per_source_and_a_startup_catch_up() -> None:
     scheduler = build_scheduler(cast(DataService, _StubService()))
     jobs = {job.id: job for job in scheduler.get_jobs()}
-    assert set(jobs) == {f"refresh:{s}" for s in REFRESH_TIMES} | {"refresh:startup"}
+    sources = [*REFRESH_TIMES, *INDIA_REFRESH_TIMES]
+    assert set(jobs) == {f"refresh:{s}" for s in sources} | {"refresh:startup"}
+    india = jobs["refresh:rbi"].trigger
+    assert isinstance(india, CronTrigger)
+    assert str(india.timezone) == "Asia/Kolkata"
     trigger = jobs["refresh:treasury"].trigger
     assert isinstance(trigger, CronTrigger)
     assert str(trigger.timezone) == "America/New_York"
