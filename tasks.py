@@ -137,7 +137,7 @@ def task_lint(_: argparse.Namespace) -> None:
     run([python, "-m", "ruff", "format", "--check", "."])
     run([python, "-m", "mypy"], cwd=ENGINE)
     run([python, "-m", "mypy"], cwd=BACKEND)
-    run([python, "-m", "mypy", "--strict", "tasks.py"])
+    run([python, "-m", "mypy", "--strict", "tasks.py", "scripts"])
     run([npm(), "run", "lint"], cwd=FRONTEND)
     run([npm(), "run", "typecheck"], cwd=FRONTEND)
 

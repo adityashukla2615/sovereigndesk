@@ -33,7 +33,7 @@ files = ["src", "tests"]
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-module = ["scipy.*", "statsmodels.*", "sklearn.*", "xgboost.*"]
+module = ["statsmodels.*", "sklearn.*", "xgboost.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

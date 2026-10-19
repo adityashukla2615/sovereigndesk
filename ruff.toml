@@ -19,6 +19,9 @@ select = [
   "S",       # bandit (security)
   "RUF",
 ]
+# Equation docstrings use real mathematical symbols on purpose (minus sign, en dash in names
+# like Hull–White, Greek letters, multiplication sign).
+allowed-confusables = ["−", "–", "σ", "α", "γ", "×"]
 
 [lint.per-file-ignores]
 "**/tests/**" = ["S101"]                     # assert is the point of a test

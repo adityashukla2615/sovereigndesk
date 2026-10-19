@@ -27,11 +27,17 @@ def _engine_modules() -> Iterator[ModuleType]:
 
 
 def _public_functions(module: ModuleType) -> Iterator[FunctionType]:
+    """Module-level functions and the public methods of module-level classes (not protocols)."""
     for name, obj in vars(module).items():
-        if name.startswith("_") or not isinstance(obj, FunctionType):
-            continue
-        if obj.__module__ == module.__name__:  # skip re-exports; they are checked at home
+        if name.startswith("_") or getattr(obj, "__module__", None) != module.__name__:
+            continue  # private, or a re-export that is checked in its home module
+        if isinstance(obj, FunctionType):
             yield obj
+        elif inspect.isclass(obj) and not getattr(obj, "_is_protocol", False):
+            for attr, member in vars(obj).items():
+                fn = member.__func__ if isinstance(member, classmethod | staticmethod) else member
+                if not attr.startswith("_") and isinstance(fn, FunctionType):
+                    yield fn
 
 
 def test_every_public_function_documents_its_equation() -> None:
