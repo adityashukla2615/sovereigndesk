@@ -126,6 +126,17 @@ def _linear_betas(
     return np.array([b0, gamma - b0, b2, b3]), float(2 * sol.cost)
 
 
+def _level_hump_tau_derivatives(t: FloatArray, tau: float) -> tuple[FloatArray, FloatArray]:
+    """∂L(t/τ)/∂τ and ∂H(t/τ)/∂τ, with H = L − e^(−x); stable as x = t/τ → 0."""
+    x = t / tau
+    safe = np.where(x > 1e-8, x, 1.0)
+    # dL/dx = (e^(−x)(1 + x) − 1)/x², written with expm1 to avoid cancellation at small x.
+    dl_dx = np.where(x > 1e-8, ((1 + safe) * np.expm1(-safe) + safe) / safe**2, -0.5)
+    dx_dtau = -x / tau
+    dl = dl_dx * dx_dtau
+    return dl, (dl_dx + np.exp(-x)) * dx_dtau
+
+
 def fit_nss(
     maturities: ArrayLike,
     zero_rates: ArrayLike,
@@ -141,7 +152,8 @@ def fit_nss(
     Equation:
         min_θ Σᵢ wᵢ·(z(tᵢ; θ) − zᵢ)²   s.t.  β₀ ≥ 0,  β₀ + β₁ ≥ 0,  0 < τ₁ < τ₂
         stage 1: for each grid (τ₁, τ₂), bounded linear LS in (β₀, γ = β₀ + β₁, β₂, β₃)
-        stage 2: trust-region-reflective LS on (β₀, γ, β₂, β₃, τ₁, δ = τ₂ − τ₁), one seed per τ₁
+        stage 2: trust-region-reflective LS on (β₀, γ, β₂, β₃, τ₁, δ = τ₂ − τ₁) with the analytic
+                 Jacobian: every per-τ₁ seed for ≤100 evaluations, the best three to convergence
     """
     t, z = as_float_array(maturities), as_float_array(zero_rates)
     if t.ndim != 1 or t.shape != z.shape or t.size < 6:
@@ -167,21 +179,41 @@ def fit_nss(
         curve = NelsonSiegelSvensson(b0, gamma - b0, b2, b3, tau1, tau1 + gap)
         return (curve.zero_rate(t) - z) * sqrt_w * 1e4
 
+    def jacobian_bp(p: FloatArray) -> FloatArray:
+        """∂residual/∂(β₀, γ, β₂, β₃, τ₁, δ) in closed form (τ₂ = τ₁ + δ)."""
+        b0, gamma, b2, b3, tau1, gap = p
+        l1, h1 = _level_and_hump(t, tau1)
+        _, h2 = _level_and_hump(t, tau1 + gap)
+        dl1, dh1 = _level_hump_tau_derivatives(t, tau1)
+        _, dh2 = _level_hump_tau_derivatives(t, tau1 + gap)
+        d_tau1 = (gamma - b0) * dl1 + b2 * dh1 + b3 * dh2
+        columns = (1 - l1, l1, h1, h2, d_tau1, b3 * dh2)
+        return np.column_stack(columns) * (sqrt_w * 1e4)[:, None]
+
     lower = np.array([0.0, 0.0, -np.inf, -np.inf, 0.02, _MIN_TAU_GAP])
     upper = np.array([np.inf, np.inf, np.inf, np.inf, 30.0, 60.0])
-    best: tuple[float, FloatArray] | None = None
-    for betas, tau1, tau2 in seeds:
-        x0 = np.clip(
-            np.array([betas[0], betas[0] + betas[1], betas[2], betas[3], tau1, tau2 - tau1]),
-            lower,
-            upper,
+
+    def polish(x0: FloatArray, max_nfev: int) -> tuple[float, FloatArray]:
+        sol = least_squares(
+            residuals_bp,
+            np.clip(x0, lower, upper),
+            jac=jacobian_bp,
+            bounds=(lower, upper),
+            method="trf",
+            x_scale="jac",
+            max_nfev=max_nfev,
         )
-        sol = least_squares(residuals_bp, x0, bounds=(lower, upper), method="trf", x_scale="jac")
-        sse = float(np.sum(sol.fun**2))
-        if best is None or sse < best[0]:
-            best = (sse, sol.x)
-    if best is None:  # unreachable: the τ₁ grid is non-empty
-        raise RuntimeError("NSS fit produced no candidate")
+        return float(np.sum(sol.fun**2)), np.asarray(sol.x, dtype=np.float64)
+
+    # Explore every basin cheaply, then converge fully from the three most promising.
+    explored = sorted(
+        (
+            polish(np.array([b[0], b[0] + b[1], b[2], b[3], tau1, tau2 - tau1]), 100)
+            for b, tau1, tau2 in seeds
+        ),
+        key=lambda candidate: candidate[0],
+    )
+    best = min((polish(x, 2_000) for _, x in explored[:3]), key=lambda candidate: candidate[0])
     b0, gamma, b2, b3, tau1, gap = (float(v) for v in best[1])
     curve = NelsonSiegelSvensson(b0, gamma - b0, b2, b3, tau1, tau1 + gap)
     errors_bp = (curve.zero_rate(t) - z) * 1e4

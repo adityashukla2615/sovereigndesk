@@ -54,25 +54,23 @@ def upsert(session: Session, model: type[Base], rows: Iterable[Mapping[str, Any]
         return 0
     table = cast(Table, model.__table__)
     keys = [c.name for c in table.primary_key.columns]
+    columns = [c for c in batch[0] if c not in keys]
     dialect = session.get_bind().dialect.name
-    if dialect not in ("sqlite", "postgresql"):
+    # One statement, compiled once, executed with the whole parameter list (DB-API
+    # executemany). Building a multi-row VALUES clause instead is far slower to compile.
+    if dialect == "sqlite":
+        lite = sqlite.insert(table)
+        stmt: Executable = lite.on_conflict_do_update(
+            index_elements=keys, set_={c: lite.excluded[c] for c in columns}
+        )
+    elif dialect == "postgresql":
+        pg = postgresql.insert(table)
+        stmt = pg.on_conflict_do_update(
+            index_elements=keys, set_={c: pg.excluded[c] for c in columns}
+        )
+    else:
         raise NotImplementedError(f"upsert is not implemented for {dialect}")
-    # SQLite allows at most 32,766 bound parameters per statement (PostgreSQL 65,535).
-    per_chunk = max(1, 30_000 // len(batch[0]))
-    for start in range(0, len(batch), per_chunk):
-        chunk = batch[start : start + per_chunk]
-        columns = [c for c in chunk[0] if c not in keys]
-        if dialect == "sqlite":
-            lite = sqlite.insert(table).values(chunk)
-            stmt: Executable = lite.on_conflict_do_update(
-                index_elements=keys, set_={c: lite.excluded[c] for c in columns}
-            )
-        else:
-            pg = postgresql.insert(table).values(chunk)
-            stmt = pg.on_conflict_do_update(
-                index_elements=keys, set_={c: pg.excluded[c] for c in columns}
-            )
-        session.execute(stmt)
+    session.execute(stmt, batch)
     return len(batch)
 
 

@@ -7,10 +7,9 @@ from typing import Protocol
 import pandas as pd
 
 from app.data.catalog import SeriesSpec
+from app.data.errors import SourceError
 
-
-class SourceError(Exception):
-    """A source could not be fetched or parsed. Messages never contain secrets."""
+__all__ = ["Adapter", "FetchOutcome", "Provenance", "SeriesFrame", "SourceError", "tidy"]
 
 
 @dataclass(frozen=True, slots=True)

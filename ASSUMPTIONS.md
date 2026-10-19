@@ -29,6 +29,39 @@ How data flows:
 - **Quality tags.** A series is **LIVE** if its source was fetched successfully within the last 36 h. It is **CACHED (age)** if the last success is older than that, or if the source is currently failing or served a cached raw response. It is **SEED (date)** if it has only ever come from the snapshot. A source outage can be demonstrated with `SD_FAIL_SOURCES=["fred"]`. Discontinued series stay SEED, because no refresh window reaches their last observation. Examples are IOER, which was replaced by IORB in July 2021, and TIC countries that have dropped out of the major-holders table.
 - **Secrets.** The FRED key is sent only as a query parameter. It is excluded from cache keys, cache files, provenance URLs and the seed manifest, and redacted from logs and error messages.
 
+## US simulator (Phase 4)
+
+**Anchors.** Every starting value comes from stored real data (`backend/app/sim/anchors.py`), and a missing input stops the build:
+
+- target range, IORB, ON RRP award rate and EFFR
+- the Treasury par curve, bootstrapped and NSS-fitted
+- the H.4.1 balance sheet, including currency, with the residual on each side
+- bank assets
+- the Kim–Wright term premium and the broad dollar index
+- TIC holdings, debt held by the public, GDP, 12-month MTS receipts and deficit
+- the MSPD security ladder
+
+The runoff pace QT starts with is the one observed in the last 13 weeks of H.4.1 holdings (at the time of writing, $0 Treasuries and about $17bn a month MBS).
+
+**Fitted to data.**
+
+- *Reserve demand.* Weekly EFFR − IORB (IOER before 29 Jul 2021) is fitted against reserves / commercial-bank assets on data from 2017 onward: abundant −6.5 bp, scarce +1.9 bp, midpoint 11.5% of bank assets (AGLW report satiation above 12–13%), RMSE 2.4 bp. Weekly averages understate intraday scarcity spikes such as September 2019.
+- *Debt service.* The ladder's rates are issue-amount-weighted yields at issue. Against FiscalData's average rates they come out at: bills 3.76% (official 3.87%), notes 3.38% (3.38%), bonds 3.47% (3.47%), TIPS 1.18% (1.15%).
+
+**Assumptions, not fitted (all in `USModelParams`).**
+
+| Item | Choice |
+|---|---|
+| Curve dynamics | The anchored curve plus x·B(τ)/τ, where x is the Hull–White factor (a = 0.10, σ = 0.85%/√yr). It is evaluated at t = 0, so there is no risk-neutral roll toward the forwards: the curve moves only on shocks and noise. A fit correction makes the opening print equal the official par curve exactly. |
+| Term premium | OU deviation (κ = 1/yr, σ = 0.6%/√yr) on top of the Kim–Wright level, with loading (1 − e^(−τ/7))/(1 − e^(−10/7)), equal to 1 at 10 years. |
+| Policy pass-through | Loading (1 − e^(−κτ))/(κτ) with κ = 0.5/yr: about 1 at the front end and 0.2 at 10 years. EFFR moves with the range on the effective date. |
+| EFFR | Logit-OU, κ = 250/yr, around IORB + the reserve-demand spread. It cannot leave the range. |
+| QT | Runoff is spread evenly through the month and drains ON RRP first, then reserves. It halts at the reserves floor (default 0). The term premium rises 10 bp per 1% of GDP of 10-year equivalents absorbed (Crawley et al., 2022). Treasury runoff converts to 10-year equivalents at the issuance mix's par-bond durations. MBS duration is assumed to be 5.5 years. |
+| Sell-off impact | Calibrated to Beltran et al.: $100bn in a month moves the bucket centre +20 bp permanently and +30 bp temporarily. The impact is scaled by debt held by the public in June 2010 relative to today, and the temporary part follows a square-root law in pace with a 5-day half-life. It spreads along the curve with kernel e^(−\|τ − τ_k\|/5y). Buckets are centred on SHORT 2y, BELLY 5y and LONG 20y. Defaults: pace 1 day, mix BELLY. |
+| Dollar | −0.25% per $100bn sold by foreign holders. **Uncalibrated**, and labelled so in the event text. |
+| Debt projection | Like-for-like rollover. Deficits (last 12 months) are financed at the stock/term mix. Both yield paths are held flat: today's curve against the simulated one. TIPS earn the real coupon plus 2.5% inflation and are reissued as nominal debt; FRNs pay the 3-month yield plus 10 bp. GDP and receipts grow 4% a year in nominal terms. |
+| Clock | One wall-clock second is one simulated minute (SPEED changes this). Ticks run at 4 Hz, and each tick message carries the full US state. The markets re-anchor when newer real data arrives and keep their shocks. |
+
 ## Bond conventions (engine, Phase 2)
 
 Each convention is defined in `engine/src/sovereign_engine/bonds/conventions.py`, with its sources and the date it was checked.

@@ -9,12 +9,14 @@ import { send, startSession } from '../ws/session';
 function ShellPanel() {
   return (
     <section aria-label="welcome" className="min-h-0 overflow-y-auto p-4 text-sm leading-6">
-      <h2 className="mb-2 text-xs tracking-widest text-term-muted">SHELL · PHASE 1</h2>
+      <h2 className="mb-2 text-xs tracking-widest text-term-muted">SHELL · US SIMULATOR</h2>
       <p className="max-w-3xl text-term-text">
-        The terminal is wired end to end: this page talks to FastAPI over REST{' '}
-        <code className="text-term-amber">/api/health</code> and a WebSocket{' '}
-        <code className="text-term-amber">/ws</code>. Type anything into the command bar and the
-        backend echoes it into the event log.
+        The US market simulator runs live on real anchors. Try{' '}
+        <code className="text-term-amber">HIKE 25BP</code>,{' '}
+        <code className="text-term-amber">QT 95B</code>,{' '}
+        <code className="text-term-amber">SHOCK JP 200B 10D LONG</code> or{' '}
+        <code className="text-term-amber">DEBT</code>; results and their narratives appear in the
+        event log. Type <code className="text-term-amber">HELP</code> for every function.
       </p>
       <p className="mt-2 max-w-3xl text-term-muted">
         Market panels (PY price–yield, FED/QT shock, WACR corridor) arrive with the MVP.

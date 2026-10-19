@@ -54,6 +54,8 @@ FRED_SERIES: tuple[SeriesSpec, ...] = (
     _fred("WSHOMCB", "Fed MBS held outright", "USD mn", "W"),
     _fred("WRESBAL", "Reserve balances with Federal Reserve Banks", "USD mn", "W"),
     _fred("WTREGEN", "Treasury General Account", "USD mn", "W"),
+    _fred("WCURCIR", "Currency in circulation (Fed liability)", "USD mn", "W"),
+    _fred("TLAACBW027SBOG", "Total assets, all commercial banks (SA)", "USD bn", "W"),
     _fred("CPIAUCSL", "CPI, all items (SA)", "index 1982-84=100", "M"),
     _fred("CPILFESL", "Core CPI, less food and energy (SA)", "index 1982-84=100", "M"),
     _fred("PCEPILFE", "Core PCE price index", "index 2017=100", "M"),

@@ -16,6 +16,7 @@ from app.data.service import DataService
 from app.data.sources import build_adapters, make_client
 from app.db.session import make_engine, make_session_factory, upgrade_database
 from app.logs import configure_logging
+from app.sim.simulator import Simulator
 from app.ws import endpoint
 
 log = logging.getLogger(__name__)
@@ -40,6 +41,11 @@ def _lifespan(settings: Settings) -> Callable[[FastAPI], AbstractAsyncContextMan
         )
         await run_in_threadpool(service.bootstrap)
         application.state.data = service
+        sim = Simulator(service, seed=settings.sim_seed)
+        await run_in_threadpool(sim.load)
+        application.state.sim = sim
+        if settings.sim_enabled:
+            sim.start()
 
         scheduler = None
         if settings.scheduler_enabled and not settings.offline:
@@ -48,6 +54,7 @@ def _lifespan(settings: Settings) -> Callable[[FastAPI], AbstractAsyncContextMan
         try:
             yield
         finally:
+            await sim.stop()
             if scheduler is not None:
                 scheduler.shutdown(wait=False)
             client.close()

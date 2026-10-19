@@ -66,6 +66,18 @@ def test_fit_recovers_gsw_curve(row: dict[str, Any]) -> None:
     assert fit_nss(years, published).rmse_bp < 0.01
 
 
+def test_tau_derivatives_match_finite_differences() -> None:
+    from sovereign_engine.curves.nss import _level_and_hump, _level_hump_tau_derivatives
+
+    t = np.array([1e-6, 0.25, 1.0, 5.0, 30.0])
+    for tau in (0.3, 2.0, 15.0):
+        h = 1e-6 * tau
+        dl, dh = _level_hump_tau_derivatives(t, tau)
+        (l_up, h_up), (l_dn, h_dn) = _level_and_hump(t, tau + h), _level_and_hump(t, tau - h)
+        assert np.allclose(dl, (l_up - l_dn) / (2 * h), atol=1e-7)
+        assert np.allclose(dh, (h_up - h_dn) / (2 * h), atol=1e-7)
+
+
 def test_fit_respects_constraints() -> None:
     # An inverted, noisy curve: constraints must hold however the optimiser wanders.
     t = np.array([0.25, 0.5, 1, 2, 3, 5, 7, 10, 20, 30.0])

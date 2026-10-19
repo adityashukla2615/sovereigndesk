@@ -206,7 +206,7 @@ def task_seed(args: argparse.Namespace) -> None:
     script = ROOT / "scripts" / "build_seed.py"
     if not script.exists():
         raise TaskError("scripts/build_seed.py arrives in Phase 3 (US data)")
-    run([venv_python(), script, *args.rest])
+    run([venv_python(), script, *(["--sources", args.sources] if args.sources else [])])
 
 
 def task_clean(_: argparse.Namespace) -> None:
@@ -321,7 +321,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     add("api", task_api).add_argument("--check", action="store_true", help="fail on drift")
     add("build", task_build)
     add("check", task_check)
-    add("seed", task_seed).add_argument("rest", nargs=argparse.REMAINDER)
+    add("seed", task_seed).add_argument(
+        "--sources", help="comma-separated subset of fred,treasury,fiscaldata,tic"
+    )
     add("check-secrets", task_check_secrets).add_argument("--staged", action="store_true")
     add("clean", task_clean)
 

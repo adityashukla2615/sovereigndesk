@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     fail_sources: list[str] = []
     """Sources to treat as down, for demonstrating the STALE badge (e.g. ``["fred"]``)."""
     http_timeout_s: float = 30.0
+    sim_enabled: bool = True
+    """Run the live tick loop (the markets are still built when disabled, for commands)."""
+    sim_seed: int | None = None
+    """Fix the random seed to make a session reproducible."""
 
     @property
     def seed_dir(self) -> Path:

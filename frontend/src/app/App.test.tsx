@@ -42,7 +42,7 @@ describe('App shell', () => {
     expect(screen.getByText(/LIVE/)).toBeInTheDocument();
   });
 
-  it('sends commands over the socket and logs the echo', async () => {
+  it('subscribes, sends commands and logs the reply and the narrative', async () => {
     render(<App />);
     await screen.findByText('KEY OK');
     const socket = FakeSocket.latest();
@@ -55,13 +55,25 @@ describe('App shell', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(input).toHaveValue('');
     expect(socket.sent.map((s) => JSON.parse(s) as unknown)).toEqual([
+      { op: 'subscribe', topics: ['events', 'status'] },
       { op: 'command', text: 'QT 95B' },
     ]);
 
     act(() => {
-      socket.serverSend(envelope('echo', 1, { text: 'QT 95B' }));
+      socket.serverSend(envelope('command', 1, { ok: true, code: 'QT', message: 'QT $95bn/month' }));
+      socket.serverSend(
+        envelope('events', 2, {
+          sim_time: '2026-10-19T14:05:00+00:00',
+          kind: 'projection',
+          code: 'QT',
+          text: 'over 24 months reserves fall',
+          data: {},
+        }),
+      );
     });
-    expect(screen.getByRole('region', { name: 'event log' })).toHaveTextContent('QT 95B');
+    const log = screen.getByRole('region', { name: 'event log' });
+    expect(log).toHaveTextContent('QT $95bn/month');
+    expect(log).toHaveTextContent('over 24 months reserves fall');
 
     fireEvent.keyDown(input, { key: 'ArrowUp' });
     expect(input).toHaveValue('QT 95B');

@@ -55,10 +55,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Commands */
+        get: operations["getCommands"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sim/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sim Status */
+        get: operations["getSimStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** CommandInfo */
+        CommandInfo: {
+            /** Code */
+            code: string;
+            /** Usage */
+            usage: string;
+            /** Summary */
+            summary: string;
+            /** Group */
+            group: string;
+            /** Available */
+            available: boolean;
+            /** Available In */
+            available_in: string | null;
+        };
         /** DataStatus */
         DataStatus: {
             /**
@@ -137,6 +186,23 @@ export interface components {
             last_value: number | null;
             /** Rows */
             rows: number;
+        };
+        /** SimStatus */
+        SimStatus: {
+            /** Running */
+            running: boolean;
+            /** Error */
+            error: string | null;
+            /** Paused */
+            paused: boolean;
+            /** Speed */
+            speed: number;
+            /** Sim Time */
+            sim_time: string;
+            /** Anchored As Of */
+            anchored_as_of: string | null;
+            /** Input Quality */
+            input_quality: string[];
         };
         /** SourceStatus */
         SourceStatus: {
@@ -245,6 +311,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getCommands: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandInfo"][];
+                };
+            };
+        };
+    };
+    getSimStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimStatus"];
                 };
             };
         };

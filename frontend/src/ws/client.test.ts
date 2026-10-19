@@ -87,6 +87,28 @@ describe('WsClient', () => {
     expect(statuses.at(-1)).toBe('connecting');
   });
 
+  it('re-subscribes on every connection, before queued messages', () => {
+    client = new WsClient({
+      url: 'ws://test/ws',
+      topics: ['events'],
+      onStatus: (s) => statuses.push(s),
+      onMessage: (m) => messages.push(m),
+      createSocket: (url) => new FakeSocket(url).asWebSocket(),
+      random: () => 1,
+    });
+    client.start();
+    client.send({ op: 'ping' });
+    FakeSocket.latest().serverOpen();
+    expect(FakeSocket.latest().sent.map((s) => JSON.parse(s) as unknown)).toEqual([
+      { op: 'subscribe', topics: ['events'] },
+      { op: 'ping' },
+    ]);
+    FakeSocket.latest().close();
+    vi.advanceTimersByTime(500);
+    FakeSocket.latest().serverOpen();
+    expect(FakeSocket.latest().sent).toEqual([JSON.stringify({ op: 'subscribe', topics: ['events'] })]);
+  });
+
   it('does not reconnect after stop()', () => {
     client.start();
     FakeSocket.latest().serverOpen();

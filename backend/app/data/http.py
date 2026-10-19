@@ -26,7 +26,7 @@ from tenacity import (
 )
 from tenacity.wait import WaitBaseT
 
-from app.data.sources.base import SourceError
+from app.data.errors import SourceError
 from app.logs import redact
 
 log = logging.getLogger(__name__)

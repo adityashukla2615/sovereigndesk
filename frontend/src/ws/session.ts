@@ -10,6 +10,7 @@ export function startSession(overrides: Partial<WsClientOptions> = {}): () => vo
   const store = useConnection.getState();
   const session = new WsClient({
     url: defaultWsUrl(),
+    topics: ['events', 'status'],
     onMessage: store.receive,
     onStatus: store.setStatus,
     ...overrides,

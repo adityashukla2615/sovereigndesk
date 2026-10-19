@@ -36,7 +36,7 @@ def test_upgrade_is_idempotent(engine: Engine) -> None:
     upgrade_database(engine)  # already at head: no error, no change
 
 
-def test_upsert_inserts_updates_and_chunks(engine: Engine) -> None:
+def test_upsert_inserts_and_updates_many_rows(engine: Engine) -> None:
     sessions = make_session_factory(engine)
     when = datetime(2026, 10, 19, tzinfo=UTC)
     start = date(2000, 1, 1)
@@ -49,7 +49,7 @@ def test_upsert_inserts_updates_and_chunks(engine: Engine) -> None:
             "fetched_at": when,
             "quality": "SEED",
         }
-        for i in range(12_000)  # more than one chunk at six columns per row
+        for i in range(12_000)
     ]
     with sessions.begin() as session:
         assert upsert(session, Observation, rows) == 12_000

@@ -6,6 +6,8 @@ export interface WsClientOptions {
   url: string;
   onMessage: (message: Envelope) => void;
   onStatus: (status: ConnectionStatus) => void;
+  /** Topics to subscribe to on every (re)connect: the server forgets them with the socket. */
+  topics?: string[];
   /** Injectable for tests. */
   createSocket?: (url: string) => WebSocket;
   random?: () => number;
@@ -70,6 +72,8 @@ export class WsClient {
     socket.onopen = () => {
       this.attempt = 0;
       this.options.onStatus('open');
+      const topics = this.options.topics ?? [];
+      if (topics.length > 0) socket.send(JSON.stringify({ op: 'subscribe', topics }));
       for (const message of this.queue.splice(0)) socket.send(JSON.stringify(message));
     };
     socket.onmessage = (event: MessageEvent) => {

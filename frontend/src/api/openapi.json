@@ -122,10 +122,101 @@
           }
         }
       }
+    },
+    "/api/commands": {
+      "get": {
+        "tags": [
+          "simulator"
+        ],
+        "summary": "Commands",
+        "operationId": "getCommands",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CommandInfo"
+                  },
+                  "type": "array",
+                  "title": "Response Getcommands"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sim/status": {
+      "get": {
+        "tags": [
+          "simulator"
+        ],
+        "summary": "Sim Status",
+        "operationId": "getSimStatus",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimStatus"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "CommandInfo": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "usage": {
+            "type": "string",
+            "title": "Usage"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "group": {
+            "type": "string",
+            "title": "Group"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "available_in": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "usage",
+          "summary",
+          "group",
+          "available",
+          "available_in"
+        ],
+        "title": "CommandInfo"
+      },
       "DataStatus": {
         "properties": {
           "generated_at": {
@@ -334,6 +425,66 @@
           "rows"
         ],
         "title": "SeriesStatus"
+      },
+      "SimStatus": {
+        "properties": {
+          "running": {
+            "type": "boolean",
+            "title": "Running"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "paused": {
+            "type": "boolean",
+            "title": "Paused"
+          },
+          "speed": {
+            "type": "number",
+            "title": "Speed"
+          },
+          "sim_time": {
+            "type": "string",
+            "title": "Sim Time"
+          },
+          "anchored_as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchored As Of"
+          },
+          "input_quality": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Input Quality"
+          }
+        },
+        "type": "object",
+        "required": [
+          "running",
+          "error",
+          "paused",
+          "speed",
+          "sim_time",
+          "anchored_as_of",
+          "input_quality"
+        ],
+        "title": "SimStatus"
       },
       "SourceStatus": {
         "properties": {
