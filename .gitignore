@@ -1,0 +1,49 @@
+# --- Secrets (must stay first; verified with `git check-ignore` before every commit) ---
+.env
+**/.env
+.env.*
+!.env.example
+!**/.env.example
+# Original brief contains the FRED API key; only the redacted docs/BRIEF.md is tracked.
+PROJECT_BRIEF.md
+
+# --- Python ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# --- Node / frontend ---
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+.vite/
+playwright-report/
+test-results/
+
+# --- Runtime data ---
+data/cache/
+backend/var/
+*.sqlite
+*.sqlite3
+*.db
+*.log
+
+# --- Editors / OS ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
