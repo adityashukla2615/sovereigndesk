@@ -1,0 +1,4 @@
+# Reviewed false positives (fingerprint = commit:file:rule:line).
+# RFC 6455 Sec-WebSocket-Key handshake nonce in the CI smoke test, not a credential; the nonce
+# is now generated at runtime, this entry only covers the historical commit.
+da3be40806d33d2b90233e7869d22ed1b5eafbfd:.github/workflows/ci.yml:generic-api-key:59

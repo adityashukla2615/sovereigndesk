@@ -54,9 +54,11 @@ jobs:
           curl -fsS http://localhost:8080/api/health | tee /dev/stderr | grep -q '"status":"ok"'
           curl -fsS http://localhost:8080/ | grep -q '<title>SovereignDesk</title>'
           # WebSocket upgrade must survive the proxy: expect 101 Switching Protocols.
+          # RFC 6455 wants a fresh random 16-byte nonce per handshake.
+          nonce=$(head -c 16 /dev/urandom | base64)
           handshake=$(curl -si --max-time 3 http://localhost:8080/ws \
             -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
-            -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: c292ZXJlaWduZGVzay1jaQ==' || true)
+            -H 'Sec-WebSocket-Version: 13' -H "Sec-WebSocket-Key: ${nonce}" || true)
           echo "$handshake" | head -1
           echo "$handshake" | head -1 | grep -q ' 101 '
       - if: failure()
