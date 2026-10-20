@@ -11,7 +11,6 @@ one. FBIL's G-sec history needs RBI's: the repo changes it brackets come from th
 """
 
 import argparse
-import shutil
 import sys
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -36,7 +35,10 @@ from app.data.sources.fiscaldata import FiscalDataAdapter
 from app.logs import configure_logging
 from sovereign_engine.india.passthrough import policy_changes
 
-SOURCES = ("fred", "treasury", "fiscaldata", "tic", "rbi", "fbil", "fbil_gsec", "nsdl")
+SOURCES = (
+    "fred", "treasury", "fiscaldata", "tic", "rbi", "rbi_policy", "fbil", "fbil_gsec", "nsdl",
+    "mospi",
+)  # fmt: skip
 GSEC_XLSX_FROM = date(2023, 2, 13)
 """FBIL's first .xlsx G-sec workbook. The legacy .xls files before it are ~0.75 MB each, so for
 that period only the publications around each repo change are fetched."""
@@ -48,20 +50,13 @@ STARTS: dict[str, date | None] = {
     # MMO releases since the SDF replaced the fixed-rate reverse repo as the LAF floor
     # (8 April 2022): about 1,650 releases, fetched one per second.
     "rbi": date(2022, 4, 8),
+    # Every policy decision since the bi-monthly cycle began (April 2014), with the money
+    # markets and T-bills before each: about 1,100 releases, one per second.
+    "rbi_policy": date(2014, 1, 1),
     "fbil": date(2022, 4, 1),
     "fbil_gsec": GSEC_XLSX_FROM,
     "nsdl": None,  # the current month's report
-}
-# Seed sub-directories each source owns (cleared before a rebuild so dropped series vanish).
-DIRS = {
-    "fred": ["fred"],
-    "treasury": ["ust"],
-    "fiscaldata": ["fiscal", "fiscaldata"],
-    "tic": ["tic"],
-    "rbi": ["rbi"],
-    "fbil": ["fbil/tbill", "fbil/mibor", "fbil/usdinr.csv"],
-    "fbil_gsec": ["fbil/gsec"],
-    "nsdl": ["nsdl"],
+    "mospi": date(2011, 1, 1),  # CPI from January 2011, GDP from 2011-12
 }
 
 
@@ -109,9 +104,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     previous = read_manifest(seed_dir)
-    series: list[SeedSeries] = [
-        s for s in (previous.series if previous else []) if s.source not in sources
-    ]
+    previous_series = previous.series if previous else []
+    series: list[SeedSeries] = [s for s in previous_series if s.source not in sources]
     tables: list[SeedTable] = [
         t for t in (previous.tables if previous else []) if t.source not in sources
     ]
@@ -127,12 +121,10 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             for name, error in outcome.errors.items():
                 print(f"  warning: {name}: {error}")
-            for folder in DIRS[source]:
-                target = seed_dir / folder
-                if target.is_file():
-                    target.unlink()
-                else:
-                    shutil.rmtree(target, ignore_errors=True)
+            # The source's previous files go first, so series it no longer returns vanish.
+            for entry in previous_series:
+                if entry.source == source:
+                    (seed_dir / entry.file).unlink(missing_ok=True)
             series += [write_series(seed_dir, frame) for frame in outcome.frames]
             adapter = adapters[source]
             if isinstance(adapter, FiscalDataAdapter):

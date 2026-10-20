@@ -9,7 +9,18 @@ from dataclasses import dataclass
 from typing import Literal
 
 Frequency = Literal["D", "W", "M", "Q"]
-SourceName = Literal["fred", "treasury", "fiscaldata", "tic", "rbi", "fbil", "fbil_gsec", "nsdl"]
+SourceName = Literal[
+    "fred",
+    "treasury",
+    "fiscaldata",
+    "tic",
+    "rbi",
+    "rbi_policy",
+    "fbil",
+    "fbil_gsec",
+    "nsdl",
+    "mospi",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,6 +239,78 @@ IN_FBIL_GSEC_SERIES: tuple[SeriesSpec, ...] = tuple(
     for t in FBIL_GSEC_TENORS
 )
 
+
+def _policy(remote: str, title: str, units: str, frequency: Frequency = "D") -> SeriesSpec:
+    return SeriesSpec(f"rbi/{remote}", "rbi_policy", remote, title, units, frequency)
+
+
+# RBI's policy record and the money-market readings before each decision (see rbi_policy).
+IN_RBI_POLICY_SERIES: tuple[SeriesSpec, ...] = (
+    _policy("mpc/repo", "Policy repo rate set at each decision", "%"),
+    _policy("mpc/scheduled", "Decision at a scheduled policy meeting (1) or off-cycle (0)", "flag"),
+    _policy("mpc/meeting", "Scheduled decision days, from RBI's meeting schedules", "flag"),
+    _policy("tbill91/cutoff", "91-day T-bill auction cut-off yield", "%", "W"),
+    _policy("hist/wacr", "WACR before each decision (MMO releases)", "%"),
+    _policy("hist/call_volume", "Call money volume before each decision", "INR cr"),
+    _policy("hist/net_liquidity", "Net liquidity injected before each decision", "INR cr"),
+    _policy("hist/crr_requirement", "CRR requirement before each decision", "INR cr"),
+)
+
+_CPI_2012_GROUPS = (
+    ("general", "general index"),
+    ("food_beverages", "food and beverages"),
+    ("pan_tobacco", "pan, tobacco and intoxicants"),
+    ("clothing_footwear", "clothing and footwear"),
+    ("housing", "housing"),
+    ("fuel_light", "fuel and light"),
+    ("miscellaneous", "miscellaneous"),
+)
+_CPI_2024_CODES = (
+    ("00", "general index"),
+    ("01", "food and beverages"),
+    ("02", "paan, tobacco and intoxicants"),
+    ("03", "clothing and footwear"),
+    ("04", "housing, water, electricity, gas and other fuels"),
+    ("05", "furnishings, household equipment and maintenance"),
+    ("06", "health"),
+    ("07", "transport"),
+    ("08", "information and communication"),
+    ("09", "recreation, sport and culture"),
+    ("10", "education services"),
+    ("11", "restaurants and accommodation services"),
+    ("13", "personal care, social protection and miscellaneous"),
+    ("04.1", "actual rentals for housing"),
+    ("04.3", "maintenance, repair and security of the dwelling"),
+    ("04.4", "water supply and services relating to the dwelling"),
+    ("04.5", "electricity, gas and other fuels"),
+)
+
+
+def _mospi(key: str, remote: str, title: str, units: str, frequency: Frequency) -> SeriesSpec:
+    return SeriesSpec(f"mospi/{key}", "mospi", remote, title, units, frequency)
+
+
+# MoSPI CPI, All India, combined; GDP at constant prices, quarterly (dated the quarter's start).
+IN_MOSPI_SERIES: tuple[SeriesSpec, ...] = (
+    *(
+        _mospi(f"cpi/2012/{k}", f"cpi2012:{k}", f"CPI (2012=100), {name}", "index", "M")
+        for k, name in _CPI_2012_GROUPS
+    ),
+    _mospi("cpi/2012/general_yoy", "cpi2012:general_yoy", "CPI inflation (2012 base)", "%", "M"),
+    *(
+        _mospi(
+            f"cpi/2024/cp{code.replace('.', '_')}", f"cpi2024:{code}",
+            f"CPI (2024=100), {name}", "index", "M",
+        )
+        for code, name in _CPI_2024_CODES
+    ),
+    _mospi("cpi/2024/general_yoy", "cpi2024:general_yoy", "CPI inflation (2024 base)", "%", "M"),
+    _mospi("gdp/2011/real", "gdp2011:real", "GDP at 2011-12 prices, quarter", "INR cr", "Q"),
+    _mospi("gdp/2011/real_growth", "gdp2011:real_growth", "Real GDP growth, 2011-12", "%", "Q"),
+    _mospi("gdp/2022/real", "gdp2022:real", "GDP at 2022-23 prices, quarter", "INR cr", "Q"),
+    _mospi("gdp/2022/real_growth", "gdp2022:real_growth", "Real GDP growth, 2022-23", "%", "Q"),
+)  # fmt: skip
+
 _FPI_CLASSES = (
     ("equity", "equity"),
     ("debt", "debt (general limit + VRR + FAR)"),
@@ -247,7 +330,13 @@ IN_NSDL_SERIES: tuple[SeriesSpec, ...] = tuple(
 )
 
 INDIA_SERIES: tuple[SeriesSpec, ...] = (
-    IN_RBI_SERIES + IN_MMO_SERIES + IN_FBIL_SERIES + IN_FBIL_GSEC_SERIES + IN_NSDL_SERIES
+    IN_RBI_SERIES
+    + IN_RBI_POLICY_SERIES
+    + IN_MMO_SERIES
+    + IN_FBIL_SERIES
+    + IN_FBIL_GSEC_SERIES
+    + IN_NSDL_SERIES
+    + IN_MOSPI_SERIES
 )
 
 STATIC_SERIES: tuple[SeriesSpec, ...] = FRED_SERIES + TREASURY_SERIES + FISCAL_SERIES + INDIA_SERIES

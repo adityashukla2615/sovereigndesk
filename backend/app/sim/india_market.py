@@ -234,6 +234,8 @@ class IndiaMarket:
         self.crr = anchors.crr
         self.rules = MoneyMarketRules(crr=anchors.crr, slr=anchors.slr)
         self.pending_crr: tuple[date, float] | None = None
+        self.last_policy_change: float | None = None
+        """The latest repo move made in the simulation (decimal), if any."""
         self.books: dict[str, BankBook] = {
             b.code: BankBook(b) for b in generate_universe(anchors.ndtl, self.rules, rng)
         }
@@ -903,6 +905,7 @@ class IndiaMarket:
         self.repo += change
         self.sdf += change
         self.msf += change
+        self.last_policy_change = change
         self._update_gsec()
 
     def schedule_crr(self, new_crr: float) -> tuple[date, float]:

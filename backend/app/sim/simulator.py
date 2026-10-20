@@ -22,7 +22,8 @@ from app.data.service import DataService
 from app.sim.anchors import USAnchors, build_us_anchors
 from app.sim.events import Event, EventKind, EventLog, inr_cr, pct
 from app.sim.india_anchors import INAnchors, build_india_anchors
-from app.sim.india_market import IndiaMarket
+from app.sim.india_market import IST, IndiaMarket
+from app.sim.mpc import MpcModel, build_mpc
 from app.sim.pubsub import PubSub
 from app.sim.us_market import USMarket
 
@@ -65,6 +66,10 @@ class Simulator:
         self.india: IndiaMarket | None = None
         self.india_error: str | None = None
         self.spreads: list[SpreadPoint] = []
+        self.mpc: MpcModel | None = None
+        """The MPC predictor, fitted on first use (several seconds, off the event loop)."""
+        self.mpc_error: str | None = None
+        self._mpc_lock = asyncio.Lock()
         self._task: asyncio.Task[None] | None = None
         self._rng = np.random.default_rng(seed)
 
@@ -77,6 +82,7 @@ class Simulator:
         self.sim_time = self.clock()
         self.events.clear()
         self.spreads = []
+        self.mpc, self.mpc_error = None, None
         self._rng = np.random.default_rng(self.seed)
         try:
             anchors = anchors or build_us_anchors(self._require_data())
@@ -177,6 +183,24 @@ class Simulator:
             self.india.check_invariants()
             self._record_spreads()
             self.bus.publish("in.tick", self.india_payload())
+
+    async def mpc_model(self) -> MpcModel | None:
+        """The fitted MPC predictor, built from the data on first use; None (with the reason in
+        ``mpc_error``) when the data cannot support it."""
+        async with self._mpc_lock:
+            if self.mpc is None and self.mpc_error is None:
+                if self.data is None:
+                    self.mpc_error = "no data service"
+                else:
+                    try:
+                        self.mpc = await asyncio.to_thread(build_mpc, self.data)
+                    except Exception as exc:  # surfaced to the user rather than raised
+                        self.mpc_error = f"{type(exc).__name__}: {exc}"
+                        log.warning("MPC predictor unavailable: %s", self.mpc_error)
+            return self.mpc
+
+    def sim_day(self) -> date:
+        return self.sim_time.astimezone(IST).date()
 
     def _record_spreads(self) -> None:
         curve = self.india.gsec if self.india is not None else None

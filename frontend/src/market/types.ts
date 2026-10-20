@@ -204,6 +204,48 @@ export interface CorridorPanelData {
   };
 }
 
+export type MpcModelName = 'ordered logit' | 'xgboost' | 'taylor';
+
+export interface MpcReport {
+  accuracy: number;
+  macro_f1: number;
+  brier: number;
+  /** Actual class (rows) against predicted class (columns). */
+  confusion: number[][];
+}
+
+export interface MpcPanelData {
+  classes: string[];
+  as_of: string;
+  next_meeting: string | null;
+  /** Five class probabilities for the next decision, by model. */
+  probabilities: Record<MpcModelName, number[]>;
+  features: { key: string; label: string; now: number | null; last: number | null }[];
+  taylor: {
+    prescribed: number;
+    repo: number;
+    inflation: number;
+    output_gap: number | null;
+    r_star: number;
+    pi_star: number;
+  };
+  backtest: {
+    first: string;
+    forecasts: number;
+    models: Record<string, MpcReport>;
+    recent: {
+      date: string;
+      scheduled: boolean;
+      change_bp: number;
+      actual: number;
+      predicted: Record<string, number>;
+      p_actual: Record<string, number>;
+    }[];
+  };
+  sample: { first: string; last: string; decisions: number; counts: number[]; off_cycle: number };
+  core_weights: { base: string; excluded: Record<string, number>; rmse: number; months: number }[];
+}
+
 export interface CommandReply {
   ok: boolean;
   code: string;
@@ -279,6 +321,15 @@ export function isGsecPanel(value: unknown): value is GsecPanelData {
     isRecord(value.close) &&
     isRecord(value.passthrough) &&
     Array.isArray(value.passthrough.estimates)
+  );
+}
+
+export function isMpcPanel(value: unknown): value is MpcPanelData {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.classes) &&
+    isRecord(value.probabilities) &&
+    isRecord(value.backtest)
   );
 }
 

@@ -26,6 +26,7 @@ from sovereign_engine.india.rules import (
     MoneyMarketRules,
     crr_on,
     fortnight,
+    in_icrr_period,
 )
 
 RULES = MoneyMarketRules(crr=0.03, slr=0.18)
@@ -132,7 +133,7 @@ def test_liquidity_from_reserve_changes() -> None:
 
 
 def test_every_rule_is_cited() -> None:
-    assert len(CITATIONS) == 10
+    assert len(CITATIONS) == 13
     assert all(c.url.startswith("https://") for c in CITATIONS)
     with pytest.raises(ValueError, match="fractions"):
         MoneyMarketRules(crr=3.0, slr=0.18)
@@ -152,13 +153,25 @@ def test_reporting_fortnights_follow_rbi_2025_26_148() -> None:
 
 
 def test_crr_schedule() -> None:
+    assert crr_on(date(2014, 4, 1)) == 0.04
+    assert crr_on(date(2020, 3, 27)) == 0.04
+    assert crr_on(date(2020, 3, 28)) == 0.03  # COVID-19 cut
+    assert crr_on(date(2021, 3, 27)) == 0.035
+    assert crr_on(date(2021, 5, 22)) == 0.04
     assert crr_on(date(2022, 5, 20)) == 0.04
     assert crr_on(date(2022, 5, 21)) == 0.045
     assert crr_on(date(2024, 12, 20)) == 0.0425
     assert crr_on(date(2025, 10, 10)) == 0.035
     assert crr_on(date(2026, 10, 20)) == 0.03
     with pytest.raises(ValueError, match="no CRR on record"):
-        crr_on(date(2021, 1, 1))
+        crr_on(date(2013, 1, 1))
+
+
+def test_incremental_crr_periods() -> None:
+    assert in_icrr_period(date(2016, 12, 1))  # demonetisation: 100% on incremental NDTL
+    assert in_icrr_period(date(2023, 9, 1))
+    assert not in_icrr_period(date(2016, 12, 20))
+    assert not in_icrr_period(date(2024, 1, 1))
 
 
 def _room(outstanding: float, used: float, carry: int = 1) -> float:

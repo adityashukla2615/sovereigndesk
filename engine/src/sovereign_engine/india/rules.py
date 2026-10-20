@@ -55,6 +55,29 @@ CITATIONS: tuple[Citation, ...] = (
         _VERIFIED,
     ),
     Citation(
+        "CRR cut from 4.25% to 4.0% of NDTL from the fortnight beginning 9 Feb 2013, and "
+        "unchanged at 4.0% at the first bi-monthly policy of 1 Apr 2014.",
+        "Third Quarter Review of Monetary Policy 2012-13 (29 Jan 2013); First Bi-monthly "
+        "Monetary Policy Statement, 2014-15 (1 Apr 2014)",
+        "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=28038",
+        _VERIFIED,
+    ),
+    Citation(
+        "Incremental CRR of 100% on the increase in NDTL between 16 Sep and 11 Nov 2016, from the "
+        "fortnight beginning 26 Nov 2016; withdrawn from the fortnight beginning 10 Dec 2016.",
+        "RBI Announces Measures to Manage Liquidity Conditions (26 Nov 2016); RBI Withdraws the "
+        "Incremental CRR (7 Dec 2016)",
+        "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=38714",
+        _VERIFIED,
+    ),
+    Citation(
+        "CRR cut to 3.0% of NDTL from the fortnight beginning 28 Mar 2020 (COVID-19), restored to "
+        "3.5% from 27 Mar 2021 and 4.0% from 22 May 2021.",
+        "Statements on Developmental and Regulatory Policies (27 Mar 2020; 5 Feb 2021)",
+        "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=51078",
+        _VERIFIED,
+    ),
+    Citation(
         "CRR raised from 4.00% to 4.50% of NDTL from the fortnight beginning 21 May 2022.",
         "RBI/2022-23/46, DOR.RET.REC.33/12.01.001/2022-23 (4 May 2022)",
         "https://www.rbi.org.in/scripts/FS_Notification.aspx?Id=12313&fn=2&Mode=0",
@@ -98,11 +121,14 @@ CITATIONS: tuple[Citation, ...] = (
     ),
 )
 
-# VERIFY: CRR in force from each fortnight start, per the circulars above (checked 2026-10-20).
-# The first row is the rate RBI/2022-23/46 raised "from 4.00 percent"; it covers the data window
-# from 8 Apr 2022 (the SDF's introduction). Today's CRR always comes from RBI's homepage.
+# VERIFY: CRR in force from each fortnight start, per the releases and circulars above (checked
+# 2026-10-20). It reaches back to Feb 2013 for the money-market history before each policy
+# decision since April 2014. Today's CRR always comes from RBI's homepage.
 CRR_SCHEDULE: tuple[tuple[date, float], ...] = (
-    (date(2022, 4, 1), 0.0400),
+    (date(2013, 2, 9), 0.0400),
+    (date(2020, 3, 28), 0.0300),
+    (date(2021, 3, 27), 0.0350),
+    (date(2021, 5, 22), 0.0400),
     (date(2022, 5, 21), 0.0450),
     (date(2024, 12, 14), 0.0425),
     (date(2024, 12, 28), 0.0400),
@@ -112,14 +138,27 @@ CRR_SCHEDULE: tuple[tuple[date, float], ...] = (
     (date(2025, 11, 29), 0.0300),
 )
 
-ICRR_PERIOD: tuple[date, date] = (date(2023, 8, 10), date(2023, 10, 20))
-"""When the reported requirement included the temporary I-CRR (announced 10 Aug 2023, released
-by 7 Oct 2023), with two weeks' margin; requirement ÷ CRR overstates NDTL then."""
+ICRR_PERIODS: tuple[tuple[date, date], ...] = (
+    (date(2016, 11, 24), date(2016, 12, 16)),
+    (date(2023, 8, 10), date(2023, 10, 20)),
+)
+"""When the reported requirement included a temporary incremental CRR (the fortnight from
+26 Nov 2016; announced 10 Aug 2023 and released by 7 Oct 2023), with a margin either side:
+requirement ÷ CRR overstates NDTL then."""
 
 HALF_MONTH_FORTNIGHTS_FROM = date(2025, 12, 16)
 FORTNIGHT_TRANSITION: tuple[date, date] = (date(2025, 12, 13), date(2025, 12, 15))
 _SATURDAY_FORTNIGHT = date(2025, 11, 29)
 """A Saturday that began a reporting fortnight (the one the CRR reached 3.0%)."""
+
+
+def in_icrr_period(day: date) -> bool:
+    """Whether the reported CRR requirement on a day may include an incremental CRR.
+
+    Equation:
+        I(d) = 1 if start ≤ d ≤ end for any ICRR period, else 0
+    """
+    return any(start <= day <= end for start, end in ICRR_PERIODS)
 
 
 def crr_on(day: date) -> float:

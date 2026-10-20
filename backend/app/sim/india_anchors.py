@@ -29,7 +29,7 @@ from sovereign_engine.india.liquidity_map import (
     fit_liquidity_map,
 )
 from sovereign_engine.india.reaction import ReactionCurve, fit_reaction
-from sovereign_engine.india.rules import ICRR_PERIOD, crr_on
+from sovereign_engine.india.rules import crr_on, in_icrr_period
 
 MMO = "rbi/mmo/"
 TBILL_TENORS: tuple[str, ...] = ("3M", "6M", "12M")
@@ -199,9 +199,7 @@ def _weekdays(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def _fit_map(frame: pd.DataFrame) -> tuple[pd.DataFrame, LiquidityMapFit]:
-    icrr = (frame.index >= pd.Timestamp(ICRR_PERIOD[0])) & (
-        frame.index <= pd.Timestamp(ICRR_PERIOD[1])
-    )
+    icrr = np.array([in_icrr_period(d.date()) for d in pd.DatetimeIndex(frame.index)])
     days = _weekdays(frame[~icrr]).dropna(subset=["wacr", "ell", "repo"])
     fit = fit_liquidity_map(days["ell"].to_numpy(), (days["wacr"] - days["repo"]).to_numpy())
     return days, fit

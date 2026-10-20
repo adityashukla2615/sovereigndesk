@@ -15,6 +15,7 @@ tasks:
   check          check-secrets, lint, api --check, test, build: everything CI runs
   seed           snapshot real data into data/seed; --sources picks some
   demo           walk the terminal demo end to end on the real seed (scripts/demo_check.py)
+  mpc-report     write docs/MPC_BACKTEST.md: the MPC predictor's backtest on the real seed
   screenshots    drive a headless Chrome through the demo into docs/screenshots
   check-secrets  scan files git would commit for secrets; --staged scans only the index
   clean          remove caches and build output
@@ -215,6 +216,10 @@ def task_demo(_: argparse.Namespace) -> None:
     run([venv_python(), ROOT / "scripts" / "demo_check.py"])
 
 
+def task_mpc_report(_: argparse.Namespace) -> None:
+    run([venv_python(), ROOT / "scripts" / "mpc_report.py"])
+
+
 def task_screenshots(_: argparse.Namespace) -> None:
     run([venv_python(), ROOT / "scripts" / "screenshots.py"])
 
@@ -332,6 +337,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     add("build", task_build)
     add("check", task_check)
     add("demo", task_demo)
+    add("mpc-report", task_mpc_report)
     add("screenshots", task_screenshots)
     add("seed", task_seed).add_argument(
         "--sources", help="comma-separated subset of fred,treasury,fiscaldata,tic"

@@ -12,6 +12,7 @@ from app.commands.parser import (
 from app.commands.registry import CommandResult, command
 from app.sim.events import bp, inr_cr, pct
 from app.sim.india_market import IST, IndiaMarket, WacrMode
+from app.sim.mpc import mpc_panel, repo_on
 from app.sim.simulator import Simulator
 from sovereign_engine.india.auctions import AuctionKind
 
@@ -293,3 +294,49 @@ async def sprd(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
             f"India 10Y {pct(now['india'])} − US 10Y {pct(now['us'])} = {bp(now['spread'])}{since}"
         )
     return CommandResult(True, "SPRD", message, panel="SPRD", data=panel)
+
+
+@command(
+    "MPC",
+    "MPC",
+    "Next MPC decision: probabilities from three models, their backtest, the features now",
+    "IN",
+    needs_market=False,
+)
+async def mpc(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
+    model = await sim.mpc_model()
+    if model is None:
+        raise CommandError(f"MPC predictor unavailable: {sim.mpc_error}")
+    day = sim.sim_day()
+    m = sim.india
+    overrides: dict[str, float] = {}
+    if m is not None:
+        overrides = {
+            "wacr_spread": (m.wacr() - m.repo) * 1e4,
+            "tbill_spread": (m.tbills()["3M"] - m.repo) * 1e4,
+            "liquidity": m.surplus_pct(),
+        }
+    if sim.us is not None:
+        overrides["fed_funds"] = sim.us.state.effr * 100
+    data = model.dataset
+    last_change = (
+        m.last_policy_change * 1e4
+        if m is not None and m.last_policy_change is not None
+        else float(data.change[-1]) * 1e4
+    )
+    repo_now = m.repo if m is not None else repo_on(model.inputs, day)
+    panel = mpc_panel(
+        model, day=day, repo_now=repo_now, last_change_bp=last_change, overrides=overrides
+    )
+    logit = panel["probabilities"]["ordered logit"]
+    best = max(range(5), key=lambda k: logit[k])
+    reports = panel["backtest"]["models"]
+    hit = {name: f"{r['accuracy']:.0%}" for name, r in reports.items()}
+    message = (
+        f"Next MPC decision {panel['next_meeting'] or 'not scheduled'}: "
+        f"{panel['classes'][best]} {logit[best]:.0%} (ordered logit); backtest on "
+        f"{panel['backtest']['forecasts']} decisions: logit {hit['ordered logit']}, "
+        f"XGBoost {hit['xgboost']}, repeat last {hit['repeat last']}, "
+        f"always hold {hit['always hold']} correct"
+    )
+    return CommandResult(True, "MPC", message, panel="MPC", data=panel)

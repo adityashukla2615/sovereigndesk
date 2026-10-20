@@ -83,8 +83,9 @@ def test_commands_answer_and_narrate(live: TestClient) -> None:
 def test_command_catalogue_endpoint(live: TestClient) -> None:
     commands = {c["code"]: c for c in live.get("/api/commands").json()}
     assert commands["PY"]["available"] is True
-    assert commands["MPC"]["available"] is False
-    assert "Phase 8" in commands["MPC"]["available_in"]
+    assert commands["MPC"]["available"] is True
+    assert commands["LINK"]["available"] is False
+    assert "Phase 9" in commands["LINK"]["available_in"]
 
 
 def test_india_anchors_to_the_real_seed_and_streams(live: TestClient) -> None:
@@ -127,3 +128,25 @@ def test_gsec_curve_anchors_to_fbil_and_rbi(live: TestClient) -> None:
     real = sprd["data"]["real"]
     assert len(real) > 500  # daily since February 2023
     assert all(0 < r["india"] - r["us"] < 0.06 for r in real)
+
+
+def test_mpc_predictor_fits_on_rbi_mospi_and_fred(live: TestClient) -> None:
+    """The real seed: every repo decision since 2014, MoSPI's CPI and GDP, RBI's money markets."""
+    with live.websocket_connect("/ws") as ws:
+        ws.send_text(json.dumps({"op": "command", "text": "MPC"}))
+        reply = _until(ws, "command", limit=200)["data"]
+    assert reply["ok"] is True, reply["message"]
+    panel = reply["data"]
+    assert panel["sample"]["first"].startswith("2014")
+    assert panel["sample"]["decisions"] >= 70
+    assert panel["sample"]["off_cycle"] >= 4  # Jan and Mar 2015, Mar and May 2020, May 2022
+    assert panel["backtest"]["forecasts"] >= 45
+    assert panel["next_meeting"] is not None
+    for probabilities in panel["probabilities"].values():
+        assert abs(sum(probabilities) - 1) < 1e-9
+    missing = [f["key"] for f in panel["features"] if f["last"] is None]
+    assert not missing, missing  # every feature known at the last decision
+    weights = {w["base"]: w for w in panel["core_weights"]}
+    # MoSPI's published 2012 weights: food and beverages 45.86, fuel and light 6.84.
+    assert abs(weights["2012"]["excluded"]["food_beverages"] - 0.4586) < 0.01
+    assert abs(weights["2012"]["excluded"]["fuel_light"] - 0.0684) < 0.01

@@ -83,7 +83,7 @@ How a Money Market Operations release is read:
 - **Aggregate NDTL** is implied by the fortnight's reserve requirement: NDTL = CRR requirement ÷ CRR. For the fortnight ending 31 Oct 2026 that is ₹8,33,309 cr ÷ 3% ≈ ₹278 lakh crore.
 - **Refresh.** Daily, IST: RBI 10:30, FBIL 18:15, FBIL's G-sec workbooks 20:00, NSDL 20:30. RBI looks back 7 days, FBIL 30 and the G-sec workbooks 14, so a daily refresh never crawls an archive. A release or workbook never changes once published, so a copy saved by an earlier crawl is parsed rather than downloaded again.
 
-Not yet, and where each arrives: MOSPI CPI and RBI's MPC decision history in Phase 8 (CPI was rebased to 2024 = 100 in Feb 2026 and must be chain-linked); RBI's Weekly Statistical Supplement (forex reserves, currency in circulation) and NSDL's history in Phase 9.
+MoSPI's CPI and GDP and RBI's policy record arrived with the MPC predictor (Phase 8, below). Not yet: RBI's Weekly Statistical Supplement (forex reserves, currency in circulation) and NSDL's history, in Phase 9.
 
 ## Indian banks and RBI rules (engine, Phase 5)
 
@@ -178,13 +178,95 @@ Commands: `REPO ±25BP` moves repo, SDF and MSF together at once; `CRR 3.5` take
 - *Response per unit of policy surprise*, ρ(τ) = b(τ) / b(3M): the 3-month yield's move measures the surprise and the actual change instruments it, so day-to-day noise in the 3-month yield does not bias the ratio towards zero. 1 at 3 months by construction, 0.80 at 6 months, 0.76 at 1 year, 0.73 at 2 years, 0.65 at 10 and 0.46 at 30.
 - *Uncertainty.* 2,000 bootstrap resamples of the 11 events give 90% bands, e.g. 0.24–1.94 at 2 years and 0.10–1.45 at 10. They are wide: the events are few, and the 4 May 2022 surprise weighs heavily (without it ρ at 10 years is 0.44).
 - *Fit.* β(τ) = (A(τ; κ) + γ·T(τ)) / (A(3M; κ) + γ·T(3M)). Here A(τ; κ) = (1 − e^(−κτ))/(κτ) is the expected path of a surprise that fades at rate κ, and T(τ) = (1 − e^(−τ/7))/(1 − e^(−10/7)) is a term-premium loading (the US curve's, scale 7 years, an assumption). Weighted least squares, weights 1/s.d.² from the bootstrap. κ = 0.62 a year, a half-life of 1.1 years (band 0.07 to the bound of 5); γ = 0.35 (band −0.04 to 0.63). The fitted β is 1.00 at 3 months, 0.95 at 6 months, 0.86 at 1 year, 0.73 at 2 years, 0.58 at 5, 0.54 at 10 and 0.54 at 30; at 10 years 0.17 of it is expectations and 0.37 term premium. Band for β at 10 years: 0.06–1.26.
-- *Use.* A repo change moves the T-bills by β at their maturity and each coupon tenor by β(τ)·Δrepo, at once: the simulator treats it as a surprise. Hold decisions are not in the sample (the MPC calendar arrives in Phase 8), and neither the partly expected part of a change nor a path signal (June 2025's −50 bp came with a neutral stance, and the 10-year rose 4 bp) is modelled separately.
+- *Use.* A repo change moves the T-bills by β at their maturity and each coupon tenor by β(τ)·Δrepo, at once: the simulator treats it as a surprise. Hold decisions are not in the sample, and with the actual change as the instrument they would carry no weight (Δrepo = 0); neither the partly expected part of a change nor a path signal (June 2025's −50 bp came with a neutral stance, and the 10-year rose 4 bp) is modelled separately.
 
 **Day-to-day moves.** Two factors with the pass-through's own loadings, expectations A(τ; κ) and term premium T(τ), move the coupon tenors. Their daily shocks come from regressing each day's par-yield changes (2Y to 30Y) on the two loadings over 880 days of FBIL's daily coverage, repo-change days left out: an s.d. of 5.3 bp a day for the expectations factor (whose loading is 0.57 at 2 years and 0.16 at 10) and 1.8 bp for the term premium (one at 10 years), correlation +0.27. What the two loadings leave unexplained, 1.5 bp RMS per tenor and day, is not simulated. The factors step with every clearing round (09:15–17:00 IST on business days) as OU processes with a half-life of 125 business days, about six months: an **assumption** (`GsecParams.factor_half_life_days`). Without news the curve so drifts back to FBIL's close plus the policy moves. The bills move with the money market only (repo and liquidity).
 
 **SPRD.** FBIL's 10-year par yield against Treasury's 10-year par yield (both semi-annual), on the dates both published: 853 days from 7 Feb 2023 to 13 Oct 2026 on the seed, during which the spread fell from 361 bp to 218 bp. In the simulation each business day's G-sec close (23:59 IST) is paired with the US 10-year at that moment, and the panel adds the live spread. The two markets do not move each other yet: US → India transmission is Phase 9 (LINK).
 
 **Invariants** (every tick): every point is finite and between −5% and 50%, and the NSS refit stays within 25 bp RMSE of the points.
+
+## MPC predictor (Phase 8)
+
+The full backtest, every forecast and the forecast for the next meeting are in [docs/MPC_BACKTEST.md](docs/MPC_BACKTEST.md), generated from the seed by `py tasks.py mpc-report`.
+
+**Data.**
+
+| Source | What | Notes |
+|---|---|---|
+| RBI press releases (`rbi_policy`) | Every repo decision since 1 Apr 2014; the MPC's meeting schedules and the notices that move a meeting; the 91-day T-bill cut-off of the last auction before each decision; and, until 8 Apr 2022, WACR, call volume, net liquidity and the CRR requirement from the Money Market Operations releases of the 14 days before each decision | Listed month by month through the press-release archive from Jan 2014, one request a second; a release never changes, so saved copies are parsed again rather than downloaded. Stored as `rbi/mpc/…`, `rbi/tbill91/cutoff` and `rbi/hist/…`. From 8 Apr 2022 the daily Money Market Operations series (Phase 5) take over |
+| MoSPI (`mospi`) | All-India CPI (rural + urban): base 2012 general index, its six groups and inflation from Jan 2013; base 2024 general index, its 12 COICOP divisions, the housing groups 04.1–04.5 and inflation from Jan 2025. Quarterly GDP at constant prices and its growth, bases 2011-12 and 2022-23 | Through MoSPI's official MCP server (`mcp.mospi.gov.in`), the machine-access route MoSPI's `llms.txt` and agent manifest name. The website (www.mospi.gov.in, cpi.mospi.gov.in) failed TLS revocation checks (CRYPT_E_REVOKED) when this was built and is not used; its REST API returns at most 10 records without registration. Values as published: indices, % year on year, ₹ crore |
+| FRED | Effective federal funds rate (`DFF`); rupees per dollar, the Fed's H.10 noon rate in New York (`DEXINUS`) | From the Phase 3 seed |
+
+How RBI's record is read:
+
+- *Decisions.* The decision releases are the MPC's resolutions (from 4 Oct 2016), the Governor's bi-monthly policy statements before them, and his statements on the intermeeting cuts of 15 Jan and 4 Mar 2015. The repo rate comes from the sentence that sets it: "keep (maintain, retain, leave) the policy repo rate unchanged at 6.50 per cent", "reduce the policy repo rate by 25 basis points from 6.50 per cent to 6.25 per cent". Releases that announce a statement, minutes and schedules are not decisions.
+- *Off-cycle decisions.* A decision is scheduled if its day is a meeting's decision day in RBI's schedules (from 2017-18), or, before April 2017, if it came in a bi-monthly statement. Five are off-cycle: 15 Jan and 4 Mar 2015, 27 Mar and 22 May 2020, and 4 May 2022.
+- *Meeting calendar.* A yearly schedule's table gives each meeting's days, and the decision comes on the last. A notice that moves a meeting gives its new days after the old ones ("rescheduled to August 4 – 6, 2025", "will now be held on June 4-6, 2018"). Releases are read in the order RBI issued them, and a day within 14 days of a known meeting replaces it. The next meeting is the first calendar day on or after today: 4 Dec 2026 on the seed.
+- *T-bills.* The cut-off yield of the last weekly 91-day auction strictly before the decision day (the decision-day auction closes after the morning announcement). If RBI rejected every bid, as on 25 Mar 2026, the auction before counts.
+- *Money markets before 8 Apr 2022.* Amounts were printed in ₹ billion until 2019 and are converted to ₹ crore. Net liquidity was printed only from mid-2019; before that it is summed from the LAF legs as RBI's later footnote defines it, repo + MSF + SLF − reverse repo, which matches the printed figure in Aug 2019. Surplus is −net liquidity ÷ NDTL, and NDTL = CRR requirement ÷ the CRR in force (`CRR_SCHEDULE`, from Feb 2013), leaving out the incremental-CRR fortnights (Nov–Dec 2016 and Aug–Oct 2023).
+
+**Features**, each as known the day before the decision:
+
+| Feature | Definition |
+|---|---|
+| CPI inflation | MoSPI's year-on-year rate for the latest month released. A month's CPI comes out on the 12th of the next and counts from the 13th. Base 2012 to Dec 2025, base 2024 from Jan 2026 |
+| Core inflation | CPI excluding food and beverages and fuel and light (base 2024: division 01 and group 04.5), year on year (below) |
+| WACR − repo | Mean over the weekdays of the 14 days before, each against the repo then in force (bp) |
+| T-bill − repo | The 91-day cut-off above against the repo on its auction day (bp) |
+| System liquidity | Mean surplus over the 14 days before, % of NDTL |
+| GDP growth | Real, year on year, for the latest quarter released: it counts from the first day of the third month after the quarter (MoSPI publishes at the end of the second). Base 2011-12 to Jul–Sep 2025, base 2022-23 after |
+| Fed funds | DFF on the last day before, and its change over 91 days (bp) |
+| Rupee | The change in DEXINUS over 91 days (%) |
+| MPC era | 1 from 4 Oct 2016 (the brief's regime dummy), 0 for the Governor's decisions |
+| Previous decision | The previous change (bp); unknown for the first decision in the sample |
+
+The Taylor rule also reads the output gap: real GDP over four quarters (which removes the seasonal pattern of India's unadjusted quarterly GDP), the two bases spliced by their mean ratio where they overlap, in logs, minus a one-sided HP trend (λ = 1600, re-filtered each quarter on data up to that quarter only).
+
+**Core CPI weights.** MoSPI's data carries no weights, so they are recovered from the indices. A fixed-base Laspeyres index is the weighted sum of its components, I = Σ wᵢ Iᵢ with Σ wᵢ = 1, so the weights are bounded least squares on the published indices. Core is then the general index with the excluded components taken out, (I − Σₑ wₑ Iₑ) / (1 − Σₑ wₑ), and its year-on-year rate. On the seed, base 2012 (146 months): food and beverages 45.91% and fuel and light 6.92%, against MoSPI's published 45.86% and 6.84%, and the other four groups within 0.06 points of theirs; the weights rebuild the general index within 0.04 index points RMSE. Base 2024 (21 months, Jan 2025 to Sep 2026): food and beverages 36.73%, against the 36.75% reported when the series was launched; electricity, gas and other fuels (04.5) 5.22%, the housing division's 17.15% times 04.5's 30.4% share of it; rebuild error 0.003 points. Core inflation joins the two bases at Jan 2026, like headline.
+
+**Models.** Five classes: big cut (more than 25 bp), cut, hold, hike, big hike.
+
+- *Taylor rule*, i* = r* + π + 0.5(π − π*) + 0.5·gap. The baseline moves repo a quarter of the way to i* at each decision, rounded to 25 bp steps (halves away from zero) and capped at 50 bp. It is deterministic, so its Brier score counts every miss in full.
+- *Ordered logit*: a cumulative logit on standardised features, L2-penalised on the slopes (λ = 1) and fitted directly by L-BFGS with an analytic gradient. Without the penalty it reproduces statsmodels' `OrderedModel` (engine test). Missing features take the training window's mean.
+- *XGBoost*: 200 trees of depth 2, learning rate 0.05, row and column subsampling 0.8, L2 leaf penalty 5; missing features go down XGBoost's learned default branch.
+- A class a training window has never seen gets zero probability.
+
+**Backtest.** Expanding window: the 25th decision onwards is forecast by models fitted only on the decisions before it. Baselines are "repeat last" (the previous decision's class) and "always hold". On the seed, 54 forecasts from 7 Feb 2018 to 7 Oct 2026:
+
+| Forecast | Hit rate | Macro-F1 | Brier |
+|---|---:|---:|---:|
+| Ordered logit | 57% | 0.38 | 0.59 |
+| XGBoost | 57% | 0.21 | 0.58 |
+| Taylor rule | 22% | 0.21 | 1.56 |
+| Repeat last | 69% | 0.52 | 0.63 |
+| Always hold | 63% | 0.15 | 0.74 |
+
+- *Neither model calls decisions better than repeating the last one.* RBI moves in runs, and both models miss the turns: the first hike of 2018 got no probability at all, because none of the 24 training decisions was a hike.
+- *Both give better probabilities than either baseline* (Brier 0.58–0.59 against 0.63 and 0.74).
+- *The ordered logit* called four of the five big hikes of 2022 and both emergency cuts of 2020. *XGBoost* almost always says hold.
+- *The Taylor rule* is mechanical, on headline CPI. It prescribed hikes through 2020–24 while RBI held, and calls 19 of the 34 holds big hikes.
+- *No tuning.* The penalty and XGBoost's settings were set before the backtest was run on the real data, and have not been tuned to it.
+
+**Assumptions** (`MpcParams`, each with its source and check date in the code):
+
+| Item | Choice |
+|---|---|
+| r* | 1.5% real, within RBI's published estimates: 1.6–1.8% (Q4 2014-15) and 0.8–1.0% (Q3 2021-22) in the RBI Bulletin of 16 Jun 2022, and 1.4–1.9% (Q4 2023-24) in its July 2024 update. **VERIFY** |
+| π* | 4%, the target notified under section 45ZA of the RBI Act (2–6% band). **VERIFY** |
+| Windows | 14 days of money markets before each decision; 91 days for the Fed and rupee changes |
+| Penalty and start | L2 λ = 1; the first 24 decisions train the first forecast |
+| Output gap | HP λ = 1600 (quarterly), one-sided |
+
+**In the terminal.** `MPC` uses the model fitted on the stored data (refitted when the data changes) and today's features. The simulation replaces four of them: WACR − repo and liquidity from the simulated money market, the 91-day bill from the simulated 3-month T-bill (FBIL's benchmark, not an auction cut-off), and the Fed funds rate from the US simulation. The previous decision is the simulation's own repo move if there has been one.
+
+**Known limitations.**
+
+- *Revised data.* CPI and GDP are today's vintage, not what was printed at the time: MoSPI revises GDP for years, and final CPI replaces provisional CPI a month later. The backtest so knows slightly more than the MPC did.
+- *A small sample.* 78 decisions: 51 holds, 13 cuts, 4 hikes, and 5 each of big cuts and big hikes; 54 are forecast. With four or five cases in a class, one call moves macro-F1 by several points. A class not yet seen in a training window gets no probability at all.
+- *What is left out.* The MPC's stance and guidance, its minutes and votes, the government's borrowing, oil prices and forecasts of inflation (the MPC targets the forecast, not today's print).
+- *The live T-bill differs from the backtest's*: FBIL's 3-month benchmark against the auction cut-off.
+- *Calendar edge cases.* A meeting moved without a notice in the archive keeps its old day: June 2020's meeting, brought forward to 20–22 May, still lists 5 Jun 2020. Past days do not matter, and a missed notice could only misdate the next meeting.
 
 ## Bond conventions (engine, Phase 2)
 

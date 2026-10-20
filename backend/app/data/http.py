@@ -167,6 +167,39 @@ class Fetcher:
         self.cache.write(source, key, response.content, identity, fetched_at)
         return FetchedBody(response.content, identity, fetched_at, from_cache=False)
 
+    def post_json(
+        self,
+        source: str,
+        url: str,
+        payload: Mapping[str, object],
+        *,
+        identity: str,
+        headers: Mapping[str, str] | None = None,
+    ) -> FetchedBody:
+        """JSON POST (e.g. a JSON-RPC call). ``identity`` names the request in the cache and the
+        provenance, so a per-call field such as a request id does not make every call new."""
+        public = f"{url} {identity}"
+        key = _cache_key("JSON " + public)
+        retrying = Retrying(
+            stop=stop_after_attempt(self.attempts),
+            wait=self.wait,
+            retry=retry_if_exception(_retryable),
+            reraise=False,
+            sleep=self.sleep,
+        )
+        try:
+            response = retrying(self._send_json, url, payload, dict(headers or {}))
+        except (RetryError, httpx2.HTTPError) as exc:
+            cause = exc.last_attempt.exception() if isinstance(exc, RetryError) else exc
+            cached = self.cache.read(source, key)
+            if cached is None:
+                raise SourceError(f"{source}: {public} failed: {redact(str(cause))}") from None
+            log.warning("%s: live call failed; using cached copy of %s", source, public)
+            return cached
+        fetched_at = self.clock()
+        self.cache.write(source, key, response.content, public, fetched_at)
+        return FetchedBody(response.content, public, fetched_at, from_cache=False)
+
     def saved(
         self, source: str, url: str, params: Mapping[str, str] | None = None
     ) -> FetchedBody | None:
@@ -183,5 +216,12 @@ class Fetcher:
 
     def _send(self, url: str, form: dict[str, str]) -> httpx2.Response:
         response = self.client.post(url, data=form)
+        response.raise_for_status()
+        return response
+
+    def _send_json(
+        self, url: str, payload: Mapping[str, object], headers: dict[str, str]
+    ) -> httpx2.Response:
+        response = self.client.post(url, content=json.dumps(payload).encode(), headers=headers)
         response.raise_for_status()
         return response

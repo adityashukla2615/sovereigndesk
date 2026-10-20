@@ -34,6 +34,14 @@ export const TEACH: Record<string, string> = {
     'and growth, a rupee expected to weaken, and liquidity and credit premia. When US yields rise ' +
     'faster than India’s, the spread narrows and Indian bonds pay foreign investors less for ' +
     'those risks: the first link in the US → India chain (LINK, Phase 9).',
+  MPC:
+    'The forecast for RBI’s next decision, from what was public the day before: CPI and core ' +
+    'inflation (MoSPI), GDP growth, WACR and T-bills against repo, system liquidity, the Fed ' +
+    'funds rate, the rupee, and the previous move. Three models: a Taylor rule (inflation and ' +
+    'output gaps; moves part of the way, in 25 bp steps), an ordered logit, and boosted trees. ' +
+    'The backtest refits each model on earlier decisions only and scores the next one, against ' +
+    'repeating the last decision and always holding. Holds dominate the sample, so a high hit ' +
+    'rate alone says little: macro-F1 and the Brier score reward getting the moves right.',
   UST:
     'The Treasury par curve: the yield at which a new Treasury of each maturity would price at ' +
     'par. Policy moves shift the front end most; term-premium shocks and foreign selling move the ' +

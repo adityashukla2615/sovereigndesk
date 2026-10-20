@@ -124,6 +124,8 @@ STEPS: list[tuple[str, list[str], float]] = [
     ("mvp-4-teach", ["TEACH"], 2.0),
     # "@N" focuses slot N: the G-sec curve after the cut above, and the spread to Treasuries.
     ("gsec-1-curve", ["TEACH", "@1", "GSEC", "@2", "SPRD"], 6.0),
+    # The predictor's first fit runs its backtest: give it time.
+    ("mpc-1-forecast", ["@3", "MPC"], 25.0),
 ]
 
 

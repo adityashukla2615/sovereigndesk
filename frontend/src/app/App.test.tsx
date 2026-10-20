@@ -7,7 +7,7 @@ import type { CommandInfo } from '../market/types';
 import { useConnection } from '../store/connection';
 import { initialSlots, useMarket } from '../store/market';
 import { FakeSocket, envelope } from '../test/fakeSocket';
-import { GSEC_DATA, IN_TICK, PY_DATA, SPRD_DATA, US_TICK } from '../test/marketData';
+import { GSEC_DATA, IN_TICK, MPC_DATA, PY_DATA, SPRD_DATA, US_TICK } from '../test/marketData';
 import { App } from './App';
 
 vi.mock('../components/Chart', () => ({
@@ -159,6 +159,27 @@ describe('App terminal', () => {
     expect(sprd).toHaveTextContent('INDIA − US+331 bp');
     expect(sprd).toHaveTextContent('REAL ON 2026-10-12+232 bp');
     expect(await within(sprd).findByRole('img', { name: /India 10Y against US 10Y/ })).toBeInTheDocument();
+  });
+
+  it('shows the MPC forecast, its backtest and refreshes on request', async () => {
+    render(<App />);
+    await screen.findByText('KEY OK');
+    const socket = FakeSocket.latest();
+    act(() => {
+      socket.serverOpen();
+      socket.serverSend(
+        envelope('command', 1, { ok: true, code: 'MPC', message: 'Next MPC decision', panel: 'MPC', data: MPC_DATA }),
+      );
+    });
+    const mpc = screen.getByRole('region', { name: 'panel 1: MPC' });
+    expect(mpc).toHaveTextContent('2026-12-04 (in 45d)');
+    expect(mpc).toHaveTextContent('HOLD 71%');
+    expect(within(mpc).getByRole('table', { name: 'backtest' })).toHaveTextContent('always hold54%0.140.92');
+    expect(within(mpc).getByRole('table', { name: 'ordered logit confusion matrix' })).toBeInTheDocument();
+    fireEvent.click(within(mpc).getByRole('button', { name: 'xgboost' }));
+    expect(within(mpc).getByRole('table', { name: 'xgboost confusion matrix' })).toBeInTheDocument();
+    fireEvent.click(within(mpc).getByRole('button', { name: /2026-10-20/ }));
+    expect(JSON.parse(socket.sent.at(-1) ?? '{}')).toEqual({ op: 'command', text: 'MPC' });
   });
 
   it('suggests functions while a code is typed and completes with Tab', async () => {

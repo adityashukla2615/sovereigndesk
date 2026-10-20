@@ -5,6 +5,7 @@ import type {
   GsecPanelData,
   GsecTick,
   InTick,
+  MpcPanelData,
   PriceYieldData,
   SpreadPanelData,
   UsTick,
@@ -189,4 +190,42 @@ export const SPRD_DATA: SpreadPanelData = {
   daily_from: '2023-02-13',
   india_as_of: '2026-10-12',
   us_as_of: '2026-10-16',
+};
+
+const CONFUSION = [
+  [1, 1, 0, 0, 0],
+  [0, 4, 3, 0, 0],
+  [0, 2, 25, 2, 0],
+  [0, 0, 2, 3, 1],
+  [0, 0, 0, 1, 2],
+];
+
+export const MPC_DATA: MpcPanelData = {
+  classes: ['big cut', 'cut', 'hold', 'hike', 'big hike'],
+  as_of: '2026-10-20',
+  next_meeting: '2026-12-04',
+  probabilities: {
+    'ordered logit': [0.01, 0.08, 0.71, 0.17, 0.03],
+    xgboost: [0.02, 0.1, 0.6, 0.23, 0.05],
+    taylor: [0, 0, 0, 1, 0],
+  },
+  features: [
+    { key: 'cpi', label: 'CPI inflation, y/y (%)', now: 5.54, last: 5.1 },
+    { key: 'wacr_spread', label: 'WACR − repo, two weeks (bp)', now: -22.4, last: -15.0 },
+  ],
+  taylor: { prescribed: 0.0752, repo: 0.055, inflation: 0.0554, output_gap: 0.004, r_star: 0.015, pi_star: 0.04 },
+  backtest: {
+    first: '2018-06-06',
+    forecasts: 54,
+    models: {
+      'ordered logit': { accuracy: 0.65, macro_f1: 0.48, brier: 0.52, confusion: CONFUSION },
+      xgboost: { accuracy: 0.6, macro_f1: 0.41, brier: 0.55, confusion: CONFUSION },
+      taylor: { accuracy: 0.42, macro_f1: 0.3, brier: 1.16, confusion: CONFUSION },
+      'repeat last': { accuracy: 0.57, macro_f1: 0.4, brier: 0.86, confusion: CONFUSION },
+      'always hold': { accuracy: 0.54, macro_f1: 0.14, brier: 0.92, confusion: CONFUSION },
+    },
+    recent: [],
+  },
+  sample: { first: '2014-06-03', last: '2026-10-07', decisions: 78, counts: [5, 12, 44, 11, 6], off_cycle: 5 },
+  core_weights: [{ base: '2012', excluded: { food_beverages: 0.4586 }, rmse: 0.04, months: 180 }],
 };

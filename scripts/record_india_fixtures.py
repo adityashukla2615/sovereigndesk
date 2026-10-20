@@ -2,12 +2,14 @@
 
     py scripts/record_india_fixtures.py              # everything
     py scripts/record_india_fixtures.py --only gsec  # just FBIL's G-sec workbooks
+    py scripts/record_india_fixtures.py --only mospi # just MoSPI's MCP replies
 
 Writes backend/tests/fixtures/india/ verbatim: the RBI homepage, Money Market Operations
 releases from several format eras, one month of the RBI press-release archive, FBIL T-bill and
-MIBOR JSON, FBIL's G-sec listing and workbooks (current .xlsx and legacy .xls), and NSDL's
-monthly FPI page. It also writes engine/tests/fixtures/fbil_curve_2026-10-12.json: FBIL's par
-and zero-coupon curves for one day, as published. Requests are spaced politely.
+MIBOR JSON, FBIL's G-sec listing and workbooks (current .xlsx and legacy .xls), NSDL's monthly
+FPI page, and MoSPI's MCP replies for CPI (both bases) and GDP. It also writes
+engine/tests/fixtures/fbil_curve_2026-10-12.json: FBIL's par and zero-coupon curves for one
+day, as published. Requests are spaced politely.
 """
 
 import argparse
@@ -32,6 +34,7 @@ ENGINE_OUT = ROOT / "engine" / "tests" / "fixtures"
 CURVE_DAY = "2026-10-12"
 RBI_PR = "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx"
 FBIL = "https://www.fbil.org.in/wasdm"
+MOSPI_MCP = "https://mcp.mospi.gov.in/"
 UA = "Mozilla/5.0 (compatible; SovereignDesk research terminal)"
 
 _opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(CookieJar()))
@@ -106,13 +109,68 @@ def gsec_files() -> dict[str, bytes]:
     }
 
 
+def mcp_call(arguments: dict[str, object]) -> bytes:
+    """One ``get_data`` call to MoSPI's MCP server, the raw (event-stream) response body."""
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": "get_data", "arguments": arguments},
+    }
+    headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
+    time.sleep(1.0)
+    request = urllib.request.Request(
+        MOSPI_MCP, data=json.dumps(payload).encode(), headers={"User-Agent": UA, **headers}
+    )
+    with _opener.open(request, timeout=90) as response:
+        return bytes(response.read())
+
+
+def mospi_files() -> dict[str, bytes]:
+    common = {"series": "Current", "sector_code": "3"}
+    return {
+        "mospi_cpi2012_2025.txt": mcp_call(
+            {
+                "dataset": "CPI",
+                "filters": common
+                | {
+                    "base_year": "2012", "year": "2025", "state_code": "99", "limit": "100",
+                    "subgroup_code": "0.99,1.99,2.99,3.99,4.99,5.99,6.99",
+                },
+            }
+        ),
+        "mospi_cpi2024_2026-02.txt": mcp_call(
+            {
+                "dataset": "CPI",
+                "filters": common
+                | {
+                    "base_year": "2024", "year": "2026", "month_code": "2", "state_code": "1",
+                    "division_code": "0,1,2,3,4,5,6,7,8,9,10,11,12", "limit": "40", "page": "1",
+                },
+            }
+        ),
+        "mospi_gdp2022_growth.txt": mcp_call(
+            {
+                "dataset": "NAS",
+                "filters": {
+                    "base_year": "2022-23", "series": "Current", "frequency_code": "Quarterly",
+                    "indicator_code": "22", "year": "2025-26,2026-27", "limit": "100",
+                },
+            }
+        ),
+    }  # fmt: skip
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--only", choices=["gsec"], help="record just these fixtures")
+    parser.add_argument("--only", choices=["gsec", "mospi"], help="record just these fixtures")
     args = parser.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     if args.only == "gsec":
         write(gsec_files())
+        return
+    if args.only == "mospi":
+        write(mospi_files())
         return
     files: dict[str, bytes] = {"rbi_home.html": get("https://www.rbi.org.in/")}
     june_2025 = archive_month(2025, 6)
@@ -134,7 +192,7 @@ def main() -> None:
         f"{FBIL}/refrates/fetchfiltered?fromDate=2026-10-12&toDate=2026-10-12&authenticated=false"
     )
     files["nsdl_monthly.html"] = get("https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx")
-    write(files | gsec_files())
+    write(files | gsec_files() | mospi_files())
 
 
 def write(files: dict[str, bytes]) -> None:

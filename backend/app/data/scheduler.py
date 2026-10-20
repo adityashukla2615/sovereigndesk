@@ -22,12 +22,15 @@ REFRESH_TIMES: dict[str, tuple[int, int]] = {
 
 # (hour, minute) IST, every day: RBI posts the previous day's Money Market Operations in the
 # morning and FBIL its T-bill and FX benchmarks by early evening and its G-sec valuation by about
-# 7:30 pm; NSDL updates after the close.
+# 7:30 pm; NSDL updates after the close. MoSPI releases CPI on the 12th at 4 pm and RBI its
+# policy decisions at 10 am and T-bill auction results on Wednesday afternoons.
 INDIA_REFRESH_TIMES: dict[str, tuple[int, int]] = {
     "rbi": (10, 30),
+    "rbi_policy": (18, 30),
     "fbil": (18, 15),
     "fbil_gsec": (20, 0),
     "nsdl": (20, 30),
+    "mospi": (17, 30),
 }
 
 

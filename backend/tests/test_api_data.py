@@ -33,7 +33,7 @@ def test_status_reports_sources_series_and_seed_badges(seeded: TestClient) -> No
     assert body["offline"] is True
     assert {s["source"] for s in body["sources"]} == {
         *("fred", "treasury", "fiscaldata", "tic"),
-        *("rbi", "fbil", "fbil_gsec", "nsdl"),
+        *("rbi", "rbi_policy", "fbil", "fbil_gsec", "nsdl", "mospi"),
     }
     assert all(s["status"] == "never" for s in body["sources"])
     series = {s["series_id"]: s for s in body["series"]}

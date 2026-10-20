@@ -9,9 +9,6 @@ planned(
     "IN",
     "Phase 12 (terminal completion)",
 )
-planned(
-    "MPC", "MPC", "Next MPC decision: probabilities and backtest", "IN", "Phase 8 (MPC predictor)"
-)
 planned("LINK", "LINK", "US → India transmission chain", "X", "Phase 9 (linkage)")
 planned(
     "IMPACT",
