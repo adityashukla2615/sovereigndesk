@@ -13,7 +13,9 @@ tasks:
   api            regenerate frontend/src/api/{openapi.json,schema.d.ts}; --check fails on drift
   build          production build of the frontend
   check          check-secrets, lint, api --check, test, build: everything CI runs
-  seed           snapshot real data into data/seed (arrives in Phase 3)
+  seed           snapshot real data into data/seed; --sources picks some
+  demo           walk the terminal demo end to end on the real seed (scripts/demo_check.py)
+  screenshots    drive a headless Chrome through the demo into docs/screenshots
   check-secrets  scan files git would commit for secrets; --staged scans only the index
   clean          remove caches and build output
 """
@@ -209,6 +211,14 @@ def task_seed(args: argparse.Namespace) -> None:
     run([venv_python(), script, *(["--sources", args.sources] if args.sources else [])])
 
 
+def task_demo(_: argparse.Namespace) -> None:
+    run([venv_python(), ROOT / "scripts" / "demo_check.py"])
+
+
+def task_screenshots(_: argparse.Namespace) -> None:
+    run([venv_python(), ROOT / "scripts" / "screenshots.py"])
+
+
 def task_clean(_: argparse.Namespace) -> None:
     junk = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".hypothesis"}
     for dirpath, dirnames, _files in os.walk(ROOT):
@@ -321,6 +331,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     add("api", task_api).add_argument("--check", action="store_true", help="fail on drift")
     add("build", task_build)
     add("check", task_check)
+    add("demo", task_demo)
+    add("screenshots", task_screenshots)
     add("seed", task_seed).add_argument(
         "--sources", help="comma-separated subset of fred,treasury,fiscaldata,tic"
     )

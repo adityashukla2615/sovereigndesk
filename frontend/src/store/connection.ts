@@ -4,6 +4,7 @@ import type { ConnectionStatus } from '../ws/client';
 import type { Envelope } from '../ws/protocol';
 
 export const LOG_LIMIT = 200;
+export const TICK_TOPICS: ReadonlySet<string> = new Set(['us.tick', 'in.tick']);
 
 interface ConnectionState {
   status: ConnectionStatus;
@@ -27,7 +28,8 @@ export const useConnection = create<ConnectionState>()((set) => ({
   },
   receive: (message) => {
     set((state) => ({
-      log: [...state.log, message].slice(-LOG_LIMIT),
+      // Market ticks arrive at 4 Hz: they feed the market store, not the event log.
+      log: TICK_TOPICS.has(message.topic) ? state.log : [...state.log, message].slice(-LOG_LIMIT),
       lastSeq: message.seq,
       gaps: state.lastSeq !== null && message.seq !== state.lastSeq + 1 ? state.gaps + 1 : state.gaps,
     }));

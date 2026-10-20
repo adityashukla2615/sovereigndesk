@@ -6,7 +6,7 @@ phases will implement too, flagged as not yet available.
 
 import difflib
 from collections.abc import Awaitable, Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Any, Literal
 
 from app.commands.parser import CommandError, tokenize
@@ -23,6 +23,9 @@ class CommandResult:
     panel: str | None = None
     """Function whose panel the terminal should show (e.g. ``PY``)."""
     data: dict[str, Any] | None = None
+    narrated: bool = False
+    """The handler also put this story in the event log, so the log need not repeat the reply."""
+    sim_time: str | None = None
 
     def to_wire(self) -> dict[str, Any]:
         return asdict(self)
@@ -94,7 +97,9 @@ async def execute(sim: Simulator, text: str) -> CommandResult:
         return CommandResult(False, spec.code, f"{spec.code} arrives in {spec.available_in}.")
     if spec.needs_market and sim.us is None:
         return CommandResult(False, spec.code, f"Simulator is not running: {sim.error}")
+    before = sim.events.total
     try:
-        return await spec.handler(sim, parsed.args)
+        result = await spec.handler(sim, parsed.args)
     except (CommandError, ValueError) as exc:
-        return CommandResult(False, spec.code, str(exc))
+        result = CommandResult(False, spec.code, str(exc))
+    return replace(result, narrated=sim.events.total > before, sim_time=sim.sim_time.isoformat())

@@ -1,10 +1,18 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Health } from '../api/client';
+import type { SimStatus } from '../api/useSim';
+import type { CommandInfo } from '../market/types';
 import { useConnection } from '../store/connection';
+import { initialSlots, useMarket } from '../store/market';
 import { FakeSocket, envelope } from '../test/fakeSocket';
+import { IN_TICK, PY_DATA, US_TICK } from '../test/marketData';
 import { App } from './App';
+
+vi.mock('../components/Chart', () => ({
+  Chart: ({ label }: { label: string }) => <div role="img" aria-label={label} />,
+}));
 
 const HEALTH: Health = {
   status: 'ok',
@@ -15,54 +23,81 @@ const HEALTH: Health = {
   fred_key_configured: true,
 };
 
-describe('App shell', () => {
+const SIM: SimStatus = {
+  running: true,
+  error: null,
+  paused: false,
+  speed: 1,
+  sim_time: '2026-10-20T05:00:00+00:00',
+  anchored_as_of: '2026-10-16',
+  input_quality: ['SEED 2026-10-19'],
+  india: { running: true, error: null, anchored_as_of: '2026-10-18', input_quality: ['LIVE'] },
+};
+
+const COMMANDS: CommandInfo[] = [
+  { code: 'QT', usage: 'QT 95B | QT OFF', summary: 'Set the monthly runoff', group: 'US', available: true, available_in: null },
+  { code: 'MPC', usage: 'MPC', summary: 'Next MPC decision', group: 'IN', available: false, available_in: 'Phase 8 (MPC predictor)' },
+];
+
+function fakeFetch(input: RequestInfo | URL): Promise<Response> {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (url.endsWith('/api/sim/status')) return Promise.resolve(Response.json(SIM));
+  if (url.endsWith('/api/commands')) return Promise.resolve(Response.json(COMMANDS));
+  return Promise.resolve(Response.json(HEALTH));
+}
+
+describe('App terminal', () => {
   beforeEach(() => {
     FakeSocket.instances = [];
     useConnection.setState({ status: 'closed', log: [], lastSeq: null, gaps: 0 });
+    useMarket.setState({ us: null, india: null, usBefore: null, indiaBefore: null, slots: initialSlots(), focused: 0, teach: false });
     vi.stubGlobal('WebSocket', FakeSocket);
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.resolve(Response.json(HEALTH))),
-    );
+    vi.stubGlobal('fetch', vi.fn(fakeFetch));
   });
 
-  it('shows backend health and connection status', async () => {
+  it('shows backend health, simulator status and data quality', async () => {
     render(<App />);
     expect(screen.getByRole('heading', { name: 'SOVEREIGNDESK' })).toBeInTheDocument();
     expect(await screen.findByText('KEY OK')).toBeInTheDocument();
     const status = screen.getByRole('status', { name: 'system status' });
     expect(status).toHaveTextContent('APIv0.1.0');
-    expect(status).toHaveTextContent('ENGINEv0.1.0');
-    expect(status).toHaveTextContent('MODEONLINE');
-    expect(screen.getByText(/CONNECTING/)).toBeInTheDocument();
-
+    expect(await within(status).findByText('US SEED 2026-10-19')).toBeInTheDocument();
+    expect(within(status).getByText('IN LIVE')).toBeInTheDocument();
+    expect(status).toHaveTextContent('SIM1×');
     act(() => {
       FakeSocket.latest().serverOpen();
     });
-    expect(screen.getByText(/LIVE/)).toBeInTheDocument();
+    expect(screen.getAllByText(/LIVE/).length).toBeGreaterThan(0);
   });
 
-  it('subscribes, sends commands and logs the reply and the narrative', async () => {
+  it('subscribes, fills the panels at startup and routes replies and ticks', async () => {
     render(<App />);
     await screen.findByText('KEY OK');
     const socket = FakeSocket.latest();
     act(() => {
       socket.serverOpen();
     });
-
-    const input = screen.getByRole('textbox', { name: 'command' });
+    const input = screen.getByRole('combobox', { name: 'command' });
     fireEvent.change(input, { target: { value: '  QT 95B ' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(input).toHaveValue('');
     expect(socket.sent.map((s) => JSON.parse(s) as unknown)).toEqual([
-      { op: 'subscribe', topics: ['events', 'status'] },
+      { op: 'subscribe', topics: ['events', 'status', 'us.tick', 'in.tick'] },
+      { op: 'command', text: 'PY 10Y' },
+      { op: 'command', text: 'FED' },
+      { op: 'command', text: 'WACR' },
+      { op: 'command', text: 'UST' },
       { op: 'command', text: 'QT 95B' },
     ]);
 
     act(() => {
-      socket.serverSend(envelope('command', 1, { ok: true, code: 'QT', message: 'QT $95bn/month' }));
+      socket.serverSend(envelope('us.tick', 1, US_TICK));
+      socket.serverSend(envelope('in.tick', 2, IN_TICK));
       socket.serverSend(
-        envelope('events', 2, {
+        envelope('command', 3, { ok: true, code: 'PY', message: '10Y par bond at 4.10%', panel: 'PY', data: PY_DATA }),
+      );
+      socket.serverSend(
+        envelope('events', 4, {
           sim_time: '2026-10-19T14:05:00+00:00',
           kind: 'projection',
           code: 'QT',
@@ -71,12 +106,46 @@ describe('App shell', () => {
         }),
       );
     });
+    const py = screen.getByRole('region', { name: 'panel 1: PY' });
+    expect(py).toHaveTextContent('MOD DURATION8.12');
+    expect(within(py).getByRole('img', { name: '10Y price against yield change' })).toBeInTheDocument();
+    const tape = screen.getByRole('marquee', { name: 'ticker' });
+    expect(tape).toHaveTextContent('UST 10Y4.100%');
+    expect(tape).toHaveTextContent('WACR5.28%');
+    expect(screen.getByRole('region', { name: 'panel 3: WACR' })).toHaveTextContent('SURPLUS₹1.86 lakh cr');
     const log = screen.getByRole('region', { name: 'event log' });
-    expect(log).toHaveTextContent('QT $95bn/month');
+    expect(log).toHaveTextContent('10Y par bond at 4.10%');
     expect(log).toHaveTextContent('over 24 months reserves fall');
+    expect(log).not.toHaveTextContent('us.tick');
 
     fireEvent.keyDown(input, { key: 'ArrowUp' });
     expect(input).toHaveValue('QT 95B');
+  });
+
+  it('suggests functions while a code is typed and completes with Tab', async () => {
+    render(<App />);
+    const input = screen.getByRole('combobox', { name: 'command' });
+    await screen.findByText('KEY OK');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'q' } });
+    const list = await screen.findByRole('listbox');
+    expect(list).toHaveTextContent('QT 95B | QT OFF');
+    fireEvent.keyDown(input, { key: 'Tab' });
+    expect(input).toHaveValue('QT ');
+  });
+
+  it('toggles teach notes and focuses panels from the keyboard', async () => {
+    render(<App />);
+    await screen.findByText('KEY OK');
+    const socket = FakeSocket.latest();
+    act(() => {
+      socket.serverOpen();
+      socket.serverSend(envelope('command', 1, { ok: true, code: 'PY', message: 'ok', panel: 'PY', data: PY_DATA }));
+      socket.serverSend(envelope('command', 2, { ok: true, code: 'TEACH', message: 'Teach mode toggled', panel: 'TEACH', data: null }));
+    });
+    expect(screen.getByRole('complementary', { name: 'teach note for PY' })).toHaveTextContent('Convexity');
+    fireEvent.keyDown(window, { key: '3', altKey: true });
+    expect(useMarket.getState().focused).toBe(2);
   });
 
   it('flags the API as down when health fails', async () => {

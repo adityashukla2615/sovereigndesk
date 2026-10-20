@@ -224,5 +224,9 @@ def build_us_anchors(service: DataService) -> USAnchors:
         ladder=ladder,
         issuance_mix=mix,
         mspd_as_of=rows[0].record_date,
-        quality={sid: label for sid, label in infos.items() if not sid.startswith("tic/")},
+        quality={
+            sid: label
+            for sid, label in infos.items()
+            if sid.startswith(("fred/", "ust/", "fiscal/")) and label != "MISSING"
+        },
     )

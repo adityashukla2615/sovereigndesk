@@ -30,3 +30,13 @@
     -webkit-font-smoothing: antialiased;
   }
 }
+
+/* A quote that has just changed flashes amber, then fades (TickerTape). */
+@keyframes tick {
+  from {
+    background-color: color-mix(in srgb, var(--color-term-amber) 30%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}

@@ -21,6 +21,9 @@ interface CommandReply {
   ok: boolean;
   code: string;
   message: string;
+  /** The handler narrated this in the event log already. */
+  narrated?: boolean;
+  sim_time?: string | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -56,7 +59,10 @@ export function logLines(envelope: Envelope): LogLine[] {
     return events.map((event, i) => eventLine(event, `${key}-${String(i)}`));
   }
   if (topic === 'command' && isCommandReply(data)) {
-    return [{ key, time, label: data.code || 'CMD', tone: data.ok ? 'ok' : 'fail', text: data.message }];
+    // A narrated reply's story arrives on `events`; showing both would print it twice.
+    if (data.ok && data.narrated === true) return [];
+    const at = typeof data.sim_time === 'string' ? data.sim_time.slice(11, 19) : time;
+    return [{ key, time: at, label: data.code || 'CMD', tone: data.ok ? 'ok' : 'fail', text: data.message }];
   }
   if (topic === 'error' && isRecord(data)) {
     return [{ key, time, label: 'ERROR', tone: 'fail', text: String(data.reason) }];

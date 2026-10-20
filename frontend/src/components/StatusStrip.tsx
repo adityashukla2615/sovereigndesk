@@ -1,10 +1,14 @@
 import type { ReactNode } from 'react';
 
 import type { HealthState } from '../api/useHealth';
+import type { SimStatus } from '../api/useSim';
+import { simClock } from '../lib/corridor';
 import { MARKET_ZONES, formatClock } from '../lib/time';
 import { useNow } from '../lib/useNow';
 import { useConnection } from '../store/connection';
+import { useMarket } from '../store/market';
 import type { ConnectionStatus } from '../ws/client';
+import { QualityBadge } from './QualityBadge';
 
 const WS_STATUS: Record<ConnectionStatus, { text: string; className: string }> = {
   open: { text: 'LIVE', className: 'text-term-up' },
@@ -51,7 +55,40 @@ function ApiFields({ health }: { health: HealthState }) {
   }
 }
 
-export function StatusStrip({ health }: { health: HealthState }) {
+function SimFields({ sim }: { sim: SimStatus | null }) {
+  const simTime = useMarket((s) => s.us?.sim_time ?? s.india?.sim_time ?? null);
+  if (!sim) return null;
+  return (
+    <>
+      <Field label="SIM">
+        {sim.paused ? <span className="text-term-down">PAUSED</span> : `${String(sim.speed)}×`}
+      </Field>
+      {simTime && (
+        <Field label="SIM TIME">
+          {simClock(simTime, 'Asia/Kolkata')} IST · {simClock(simTime, 'America/New_York').slice(-5)} ET
+        </Field>
+      )}
+      <span className="flex items-center gap-1.5">
+        {sim.running ? (
+          <QualityBadge prefix="US" labels={sim.input_quality} />
+        ) : (
+          <span className="text-term-down" title={sim.error ?? undefined}>
+            US DOWN
+          </span>
+        )}
+        {sim.india.running ? (
+          <QualityBadge prefix="IN" labels={sim.india.input_quality} />
+        ) : (
+          <span className="text-term-down" title={sim.india.error ?? undefined}>
+            IN DOWN
+          </span>
+        )}
+      </span>
+    </>
+  );
+}
+
+export function StatusStrip({ health, sim = null }: { health: HealthState; sim?: SimStatus | null }) {
   const status = useConnection((s) => s.status);
   const gaps = useConnection((s) => s.gaps);
   const now = useNow();
@@ -67,6 +104,7 @@ export function StatusStrip({ health }: { health: HealthState }) {
         <span className={ws.className}>● {ws.text}</span>
       </Field>
       <ApiFields health={health} />
+      <SimFields sim={sim} />
       {gaps > 0 && (
         <Field label="GAPS">
           <span className="text-term-down">{gaps}</span>

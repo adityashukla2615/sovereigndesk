@@ -17,6 +17,22 @@ py tasks.py check                       # secrets scan, lint, types, tests, buil
 
 With Docker: `docker compose up --build` (or `make up`) starts the backend, the nginx-served frontend, TimescaleDB and Redis; open http://localhost:8080.
 
+## The terminal
+
+![The terminal: price–yield, Fed corridor with a QT plan, India's call money corridor and the Treasury curve after a foreign sale](docs/screenshots/mvp-3-india.png)
+
+Four resizable panels, a ticker, data-quality badges (LIVE, SEED, STALE) and an event log that narrates every shock. Both markets run live on real anchors: the Treasury curve and the Fed's corridor, and India's call money market, where 40 SYNTHETIC banks trade inside RBI's corridor. Things to try:
+
+| Command | What happens |
+|---|---|
+| `PY 10Y` | Price–yield: duration, convexity and how good each approximation is |
+| `HIKE 25BP`, `QT 95B` | The Fed moves; EFFR, reserves, the curve and the term premium respond |
+| `SHOCK JP 200B 10D LONG` | A foreign holder sells; yields, the dollar and the debt cost respond |
+| `WACR`, `REPO -25BP`, `CRR 3.5`, `VRR 50000CR 7D` | India's corridor, an MPC move and RBI's operations |
+| `TEACH`, `HELP`, `SPEED 60X` | The economics behind each panel, every function, faster time |
+
+`/` focuses the command bar and Alt+1..4 a panel. `py tasks.py demo` walks this demo end to end on the real seed, and `py tasks.py screenshots` re-captures [docs/screenshots](docs/screenshots). What is real data and what is modelled is listed in [ASSUMPTIONS.md](ASSUMPTIONS.md).
+
 ## Layout
 
 | Path | Contents |

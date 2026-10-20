@@ -8,6 +8,9 @@ const backend = process.env.SD_BACKEND_URL ?? 'http://127.0.0.1:8000';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // The chart chunk (tree-shaken ECharts, loaded lazily after the shell paints) is ~550 kB;
+  // the shell itself stays near 300 kB.
+  build: { chunkSizeWarningLimit: 600 },
   server: {
     port: 5173,
     strictPort: true,

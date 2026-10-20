@@ -311,7 +311,11 @@ def build_india_anchors(service: DataService) -> INAnchors:
     )
     history_start = frame.index.max() - pd.Timedelta(days=365)
     recent = frame[frame.index >= history_start].dropna(subset=["wacr", "repo"])
-    used = {sid for sid in infos if sid.startswith(("rbi/", "fbil/tbill/"))}
+    used = {
+        sid
+        for sid, label in infos.items()
+        if sid.startswith(("rbi/", "fbil/tbill/")) and label != "MISSING"
+    }
     return INAnchors(
         as_of=as_of,
         repo=pct("rbi/repo"),

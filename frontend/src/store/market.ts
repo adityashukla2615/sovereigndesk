@@ -1,0 +1,82 @@
+import { create } from 'zustand';
+
+import type { CommandReply, InTick, UsTick } from '../market/types';
+
+/** What each of the four slots shows when the terminal opens, and the commands that fill them. */
+export const DEFAULT_PANELS = ['PY', 'FED', 'WACR', 'UST'] as const;
+export const STARTUP_COMMANDS = ['PY 10Y', 'FED', 'WACR', 'UST'] as const;
+export const SLOT_COUNT = 4;
+
+export interface Slot {
+  panel: string;
+  /** The latest successful reply for this panel, by command code (FED and QT both feed FED). */
+  replies: Record<string, CommandReply>;
+  message: string;
+}
+
+interface MarketState {
+  us: UsTick | null;
+  india: InTick | null;
+  /** The previous ticks, for the ticker's up/down colours. */
+  usBefore: UsTick | null;
+  indiaBefore: InTick | null;
+  slots: Slot[];
+  focused: number;
+  teach: boolean;
+  setUs: (tick: UsTick) => void;
+  setIndia: (tick: InTick) => void;
+  applyReply: (reply: CommandReply) => void;
+  focus: (index: number) => void;
+  toggleTeach: () => void;
+}
+
+export function initialSlots(): Slot[] {
+  return DEFAULT_PANELS.map((panel) => ({ panel, replies: {}, message: '' }));
+}
+
+/**
+ * Where a reply goes: a slot already showing its panel is refreshed. A function asked for by
+ * name (PY, WACR, …) otherwise takes the focused slot; an action whose story is another panel's
+ * (VRR → LAF, HIKE → FED) only refreshes that panel if it is open. Failures reach the log only.
+ */
+export function routeReply(slots: Slot[], focused: number, reply: CommandReply): Slot[] {
+  if (!reply.ok || reply.panel === null || reply.panel === 'TEACH') return slots;
+  const panel = reply.panel;
+  const index = slots.findIndex((slot) => slot.panel === panel);
+  if (index < 0 && reply.code !== panel) return slots;
+  const target = index >= 0 ? index : focused;
+  return slots.map((slot, i) => {
+    if (i !== target) return slot;
+    const replies = slot.panel === panel ? { ...slot.replies } : {};
+    replies[reply.code] = reply;
+    return { panel, replies, message: reply.message };
+  });
+}
+
+export const useMarket = create<MarketState>()((set) => ({
+  us: null,
+  india: null,
+  usBefore: null,
+  indiaBefore: null,
+  slots: initialSlots(),
+  focused: 0,
+  teach: false,
+  setUs: (tick) => {
+    set((state) => ({ us: tick, usBefore: state.us }));
+  },
+  setIndia: (tick) => {
+    set((state) => ({ india: tick, indiaBefore: state.india }));
+  },
+  applyReply: (reply) => {
+    set((state) => ({
+      slots: routeReply(state.slots, state.focused, reply),
+      teach: reply.ok && reply.code === 'TEACH' ? !state.teach : state.teach,
+    }));
+  },
+  focus: (index) => {
+    if (index >= 0 && index < SLOT_COUNT) set({ focused: index });
+  },
+  toggleTeach: () => {
+    set((state) => ({ teach: !state.teach }));
+  },
+}));

@@ -1,6 +1,20 @@
+import { isCommandReply, isInTick, isUsTick } from '../market/types';
 import { useConnection } from '../store/connection';
+import { useMarket } from '../store/market';
 import { WsClient, type WsClientOptions, defaultWsUrl } from './client';
-import type { ClientMessage } from './protocol';
+import type { ClientMessage, Envelope } from './protocol';
+
+export const SESSION_TOPICS = ['events', 'status', 'us.tick', 'in.tick'];
+
+/** Market ticks and command replies feed the market store; everything reaches the log store. */
+export function route(message: Envelope): void {
+  const market = useMarket.getState();
+  const { topic, data } = message;
+  if (topic === 'us.tick' && isUsTick(data)) market.setUs(data);
+  else if (topic === 'in.tick' && isInTick(data)) market.setIndia(data);
+  else if (topic === 'command' && isCommandReply(data)) market.applyReply(data);
+  useConnection.getState().receive(message);
+}
 
 let client: WsClient | null = null;
 
@@ -10,8 +24,8 @@ export function startSession(overrides: Partial<WsClientOptions> = {}): () => vo
   const store = useConnection.getState();
   const session = new WsClient({
     url: defaultWsUrl(),
-    topics: ['events', 'status'],
-    onMessage: store.receive,
+    topics: SESSION_TOPICS,
+    onMessage: route,
     onStatus: store.setStatus,
     ...overrides,
   });

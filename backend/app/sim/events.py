@@ -25,9 +25,12 @@ class Event:
 class EventLog:
     def __init__(self, limit: int = 500) -> None:
         self._events: deque[Event] = deque(maxlen=limit)
+        self.total = 0
+        """Events ever added (the deque forgets old ones; this keeps counting)."""
 
     def add(self, event: Event) -> Event:
         self._events.append(event)
+        self.total += 1
         return event
 
     def recent(self, n: int = 100) -> list[Event]:
@@ -44,10 +47,11 @@ def bp(change: float) -> str:
 
 
 def usd_bn(amount: float) -> str:
-    """USD billions with a sensible unit: 50 → '$50bn', 1234 → '$1.23tn'."""
-    if abs(amount) >= 1000:
-        return f"${amount / 1000:,.2f}tn"
-    return f"${amount:,.0f}bn" if abs(amount) >= 10 else f"${amount:,.1f}bn"
+    """USD billions with a sensible unit: 50 → '$50bn', 1234 → '$1.23tn', -2280 → '−$2.28tn'."""
+    sign, size = ("−" if amount < 0 else ""), abs(amount)
+    if size >= 1000:
+        return f"{sign}${size / 1000:,.2f}tn"
+    return f"{sign}${size:,.0f}bn" if size >= 10 else f"{sign}${size:,.1f}bn"
 
 
 def pct(rate: float, digits: int = 2) -> str:
@@ -56,6 +60,7 @@ def pct(rate: float, digits: int = 2) -> str:
 
 def inr_cr(amount: float) -> str:
     """Rupees in crore, switching to lakh crore at ₹1 lakh crore: 34528 → '₹34,528 cr'."""
-    if abs(amount) >= 100_000:
-        return f"₹{amount / 100_000:,.2f} lakh cr"
-    return f"₹{amount:,.0f} cr"
+    sign, size = ("−" if amount < 0 else ""), abs(amount)
+    if size >= 100_000:
+        return f"{sign}₹{size / 100_000:,.2f} lakh cr"
+    return f"{sign}₹{size:,.0f} cr"

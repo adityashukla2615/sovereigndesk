@@ -145,6 +145,8 @@ The participation check runs on every order: an order that would take the day's 
 | Opening position | Banks start at their requirement, with the release's SDF − MSF residual and its VRRR shared by NDTL plus their own positions. The release gives the VRRR total but not maturities, so it is assumed to mature in a week |
 | Not modelled | Interest on reserves and loans (balances move by principal only); currency in circulation, FX intervention and OMOs (Phase 9's linkage); bank holidays. The India market re-anchors to new RBI data on RESET only |
 
+The map's liquidity is RBI's whole net position, operations included: fitted on the overnight part alone (SDF − MSF) it does worse (RMSE 17.9 bp against 17.4). So a VRR that only replaces MSF borrowing leaves the map where it was; it moves WACR through the call market itself, by changing who still needs to borrow.
+
 Commands: `REPO ±25BP` moves repo, SDF and MSF together at once; `CRR 3.5` takes effect from the next reporting fortnight; `VRR 50000CR 7D` and `VRRR …` run at 09:30 or the next round, with banks bidding their gaps in a multiple-price auction.
 
 ## Bond conventions (engine, Phase 2)
