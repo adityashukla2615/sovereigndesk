@@ -1,1 +1,2 @@
-"""Indian money market: RBI rules and the synthetic bank universe (call clearing in Phase 6)."""
+"""Indian money market: RBI rules, SYNTHETIC banks, call clearing, LAF auctions, the macro map
+and the repo pass-through to the G-sec curve."""

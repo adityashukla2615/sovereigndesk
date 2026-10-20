@@ -18,6 +18,9 @@ processes the same day:
 * 23:59  end-of-day balances count toward the fortnight's CRR average; the daily floor is
          checked.
 
+The G-sec curve (``gsec``) moves with the clearing rounds: its factors step every round, and
+repo changes and the T-bills' liquidity spread reach it at once.
+
 Business days are Monday to Friday (the simulator keeps no holiday calendar). Interest on
 reserves and loans is not credited, so balances move only by principal.
 """
@@ -32,6 +35,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 
 from app.sim.events import EventKind, inr_cr
+from app.sim.gsec import GsecCurve
 from app.sim.india_anchors import (
     ADVANCE_TAX_DAY,
     ADVANCE_TAX_MONTHS,
@@ -66,6 +70,7 @@ EOD_TIME = time(23, 59)
 ROUNDS = 32
 """Clearing rounds 09:15, 09:30, … 17:00."""
 YEAR_DAYS = 365.25
+TBILL_YEARS: dict[str, float] = {"3M": 0.25, "6M": 0.5, "12M": 1.0}
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,6 +224,12 @@ class IndiaMarket:
         self.anchors = anchors
         self.params = params or IndiaModelParams()
         self.rng = rng
+        # A stream of its own (spawned, so the money market's draws are unchanged).
+        self.gsec = None if anchors.gsec is None else GsecCurve(anchors.gsec, rng.spawn(1)[0])
+        self.tbill_beta = {
+            t: 1.0 if self.gsec is None else self.gsec.tbill_beta(y) for t, y in TBILL_YEARS.items()
+        }
+        """How much of a repo change each T-bill takes: the G-sec pass-through β(τ), else one."""
         self.repo, self.sdf, self.msf = anchors.repo, anchors.sdf, anchors.msf
         self.crr = anchors.crr
         self.rules = MoneyMarketRules(crr=anchors.crr, slr=anchors.slr)
@@ -262,6 +273,7 @@ class IndiaMarket:
         local = now.astimezone(IST)
         if is_business_day(self.today) and local.time() >= SESSION_OPEN:
             self._open(local)
+        self._update_gsec()
 
     # ------------------------------------------------------------------ opening position
 
@@ -638,7 +650,14 @@ class IndiaMarket:
         }
         return [Notice("policy", kind, text, data)]
 
+    def _update_gsec(self) -> None:
+        if self.gsec is not None:
+            self.gsec.update(self.tbills(), self.repo - self.gsec.anchors.repo)
+
     def _round(self, at: datetime) -> list[Notice]:
+        if self.gsec is not None:
+            self.gsec.step(1 / ROUNDS)
+            self._update_gsec()
         notices: list[Notice] = []
         local = at.astimezone(IST)
         if self.queued and local.time() > AUCTION_TIME:
@@ -808,6 +827,9 @@ class IndiaMarket:
         self.deviation = self.anchors.deviations.step(self.deviation, self.rng)
         if is_business_day(day):
             self.rounds = []
+            if self.gsec is not None:
+                self._update_gsec()
+                self.gsec.close(day)
         return notices
 
     # ------------------------------------------------------------------ readings
@@ -837,10 +859,15 @@ class IndiaMarket:
         }
 
     def tbills(self) -> dict[str, float]:
+        """FBIL's benchmarks plus the repo change passed through by β(τ) and the liquidity
+        spread's move."""
         a = self.anchors
         shift = self.repo - a.repo
         move = self.surplus_pct() - a.surplus_pct
-        return {t: a.tbills[t] + shift + a.tbill_slopes[t] * move for t in TBILL_TENORS}
+        return {
+            t: a.tbills[t] + self.tbill_beta[t] * shift + a.tbill_slopes[t] * move
+            for t in TBILL_TENORS
+        }
 
     def check_invariants(self) -> None:
         """Asserted on every tick; a failure is a bug, not a market event."""
@@ -865,14 +892,18 @@ class IndiaMarket:
                 raise AssertionError(f"{book.bank.code} borrowed above its daily cap")
             if book.borrow_sum > avg * days * (1 + 1e-9) + 1e-6:
                 raise AssertionError(f"{book.bank.code} breached its fortnightly borrowing average")
+        if self.gsec is not None:
+            self.gsec.check()
 
     # ------------------------------------------------------------------ policy and orders
 
     def set_repo(self, change: float) -> None:
-        """An MPC decision: repo moves and the SDF and MSF move with it, at once."""
+        """An MPC decision: repo moves and the SDF and MSF move with it, at once; so do the
+        T-bills and the G-sec curve, by the pass-through β(τ)."""
         self.repo += change
         self.sdf += change
         self.msf += change
+        self._update_gsec()
 
     def schedule_crr(self, new_crr: float) -> tuple[date, float]:
         """A CRR change applies from the next reporting fortnight; returns (date, liquidity)."""
@@ -1059,6 +1090,16 @@ class IndiaMarket:
             )
         return rows
 
+    def gsec_panel(self) -> dict[str, Any] | None:
+        if self.gsec is None:
+            return None
+        return {**self.gsec.panel(), "now": self.gsec_tick()}
+
+    def gsec_tick(self) -> dict[str, Any] | None:
+        if self.gsec is None:
+            return None
+        return self.gsec.tick(self.stale_label(self.gsec.anchors.as_of))
+
     def heatmap(self, days_ahead: int = 120) -> dict[str, Any]:
         """Real WACR − repo by day, the simulated days so far, and the tax days ahead."""
         today = self._today()
@@ -1125,6 +1166,7 @@ class IndiaMarket:
             "band": {"lower": self.band()[0], "upper": self.band()[1]},
             "tbills_as_of": self.anchors.tbill_as_of.isoformat(),
             "tbills_stale": self.stale_label(self.anchors.tbill_as_of),
+            "gsec": self.gsec_tick(),
             "as_of": self.anchors.as_of.isoformat(),
         }
 

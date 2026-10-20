@@ -1,6 +1,6 @@
 # SovereignDesk
 
-A live, Bloomberg-style terminal that simulates the US Treasury market and the Indian money market. It is built on real data from FRED, US Treasury, TIC and RBI, uses a pure-Python quant engine, and streams intraday ticks from stochastic short-rate models.
+A live, Bloomberg-style terminal that simulates the US Treasury market and the Indian money market. It is built on real data from FRED, US Treasury, TIC, RBI and FBIL, uses a pure-Python quant engine, and streams intraday ticks from stochastic short-rate models.
 
 > Work in progress. The build plan is in [docs/PLAN.md](docs/PLAN.md) and the spec in [docs/BRIEF.md](docs/BRIEF.md).
 
@@ -29,7 +29,10 @@ Four resizable panels, a ticker, data-quality badges (LIVE, SEED, STALE) and an 
 | `HIKE 25BP`, `QT 95B` | The Fed moves; EFFR, reserves, the curve and the term premium respond |
 | `SHOCK JP 200B 10D LONG` | A foreign holder sells; yields, the dollar and the debt cost respond |
 | `WACR`, `REPO -25BP`, `CRR 3.5`, `VRR 50000CR 7D` | India's corridor, an MPC move and RBI's operations |
+| `GSEC`, `SPRD` | India's G-sec curve (NSS) and how a repo surprise passes through it, measured on RBI's repo changes; India's 10Y against the US 10Y |
 | `TEACH`, `HELP`, `SPEED 60X` | The economics behind each panel, every function, faster time |
+
+![GSEC: India's G-sec curve after a 25 bp repo cut, with the event study's pass-through by maturity; SPRD: India's 10Y against the US 10Y since 2023](docs/screenshots/gsec-1-curve.png)
 
 `/` focuses the command bar and Alt+1..4 a panel. `py tasks.py demo` walks this demo end to end on the real seed, and `py tasks.py screenshots` re-captures [docs/screenshots](docs/screenshots). What is real data and what is modelled is listed in [ASSUMPTIONS.md](ASSUMPTIONS.md).
 

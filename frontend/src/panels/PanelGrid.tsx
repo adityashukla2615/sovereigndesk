@@ -5,7 +5,9 @@ import { QualityBadge } from '../components/QualityBadge';
 import { type Slot, useMarket } from '../store/market';
 import { FedPanel } from './FedPanel';
 import { GenericPanel } from './GenericPanel';
+import { GsecPanel } from './GsecPanel';
 import { PyPanel } from './PyPanel';
+import { SprdPanel } from './SprdPanel';
 import { UstPanel } from './UstPanel';
 import { WacrPanel } from './WacrPanel';
 
@@ -14,9 +16,11 @@ const PANELS: Record<string, ComponentType<{ slot: Slot }>> = {
   FED: FedPanel,
   WACR: WacrPanel,
   UST: UstPanel,
+  GSEC: GsecPanel,
+  SPRD: SprdPanel,
 };
 
-const INDIA_PANELS = new Set(['WACR', 'CALL', 'LAF', 'NDTL', 'TAXCAL']);
+const INDIA_PANELS = new Set(['WACR', 'CALL', 'LAF', 'NDTL', 'TAXCAL', 'GSEC', 'SPRD']);
 
 export interface Quality {
   us: readonly string[];

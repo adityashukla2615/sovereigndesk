@@ -102,3 +102,28 @@ def test_india_anchors_to_the_real_seed_and_streams(live: TestClient) -> None:
     assert tick["ndtl"] > 1e7  # ₹ crore: above ₹100 lakh crore
     assert reply["ok"] is True, reply["message"]
     assert reply["data"]["map"]["points"] > 500  # fitted on years of RBI releases
+
+
+def test_gsec_curve_anchors_to_fbil_and_rbi(live: TestClient) -> None:
+    """The real seed: FBIL's par yields, the event study on RBI's repo changes, the spread."""
+    with live.websocket_connect("/ws") as ws:
+        ws.send_text(json.dumps({"op": "subscribe", "topics": ["in.tick"]}))
+        tick = _until(ws, "in.tick")["data"]["gsec"]
+        ws.send_text(json.dumps({"op": "command", "text": "GSEC"}))
+        gsec = _until(ws, "command")["data"]
+        ws.send_text(json.dumps({"op": "command", "text": "SPRD"}))
+        sprd = _until(ws, "command")["data"]
+    assert gsec["ok"] is True, gsec["message"]
+    assert tick["rmse_bp"] < 6
+    points = tick["points"]
+    assert 0.03 < points["3M"] < points["10Y"] < 0.12
+    pt = gsec["data"]["passthrough"]
+    assert len(pt["events"]) >= 11  # every repo change since 8 Apr 2022
+    beta = {round(r["years"], 2): r["beta"] for r in pt["curve"]}
+    assert abs(beta[0.25] - 1) < 1e-9
+    assert beta[0.25] > beta[2.0] > beta[10.0] > 0  # the short end moves most
+    assert all(e["day_beta"] < 0.5 for e in pt["estimates"])  # most changes were expected
+    assert sprd["ok"] is True, sprd["message"]
+    real = sprd["data"]["real"]
+    assert len(real) > 500  # daily since February 2023
+    assert all(0 < r["india"] - r["us"] < 0.06 for r in real)

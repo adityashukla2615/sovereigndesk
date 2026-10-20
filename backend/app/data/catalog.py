@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 Frequency = Literal["D", "W", "M", "Q"]
-SourceName = Literal["fred", "treasury", "fiscaldata", "tic", "rbi", "fbil", "nsdl"]
+SourceName = Literal["fred", "treasury", "fiscaldata", "tic", "rbi", "fbil", "fbil_gsec", "nsdl"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,6 +214,20 @@ IN_FBIL_SERIES: tuple[SeriesSpec, ...] = (
     SeriesSpec("fbil/usdinr", "fbil", "usdinr", "FBIL reference rate, INR per USD", "INR", "D"),
 )
 
+# FBIL's G-sec base/par yield curve, by tenor in years: semi-annual par yields, except that the
+# 3-month point is a simple (money-market) yield. FBIL publishes every quarter year to 40-50 years.
+FBIL_GSEC_TENORS: dict[str, float] = {
+    "3M": 0.25, "6M": 0.5, "1Y": 1.0, "2Y": 2.0, "3Y": 3.0, "5Y": 5.0,
+    "7Y": 7.0, "10Y": 10.0, "14Y": 14.0, "20Y": 20.0, "30Y": 30.0,
+}  # fmt: skip
+
+IN_FBIL_GSEC_SERIES: tuple[SeriesSpec, ...] = tuple(
+    SeriesSpec(
+        f"fbil/gsec/par/{t}", "fbil_gsec", f"par/{t}", f"FBIL G-sec par yield, {t}", "%", "D"
+    )
+    for t in FBIL_GSEC_TENORS
+)
+
 _FPI_CLASSES = (
     ("equity", "equity"),
     ("debt", "debt (general limit + VRR + FAR)"),
@@ -233,7 +247,7 @@ IN_NSDL_SERIES: tuple[SeriesSpec, ...] = tuple(
 )
 
 INDIA_SERIES: tuple[SeriesSpec, ...] = (
-    IN_RBI_SERIES + IN_MMO_SERIES + IN_FBIL_SERIES + IN_NSDL_SERIES
+    IN_RBI_SERIES + IN_MMO_SERIES + IN_FBIL_SERIES + IN_FBIL_GSEC_SERIES + IN_NSDL_SERIES
 )
 
 STATIC_SERIES: tuple[SeriesSpec, ...] = FRED_SERIES + TREASURY_SERIES + FISCAL_SERIES + INDIA_SERIES

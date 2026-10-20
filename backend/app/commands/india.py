@@ -1,4 +1,5 @@
-"""Module B function codes: India's call money market, RBI's corridor and operations, the banks."""
+"""Module B function codes: India's call money market, RBI's corridor and operations, the banks,
+and the G-sec curve with its repo pass-through and the spread to US Treasuries."""
 
 from app.commands.parser import (
     CommandError,
@@ -171,6 +172,9 @@ async def repo(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
         f"MPC {'hike' if change > 0 else 'cut'} {bp(change)}: repo {pct(old)} → {pct(m.repo)}; "
         f"{_corridor_text(m)}; the call market re-centres at {pct(m.map_rate())}"
     )
+    if m.gsec is not None:
+        moves = ", ".join(f"{t} {bp(m.gsec.betas[t] * change)}" for t in ("2Y", "10Y", "30Y"))
+        text += f"; G-secs {moves} (event-study pass-through)"
     sim.emit("policy", "REPO", text, {"change": change, "repo": m.repo})
     return CommandResult(True, "REPO", text, panel="WACR")
 
@@ -236,3 +240,56 @@ async def taxcal(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
         f"{tax.events} episodes); next tax day {nxt}"
     )
     return CommandResult(True, "TAXCAL", message, panel="TAXCAL", data=data)
+
+
+@command(
+    "GSEC",
+    "GSEC",
+    "India G-sec curve (NSS) and how a repo change passes through it, by maturity",
+    "IN",
+    needs_market=False,
+)
+async def gsec(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
+    m = _india(sim)
+    panel = m.gsec_panel()
+    if m.gsec is None or panel is None:
+        raise CommandError(f"G-sec curve unavailable: {m.anchors.gsec_error}")
+    g = m.gsec
+    points, fit = g.points, g.anchors.passthrough
+    message = (
+        f"G-secs: 91D {pct(points['3M'])}, 2Y {pct(points['2Y'])}, 10Y {pct(points['10Y'])}, "
+        f"30Y {pct(points['30Y'])} (NSS within {g.fit.rmse_bp:.1f} bp); a repo surprise moves "
+        f"2Y by {g.betas['2Y']:.2f} and 10Y by {g.betas['10Y']:.2f} of itself "
+        f"(event study on {len(g.anchors.events)} repo changes, 10Y band "
+        f"{fit.beta_10y_band[0]:.2f}–{fit.beta_10y_band[1]:.2f})"
+    )
+    return CommandResult(True, "GSEC", message, panel="GSEC", data=panel)
+
+
+@command(
+    "SPRD",
+    "SPRD",
+    "India 10Y against US 10Y: the spread, real history and simulated days",
+    "X",
+    needs_market=False,
+)
+async def sprd(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
+    m = _india(sim)
+    panel = sim.spread_panel()
+    if panel is None:
+        raise CommandError(f"G-sec curve unavailable: {m.anchors.gsec_error}")
+    now = panel["now"]
+    if now["spread"] is None:
+        message = f"India 10Y {pct(now['india'])}; the US market is not running: {sim.error}"
+    else:
+        real = panel["real"]
+        since = (
+            f"; {bp(real[-1]['india'] - real[-1]['us'])} on {real[-1]['date']}, "
+            f"{bp(real[0]['india'] - real[0]['us'])} on {real[0]['date']}"
+            if real
+            else ""
+        )
+        message = (
+            f"India 10Y {pct(now['india'])} − US 10Y {pct(now['us'])} = {bp(now['spread'])}{since}"
+        )
+    return CommandResult(True, "SPRD", message, panel="SPRD", data=panel)

@@ -12,7 +12,9 @@ from tenacity import wait_none
 
 if TYPE_CHECKING:
     from app.sim.anchors import USAnchors
+    from app.sim.gsec_anchors import GsecAnchors
     from app.sim.india_anchors import INAnchors
+    from sovereign_engine.curves.nss import NssFit
 
 from app.data.catalog import SeriesSpec
 from app.data.http import Fetcher, RawCache
@@ -189,3 +191,93 @@ def make_india_anchors(**overrides: object) -> "INAnchors":
     }
     values.update(overrides)
     return INAnchors(**values)
+
+
+GSEC_EVENTS: tuple[tuple[str, str, float, tuple[float, ...]], ...] = (
+    # (repo change day, FBIL's previous publication, change in bp, same-day par moves in bp at
+    # 3M 6M 1Y 2Y 3Y 5Y 7Y 10Y 14Y 20Y 30Y): FBIL's workbooks around RBI's repo changes.
+    ("2022-05-04", "2022-05-02", 40,
+     (22.2, 12.8, -0.4, 6.8, 33.3, 31.4, 27.6, 26.5, 21.1, 21.1, 18.6)),
+    ("2022-06-08", "2022-06-07", 50,
+     (-3.2, -5.3, -7.9, -7.9, -9.3, -7.1, -5, -2.4, -2.5, -2.5, -1.4)),
+    ("2022-08-05", "2022-08-04", 50,
+     (6.5, 9.3, 11.2, 10.3, 11.1, 13.7, 13.8, 14.3, 12.6, 12.3, 11.9)),
+    ("2022-09-30", "2022-09-29", 50, (-2.8, 0.3, 11.8, 18.2, -7.9, 1.7, 2.8, 6.6, 5.6, 6, 4.2)),
+    ("2022-12-07", "2022-12-06", 35, (10.2, 7, 2.9, 3.6, 4.2, 2.8, 1.9, 2.2, 0.9, 1.9, 1.6)),
+    ("2023-02-08", "2023-02-07", 25, (11.1, 6.3, 1.2, 6.1, 7.7, 6.1, 5.8, 2.7, 3.1, 3.1, 2.8)),
+    ("2025-02-07", "2025-02-06", -25, (-6, 0, -3, 2, 3, 4, 3, 4, 1, 1, 3)),
+    ("2025-04-09", "2025-04-08", -25, (-4, -10, -11, -8, -6, -4, -3, -2, -3, -3, 1)),
+    ("2025-06-06", "2025-06-05", -50, (-19, -16, -12, -6, -5, -4, 3, 4, 9, 6, 3)),
+    ("2025-12-05", "2025-12-04", -25, (-11, -5, -9, -5, -10, -6, -5, -3, -6, -6, -5)),
+    ("2026-10-07", "2026-10-06", 25, (5, 9, 14, 6, 9, 3, 0, 4, 1, 0, -1)),
+)  # fmt: skip
+GSEC_PAR = (0.0561, 0.0586, 0.0631, 0.0669, 0.0691, 0.0717, 0.0726, 0.0741, 0.0747, 0.0774, 0.078)
+"""FBIL's par curve on 12 Oct 2026 at the stored tenors."""
+
+
+_CLOSE_FITS: dict[tuple[tuple[str, float], ...], "NssFit"] = {}
+
+
+def _close_fit(close: dict[str, float]) -> "NssFit":
+    """NSS fitted to a close curve; cached, as a cold fit takes a few tenths of a second."""
+    from app.sim.gsec_anchors import quotes_of
+    from sovereign_engine.curves.nss import fit_nss_quotes
+
+    key = tuple(close.items())
+    if key not in _CLOSE_FITS:
+        _CLOSE_FITS[key] = fit_nss_quotes(quotes_of(close))
+    return _CLOSE_FITS[key]
+
+
+def make_gsec_anchors(**overrides: object) -> "GsecAnchors":
+    """G-sec anchors with FBIL's 12 Oct 2026 curve, the event study on the eleven real repo
+    changes, and the pass-through and noise magnitudes fitted on the real seed, no database."""
+    from datetime import timedelta
+
+    import numpy as np
+
+    from app.data.catalog import FBIL_GSEC_TENORS
+    from app.sim.gsec_anchors import FactorModel, GsecAnchors, RepoEvent
+    from sovereign_engine.india.passthrough import PassThrough, PassThroughFit, event_study
+
+    labels = list(FBIL_GSEC_TENORS)
+    par = dict(zip(labels, GSEC_PAR, strict=True))
+    # The bill points are the money market's T-bill benchmarks (as in make_india_anchors).
+    close = {**par, "3M": 0.0565, "6M": 0.0586, "1Y": 0.0632}
+    events = tuple(
+        RepoEvent(
+            date.fromisoformat(day),
+            date.fromisoformat(before),
+            change / 1e4,
+            {t: m / 1e4 for t, m in zip(labels, moves, strict=True)},
+        )
+        for day, before, change, moves in GSEC_EVENTS
+    )
+    study = event_study(
+        np.array(list(FBIL_GSEC_TENORS.values())),
+        np.array([e.change for e in events]),
+        np.array([[e.moves[t] for t in labels] for e in events]),
+    )
+    start = date(2026, 6, 1)
+    values: dict[str, Any] = {
+        "as_of": date(2026, 10, 12),
+        "par": par,
+        "close": close,
+        "repo": 0.055,
+        "fit": _close_fit(close),
+        "events": events,
+        "study": study,
+        "passthrough": PassThroughFit(
+            PassThrough(0.619, 0.348), 0.091, (0.073, 5.0), (-0.036, 0.633), (0.064, 1.265), 200
+        ),
+        "factors": FactorModel(0.00053, 0.00018, 0.27, 880, 1.5),
+        "daily_from": date(2023, 2, 7),
+        "spread_history": tuple(
+            (start + timedelta(days=k), 0.074 + 0.0001 * (k % 5), 0.0512 - 0.0001 * (k % 3))
+            for k in range(60)
+            if (start + timedelta(days=k)).weekday() < 5
+        ),
+        "quality": {"fbil/gsec/par/10Y": "SEED 2026-10-20"},
+    }
+    values.update(overrides)
+    return GsecAnchors(**values)

@@ -5,14 +5,18 @@
 
 Needs network access and, for FRED, FRED_API_KEY in backend/.env. Every file written comes from
 a live response: if a request fails the build stops rather than snapshot a cached copy. RBI's
-press releases never change once published, so a release saved by an earlier live crawl is
-reused rather than downloaded again; its fetch time is the original one.
+press releases and FBIL's daily G-sec workbooks never change once published, so a copy saved by
+an earlier live crawl is reused rather than downloaded again; its fetch time is the original
+one. FBIL's G-sec history needs RBI's: the repo changes it brackets come from the RBI seed.
 """
 
 import argparse
 import shutil
 import sys
 from datetime import UTC, date, datetime
+from pathlib import Path
+
+import pandas as pd
 
 from app.config import Settings
 from app.data.seed import (
@@ -20,15 +24,22 @@ from app.data.seed import (
     SeedSeries,
     SeedTable,
     read_manifest,
+    read_series,
     write_manifest,
     write_mspd,
     write_series,
 )
 from app.data.sources import build_adapters, make_client
+from app.data.sources.base import Adapter, FetchOutcome
+from app.data.sources.fbil_gsec import FbilGsecAdapter
 from app.data.sources.fiscaldata import FiscalDataAdapter
 from app.logs import configure_logging
+from sovereign_engine.india.passthrough import policy_changes
 
-SOURCES = ("fred", "treasury", "fiscaldata", "tic", "rbi", "fbil", "nsdl")
+SOURCES = ("fred", "treasury", "fiscaldata", "tic", "rbi", "fbil", "fbil_gsec", "nsdl")
+GSEC_XLSX_FROM = date(2023, 2, 13)
+"""FBIL's first .xlsx G-sec workbook. The legacy .xls files before it are ~0.75 MB each, so for
+that period only the publications around each repo change are fetched."""
 STARTS: dict[str, date | None] = {
     "fred": date(2005, 1, 1),
     "treasury": date(2010, 1, 1),
@@ -38,6 +49,7 @@ STARTS: dict[str, date | None] = {
     # (8 April 2022): about 1,650 releases, fetched one per second.
     "rbi": date(2022, 4, 8),
     "fbil": date(2022, 4, 1),
+    "fbil_gsec": GSEC_XLSX_FROM,
     "nsdl": None,  # the current month's report
 }
 # Seed sub-directories each source owns (cleared before a rebuild so dropped series vanish).
@@ -47,9 +59,34 @@ DIRS = {
     "fiscaldata": ["fiscal", "fiscaldata"],
     "tic": ["tic"],
     "rbi": ["rbi"],
-    "fbil": ["fbil"],
+    "fbil": ["fbil/tbill", "fbil/mibor", "fbil/usdinr.csv"],
+    "fbil_gsec": ["fbil/gsec"],
     "nsdl": ["nsdl"],
 }
+
+
+def repo_changes(seed_dir: Path, series: list[SeedSeries]) -> list[date]:
+    """Days the repo rate changed, from the seeded SDF and MSF (repo is their midpoint)."""
+    entries = {s.series_id: s for s in series}
+    try:
+        sdf, msf = (entries[f"rbi/mmo/{k}_rate"] for k in ("sdf", "msf"))
+    except KeyError:
+        raise SystemExit("fbil_gsec needs the RBI seed first: run --sources rbi") from None
+    frame = pd.merge(read_series(seed_dir, sdf), read_series(seed_dir, msf), on="date")
+    frame = frame.dropna().sort_values("date")
+    repo = (frame["value_x"] + frame["value_y"]) / 2
+    return [day for day, _ in policy_changes(list(frame["date"]), repo.to_numpy())]
+
+
+def fetch_source(
+    source: str, adapter: Adapter, seed_dir: Path, series: list[SeedSeries]
+) -> FetchOutcome:
+    if isinstance(adapter, FbilGsecAdapter):
+        older = [d for d in repo_changes(seed_dir, series) if d < GSEC_XLSX_FROM]
+        windows = adapter.around(older)
+        print(f"  {len(older)} repo changes before {GSEC_XLSX_FROM}: {len(windows)} publications")
+        return adapter.fetch(start=GSEC_XLSX_FROM, also=windows)
+    return adapter.fetch(start=STARTS[source])
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -83,7 +120,7 @@ def main(argv: list[str] | None = None) -> int:
         adapters = build_adapters(settings, client)
         for source in sources:
             print(f"fetching {source} ...", flush=True)
-            outcome = adapters[source].fetch(start=STARTS[source])
+            outcome = fetch_source(source, adapters[source], seed_dir, series)
             cached = [f.spec.series_id for f in outcome.frames if f.provenance.from_cache]
             if cached:
                 print(f"{source}: live requests failed for {cached[:5]}; not seeding cached data")
@@ -91,7 +128,11 @@ def main(argv: list[str] | None = None) -> int:
             for name, error in outcome.errors.items():
                 print(f"  warning: {name}: {error}")
             for folder in DIRS[source]:
-                shutil.rmtree(seed_dir / folder, ignore_errors=True)
+                target = seed_dir / folder
+                if target.is_file():
+                    target.unlink()
+                else:
+                    shutil.rmtree(target, ignore_errors=True)
             series += [write_series(seed_dir, frame) for frame in outcome.frames]
             adapter = adapters[source]
             if isinstance(adapter, FiscalDataAdapter):

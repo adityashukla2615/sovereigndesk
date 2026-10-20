@@ -18,6 +18,11 @@ dependencies = [
   "apscheduler>=3.11,<4",
   "httpx2>=2.14",
   "tenacity>=9.0",
+  # FBIL's G-sec workbooks, read through pandas: .xlsx (openpyxl, which parses XML through
+  # defusedxml when it is installed) and the legacy .xls files before 13 Feb 2023 (xlrd).
+  "openpyxl>=3.1",
+  "defusedxml>=0.7",
+  "xlrd>=2.0",
 ]
 
 [project.optional-dependencies]

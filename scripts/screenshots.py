@@ -96,6 +96,19 @@ class DevTools:
                 nativeVirtualKeyCode=13,
             )
 
+    def focus(self, slot: int) -> None:
+        """Alt+N: the next command's panel opens in slot N."""
+        for kind in ("keyDown", "keyUp"):
+            self.call(
+                "Input.dispatchKeyEvent",
+                type=kind,
+                modifiers=1,  # Alt
+                key=str(slot),
+                code=f"Digit{slot}",
+                windowsVirtualKeyCode=48 + slot,
+                nativeVirtualKeyCode=48 + slot,
+            )
+
     def shoot(self, name: str) -> Path:
         data = self.call("Page.captureScreenshot", format="png")["data"]
         path = OUT / f"{name}.png"
@@ -109,6 +122,8 @@ STEPS: list[tuple[str, list[str], float]] = [
     ("mvp-2-us-shock", ["HIKE 25BP", "QT 95B", "SHOCK JP 200B 10D LONG"], 4.0),
     ("mvp-3-india", ["SPEED 30X", "REPO -25BP", "VRR 50000CR 7D", "CRR 3.5"], 12.0),
     ("mvp-4-teach", ["TEACH"], 2.0),
+    # "@N" focuses slot N: the G-sec curve after the cut above, and the spread to Treasuries.
+    ("gsec-1-curve", ["TEACH", "@1", "GSEC", "@2", "SPRD"], 6.0),
 ]
 
 
@@ -175,7 +190,10 @@ def main() -> int:
                 tools.call("Page.navigate", url=f"http://127.0.0.1:{FRONTEND_PORT}/")
                 for name, commands, settle in STEPS:
                     for text in commands:
-                        tools.type_command(text)
+                        if text.startswith("@"):
+                            tools.focus(int(text[1:]))
+                        else:
+                            tools.type_command(text)
                         time.sleep(0.6)
                     time.sleep(settle)
                     tools.shoot(name)

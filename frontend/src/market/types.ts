@@ -1,8 +1,11 @@
 /**
  * Payloads of the simulator's WebSocket topics and of the command replies the panels render.
- * They mirror backend/app/sim/us_market.py (snapshot), backend/app/sim/india_market.py
- * (snapshot and panels) and backend/app/commands/*.py: keep them in step.
+ * They mirror backend/app/sim/us_market.py (snapshot), backend/app/sim/india_market.py and
+ * gsec.py (snapshot and panels), simulator.py (SPRD) and backend/app/commands/*.py: keep them
+ * in step.
  */
+
+import type { Nss } from '../lib/nss';
 
 export type Curve = Record<string, number>;
 
@@ -53,7 +56,96 @@ export interface InTick {
   tbills_as_of: string;
   /** e.g. `STALE 8d` when FBIL's benchmarks are older than the threshold. */
   tbills_stale: string | null;
+  /** The live G-sec curve, or null when FBIL's par yields could not be used. */
+  gsec: GsecTick | null;
   as_of: string;
+}
+
+/** The G-sec curve's tenors in years, in order (backend app.data.catalog.FBIL_GSEC_TENORS). */
+export const GSEC_YEARS: Record<string, number> = {
+  '3M': 0.25,
+  '6M': 0.5,
+  '1Y': 1,
+  '2Y': 2,
+  '3Y': 3,
+  '5Y': 5,
+  '7Y': 7,
+  '10Y': 10,
+  '14Y': 14,
+  '20Y': 20,
+  '30Y': 30,
+};
+export const GSEC_TENORS = Object.keys(GSEC_YEARS);
+
+export interface GsecTick {
+  /** Market points: the 91/182/364-day T-bills, then the coupon tenors at par. */
+  points: Curve;
+  /** The live NSS fit to the points. */
+  nss: Nss;
+  rmse_bp: number;
+  /** Repo change since FBIL's publication (decimal). */
+  repo_shift: number;
+  as_of: string;
+  stale: string | null;
+}
+
+export interface PassThroughEstimate {
+  tenor: string;
+  years: number;
+  /** Response per unit of policy surprise (the 3-month move), with its bootstrap band. */
+  relative: number;
+  low: number;
+  high: number;
+  /** Same-day move per unit of the actual repo change. */
+  day_beta: number;
+}
+
+export interface GsecPanelData {
+  tenors: Record<string, number>;
+  /** The curve on FBIL's day: T-bill benchmarks, then FBIL's par yields. */
+  close: Curve;
+  close_nss: Nss;
+  close_rmse_bp: number;
+  as_of: string;
+  repo_at_close: number;
+  passthrough: {
+    kappa: number;
+    gamma: number;
+    scale: number;
+    half_life_years: number;
+    kappa_band: number[];
+    gamma_band: number[];
+    beta_10y_band: number[];
+    rmse: number;
+    level: number;
+    events: { date: string; before: string; change: number; moves: Curve }[];
+    estimates: PassThroughEstimate[];
+    curve: { years: number; beta: number; expectations: number; tp: number }[];
+  };
+  factors: {
+    level_sd: number;
+    tp_sd: number;
+    correlation: number;
+    days: number;
+    residual_bp: number;
+    half_life_days: number;
+  };
+  now: GsecTick;
+}
+
+export interface SpreadPoint {
+  date: string;
+  india: number;
+  us: number | null;
+}
+
+export interface SpreadPanelData {
+  real: SpreadPoint[];
+  simulated: SpreadPoint[];
+  now: { india: number; us: number | null; spread: number | null };
+  daily_from: string;
+  india_as_of: string;
+  us_as_of: string | null;
 }
 
 export interface PriceYieldData {
@@ -179,6 +271,19 @@ export function reserveCurveOf(value: unknown): ReserveCurve | null {
 
 export function isCorridorPanel(value: unknown): value is CorridorPanelData {
   return isRecord(value) && isRecord(value.map) && Array.isArray(value.real);
+}
+
+export function isGsecPanel(value: unknown): value is GsecPanelData {
+  return (
+    isRecord(value) &&
+    isRecord(value.close) &&
+    isRecord(value.passthrough) &&
+    Array.isArray(value.passthrough.estimates)
+  );
+}
+
+export function isSpreadPanel(value: unknown): value is SpreadPanelData {
+  return isRecord(value) && Array.isArray(value.real) && isRecord(value.now) && 'daily_from' in value;
 }
 
 export function curveOf(value: unknown, key: string): Curve | null {

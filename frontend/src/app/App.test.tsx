@@ -7,7 +7,7 @@ import type { CommandInfo } from '../market/types';
 import { useConnection } from '../store/connection';
 import { initialSlots, useMarket } from '../store/market';
 import { FakeSocket, envelope } from '../test/fakeSocket';
-import { IN_TICK, PY_DATA, US_TICK } from '../test/marketData';
+import { GSEC_DATA, IN_TICK, PY_DATA, SPRD_DATA, US_TICK } from '../test/marketData';
 import { App } from './App';
 
 vi.mock('../components/Chart', () => ({
@@ -125,6 +125,40 @@ describe('App terminal', () => {
 
     fireEvent.keyDown(input, { key: 'ArrowUp' });
     expect(input).toHaveValue('QT 95B');
+  });
+
+  it('opens the G-sec curve and the spread to Treasuries', async () => {
+    render(<App />);
+    await screen.findByText('KEY OK');
+    const socket = FakeSocket.latest();
+    act(() => {
+      socket.serverOpen();
+      socket.serverSend(envelope('us.tick', 1, US_TICK));
+      socket.serverSend(envelope('in.tick', 2, IN_TICK));
+      socket.serverSend(
+        envelope('command', 3, { ok: true, code: 'GSEC', message: 'G-secs: 91D 5.65%', panel: 'GSEC', data: GSEC_DATA }),
+      );
+    });
+    const gsec = screen.getByRole('region', { name: 'panel 1: GSEC' });
+    expect(gsec).toHaveTextContent('10Y7.410% (+0.0 bp)');
+    expect(gsec).toHaveTextContent('2Y 0.73 · 10Y 0.54');
+    expect(within(gsec).getByText('STALE 8d')).toBeInTheDocument(); // FBIL's workbook lags a week
+    expect(await within(gsec).findByRole('img', { name: /G-sec curve/ })).toBeInTheDocument();
+    expect(within(gsec).getByRole('img', { name: /Repo pass-through/ })).toBeInTheDocument();
+    const tape = screen.getByRole('marquee', { name: 'ticker' });
+    expect(tape).toHaveTextContent('IN 10Y7.410%');
+    expect(tape).toHaveTextContent('IN–US 10Y+331 bp');
+
+    act(() => {
+      useMarket.getState().focus(1);
+      socket.serverSend(
+        envelope('command', 4, { ok: true, code: 'SPRD', message: 'India 10Y 7.41%', panel: 'SPRD', data: SPRD_DATA }),
+      );
+    });
+    const sprd = screen.getByRole('region', { name: 'panel 2: SPRD' });
+    expect(sprd).toHaveTextContent('INDIA − US+331 bp');
+    expect(sprd).toHaveTextContent('REAL ON 2026-10-12+232 bp');
+    expect(await within(sprd).findByRole('img', { name: /India 10Y against US 10Y/ })).toBeInTheDocument();
   });
 
   it('suggests functions while a code is typed and completes with Tab', async () => {

@@ -48,6 +48,23 @@ export function tickerQuotes(
       move: direction(india.tbills['3M'], indiaBefore?.tbills['3M']),
       stale: india.tbills_stale,
     });
+    const ten = india.gsec?.points['10Y'];
+    if (ten !== undefined) {
+      quotes.push({
+        label: 'IN 10Y',
+        text: pct(ten, 3),
+        move: direction(ten, indiaBefore?.gsec?.points['10Y']),
+      });
+    }
+  }
+  const spread = (i: InTick | null, u: UsTick | null) => {
+    const a = i?.gsec?.points['10Y'];
+    const b = u?.curve['10Y'];
+    return a !== undefined && b !== undefined ? a - b : null;
+  };
+  const now = spread(india, us);
+  if (now !== null) {
+    quotes.push({ label: 'IN–US 10Y', text: bp(now), move: direction(now, spread(indiaBefore, usBefore)) });
   }
   return quotes;
 }

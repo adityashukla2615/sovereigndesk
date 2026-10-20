@@ -12,7 +12,7 @@ import type {
 
 type Point = [number, number];
 
-function axis(p: Palette) {
+export function axis(p: Palette) {
   return {
     axisLine: { lineStyle: { color: p.line } },
     axisLabel: { color: p.muted, fontSize: 10, fontFamily: 'IBM Plex Mono, monospace' },
@@ -21,7 +21,7 @@ function axis(p: Palette) {
   };
 }
 
-function base(p: Palette): ChartOption {
+export function base(p: Palette): ChartOption {
   return {
     animation: false,
     textStyle: { fontFamily: 'IBM Plex Mono, monospace', color: p.text },

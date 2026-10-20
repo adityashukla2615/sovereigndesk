@@ -7,6 +7,7 @@ from app.config import Settings
 from app.data.http import Fetcher, RawCache
 from app.data.sources.base import Adapter
 from app.data.sources.fbil import FbilAdapter
+from app.data.sources.fbil_gsec import FbilGsecAdapter
 from app.data.sources.fiscaldata import FiscalDataAdapter
 from app.data.sources.fred import FredAdapter
 from app.data.sources.nsdl import NsdlAdapter
@@ -36,6 +37,7 @@ def build_adapters(settings: Settings, client: httpx2.Client) -> dict[str, Adapt
         TicAdapter(fetcher),
         RbiAdapter(fetcher),
         FbilAdapter(fetcher),
+        FbilGsecAdapter(fetcher),
         NsdlAdapter(fetcher),
     ]
     return {a.source: a for a in adapters}

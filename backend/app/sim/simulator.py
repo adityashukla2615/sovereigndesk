@@ -4,14 +4,16 @@ By default one wall-clock second is one simulated minute (``speed`` = 60 sim sec
 second). Each tick advances the US and Indian markets, asserts their invariants, and publishes
 ``us.tick`` and ``in.tick``. The two markets are built independently: if one cannot anchor to
 real data, the other still runs. When the simulated date rolls over and newer US data has
-arrived, the US market re-anchors to it while keeping every shock.
+arrived, the US market re-anchors to it while keeping every shock. Each simulated business
+day's G-sec close is paired with the US 10-year at that moment for the SPRD chart.
 """
 
 import asyncio
 import contextlib
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import numpy as np
@@ -28,6 +30,15 @@ log = logging.getLogger(__name__)
 
 DEFAULT_SPEED = 60.0
 YEAR_SECONDS = 365.25 * 86400
+
+
+@dataclass(frozen=True, slots=True)
+class SpreadPoint:
+    day: date
+    india: float
+    """India 10Y par yield at the simulated close (decimal)."""
+    us: float | None
+    """US 10Y par yield at the same moment (decimal), if the US market runs."""
 
 
 class Simulator:
@@ -53,6 +64,7 @@ class Simulator:
         self.error: str | None = None
         self.india: IndiaMarket | None = None
         self.india_error: str | None = None
+        self.spreads: list[SpreadPoint] = []
         self._task: asyncio.Task[None] | None = None
         self._rng = np.random.default_rng(seed)
 
@@ -64,6 +76,7 @@ class Simulator:
         """Build the markets from real anchors (or the given ones); records why if one cannot."""
         self.sim_time = self.clock()
         self.events.clear()
+        self.spreads = []
         self._rng = np.random.default_rng(self.seed)
         try:
             anchors = anchors or build_us_anchors(self._require_data())
@@ -102,6 +115,17 @@ class Simulator:
                 f"({a.surplus_pct:.2f}% of NDTL), WACR {pct(a.wacr)} on {a.wacr_as_of}; "
                 f"{len(self.india.books)} SYNTHETIC banks",
             )
+            if a.gsec is not None:
+                g = a.gsec
+                self.emit(
+                    "info",
+                    "ANCHOR",
+                    f"G-sec curve from FBIL as of {g.as_of}: 2Y {pct(g.close['2Y'])}, "
+                    f"10Y {pct(g.close['10Y'])}, 30Y {pct(g.close['30Y'])}; pass-through from "
+                    f"{len(g.events)} repo changes since April 2022",
+                )
+            else:
+                self.emit("warning", "ANCHOR", f"G-sec curve unavailable: {a.gsec_error}")
 
     def _require_data(self) -> DataService:
         if self.data is None:
@@ -151,7 +175,38 @@ class Simulator:
             for n in self.india.advance(self.sim_time):
                 self.emit(n.kind, n.code, n.text, n.data)
             self.india.check_invariants()
+            self._record_spreads()
             self.bus.publish("in.tick", self.india_payload())
+
+    def _record_spreads(self) -> None:
+        curve = self.india.gsec if self.india is not None else None
+        if curve is None:
+            return
+        last = self.spreads[-1].day if self.spreads else None
+        us = self.us.par_curve()["10Y"] if self.us is not None else None
+        for close in curve.history:
+            if last is None or close.day > last:
+                self.spreads.append(SpreadPoint(close.day, close.par["10Y"], us))
+        self.spreads = self.spreads[-400:]
+
+    def spread_panel(self) -> dict[str, Any] | None:
+        """SPRD: India 10Y against US 10Y, real history and simulated closes, and the spread now."""
+        curve = self.india.gsec if self.india is not None else None
+        if curve is None:
+            return None
+        a = curve.anchors
+        india = curve.points["10Y"]
+        us = self.us.par_curve()["10Y"] if self.us is not None else None
+        return {
+            "real": [{"date": d.isoformat(), "india": i, "us": u} for d, i, u in a.spread_history],
+            "simulated": [
+                {"date": s.day.isoformat(), "india": s.india, "us": s.us} for s in self.spreads
+            ],
+            "now": {"india": india, "us": us, "spread": None if us is None else india - us},
+            "daily_from": a.daily_from.isoformat(),
+            "india_as_of": a.as_of.isoformat(),
+            "us_as_of": self.us.anchors.as_of.isoformat() if self.us is not None else None,
+        }
 
     async def _maybe_reanchor(self) -> None:
         if self.data is None or self.us is None:

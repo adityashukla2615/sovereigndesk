@@ -2,7 +2,9 @@
 
 Every number comes from a stored series or is fitted to stored history (RBI's daily Money
 Market Operations since 8 Apr 2022, FBIL's T-bill benchmarks); a missing input fails the build.
-The bank universe the simulator builds on these anchors is SYNTHETIC.
+The G-sec curve (FBIL's par yields, ``gsec_anchors``) is optional: without it the money market
+still runs and the reason is recorded. The bank universe the simulator builds on these anchors
+is SYNTHETIC.
 """
 
 import math
@@ -14,6 +16,7 @@ import pandas as pd
 
 from app.data.service import DataService
 from app.sim.anchors import AnchorError, required_latest, required_series
+from app.sim.gsec_anchors import GsecAnchors, build_gsec_anchors
 from sovereign_engine.india.banks import implied_ndtl
 from sovereign_engine.india.excursions import (
     DeviationModel,
@@ -139,6 +142,9 @@ class INAnchors:
     history: list[tuple[date, float]] = field(default_factory=list)
     """Real WACR − repo (decimal) by day over the last year, for the heatmap overlay."""
     quality: dict[str, str] = field(default_factory=dict)
+    gsec: GsecAnchors | None = None
+    """The G-sec curve's anchors, or None when FBIL's par yields could not be used."""
+    gsec_error: str | None = None
 
     @property
     def surplus_pct(self) -> float:
@@ -372,8 +378,14 @@ def build_india_anchors(service: DataService) -> INAnchors:
     used = {
         sid
         for sid, label in infos.items()
-        if sid.startswith(("rbi/", "fbil/tbill/")) and label != "MISSING"
+        if sid.startswith(("rbi/", "fbil/tbill/", "fbil/gsec/")) and label != "MISSING"
     }
+    gsec: GsecAnchors | None = None
+    gsec_error: str | None = None
+    try:
+        gsec = build_gsec_anchors(service, frame["repo"].dropna(), tbills)
+    except (AnchorError, ValueError) as exc:  # the money market runs without the curve
+        gsec_error = str(exc)
     return INAnchors(
         as_of=as_of,
         repo=pct("rbi/repo"),
@@ -412,4 +424,6 @@ def build_india_anchors(service: DataService) -> INAnchors:
             for d, s in zip(recent.index, recent["wacr"] - recent["repo"], strict=True)
         ],
         quality={sid: infos[sid] for sid in sorted(used)},
+        gsec=gsec,
+        gsec_error=gsec_error,
     )

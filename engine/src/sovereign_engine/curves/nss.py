@@ -5,10 +5,15 @@ continuously compounded. Here rates are decimals, so the published percent β's 
 
 Fitting is two-stage: for fixed (τ₁, τ₂) the zero curve is linear in β, so a grid of (τ₁, τ₂)
 pairs is scanned with bound-constrained linear least squares, then the best few seeds are
-polished by bounded nonlinear least squares over all six parameters.
+polished by bounded nonlinear least squares over all six parameters. ``fit_nss_quotes`` fits
+market quotes instead of zero rates (bills at their simple yield, bonds at their par yield),
+and can start from the previous fit so a live curve refits cheaply on every tick.
 """
 
+import math
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 from scipy.optimize import least_squares, lsq_linear
@@ -137,6 +142,17 @@ def _level_hump_tau_derivatives(t: FloatArray, tau: float) -> tuple[FloatArray, 
     return dl, (dl_dx + np.exp(-x)) * dx_dtau
 
 
+def _zero_jacobian(t: FloatArray, p: FloatArray) -> FloatArray:
+    """∂z(t)/∂(β₀, γ, β₂, β₃, τ₁, δ) in closed form (γ = β₀ + β₁, τ₂ = τ₁ + δ)."""
+    b0, gamma, b2, b3, tau1, gap = p
+    l1, h1 = _level_and_hump(t, tau1)
+    _, h2 = _level_and_hump(t, tau1 + gap)
+    dl1, dh1 = _level_hump_tau_derivatives(t, tau1)
+    _, dh2 = _level_hump_tau_derivatives(t, tau1 + gap)
+    d_tau1 = (gamma - b0) * dl1 + b2 * dh1 + b3 * dh2
+    return np.column_stack((1 - l1, l1, h1, h2, d_tau1, b3 * dh2))
+
+
 def fit_nss(
     maturities: ArrayLike,
     zero_rates: ArrayLike,
@@ -181,14 +197,7 @@ def fit_nss(
 
     def jacobian_bp(p: FloatArray) -> FloatArray:
         """∂residual/∂(β₀, γ, β₂, β₃, τ₁, δ) in closed form (τ₂ = τ₁ + δ)."""
-        b0, gamma, b2, b3, tau1, gap = p
-        l1, h1 = _level_and_hump(t, tau1)
-        _, h2 = _level_and_hump(t, tau1 + gap)
-        dl1, dh1 = _level_hump_tau_derivatives(t, tau1)
-        _, dh2 = _level_hump_tau_derivatives(t, tau1 + gap)
-        d_tau1 = (gamma - b0) * dl1 + b2 * dh1 + b3 * dh2
-        columns = (1 - l1, l1, h1, h2, d_tau1, b3 * dh2)
-        return np.column_stack(columns) * (sqrt_w * 1e4)[:, None]
+        return _zero_jacobian(t, p) * (sqrt_w * 1e4)[:, None]
 
     lower = np.array([0.0, 0.0, -np.inf, -np.inf, 0.02, _MIN_TAU_GAP])
     upper = np.array([np.inf, np.inf, np.inf, np.inf, 30.0, 60.0])
@@ -223,3 +232,165 @@ def fit_nss(
         max_abs_error_bp=float(np.max(np.abs(errors_bp))),
         n_points=int(t.size),
     )
+
+
+QuoteKind = Literal["bill", "par"]
+
+
+@dataclass(frozen=True, slots=True)
+class Quote:
+    """A quoted yield the fitted curve should reproduce."""
+
+    years: float
+    rate: float
+    """Decimal yield: simple (money-market) for a bill, the coupon of a par bond."""
+    kind: QuoteKind
+
+
+@dataclass(frozen=True, slots=True)
+class _QuoteGrid:
+    """Where each quote reads the curve: bill maturities, and the coupon grid for par bonds."""
+
+    bills: FloatArray
+    bill_rows: FloatArray
+    grid: FloatArray
+    par_periods: FloatArray
+    par_rows: FloatArray
+    freq: int
+
+    @classmethod
+    def build(cls, quotes: Sequence[Quote], freq: int) -> "_QuoteGrid":
+        if freq < 1:
+            raise ValueError("need at least one coupon a year")
+        bill_rows = [i for i, q in enumerate(quotes) if q.kind == "bill"]
+        par_rows = [i for i, q in enumerate(quotes) if q.kind == "par"]
+        periods = [round(quotes[i].years * freq) for i in par_rows]
+        for i, n in zip(par_rows, periods, strict=True):
+            if n < 1 or not math.isclose(n / freq, quotes[i].years, abs_tol=1e-9):
+                raise ValueError("a par bond's maturity must be a whole number of coupon periods")
+        if any(quotes[i].years <= 0 for i in bill_rows):
+            raise ValueError("bill maturities must be positive")
+        return cls(
+            bills=np.array([quotes[i].years for i in bill_rows], dtype=np.float64),
+            bill_rows=np.array(bill_rows, dtype=np.int64),
+            grid=np.arange(1, max(periods, default=0) + 1, dtype=np.float64) / freq,
+            par_periods=np.array(periods, dtype=np.int64),
+            par_rows=np.array(par_rows, dtype=np.int64),
+            freq=freq,
+        )
+
+    def yields(self, curve: NelsonSiegelSvensson, size: int) -> FloatArray:
+        out = np.empty(size, dtype=np.float64)
+        if self.bills.size:
+            out[self.bill_rows] = (1 / curve.discount(self.bills) - 1) / self.bills
+        if self.par_rows.size:
+            dfs = curve.discount(self.grid)
+            annuity = np.cumsum(dfs)
+            n = self.par_periods - 1
+            out[self.par_rows] = self.freq * (1 - dfs[n]) / annuity[n]
+        return out
+
+    def jacobian(self, curve: NelsonSiegelSvensson, p: FloatArray, size: int) -> FloatArray:
+        """∂yield/∂(β₀, γ, β₂, β₃, τ₁, δ): bills ∂y = e^(zT)·∂z; par bonds by the quotient rule
+        on y = f·(1 − Dₙ)/Aₙ with ∂Dₖ = −tₖ·Dₖ·∂zₖ and ∂Aₙ = Σ_{k≤n} ∂Dₖ."""
+        out = np.empty((size, 6), dtype=np.float64)
+        if self.bills.size:
+            growth = 1 / curve.discount(self.bills)
+            out[self.bill_rows] = _zero_jacobian(self.bills, p) * growth[:, None]
+        if self.par_rows.size:
+            dfs = curve.discount(self.grid)
+            d_dfs = -(self.grid * dfs)[:, None] * _zero_jacobian(self.grid, p)
+            annuity, d_annuity = np.cumsum(dfs), np.cumsum(d_dfs, axis=0)
+            n = self.par_periods - 1
+            a, d_a = annuity[n][:, None], d_annuity[n]
+            out[self.par_rows] = self.freq * (-d_dfs[n] * a - (1 - dfs[n])[:, None] * d_a) / a**2
+        return out
+
+
+def quote_yields(curve: NelsonSiegelSvensson, quotes: Sequence[Quote], freq: int = 2) -> FloatArray:
+    """The yield the curve implies for each quoted instrument.
+
+    Equation:
+        bill (zero coupon, simple yield):   y = (1/DF(T) − 1) / T
+        par bond paying f coupons a year:    y = f·(1 − DF(T)) / Σ_{k=1}^{fT} DF(k/f)
+    """
+    return _QuoteGrid.build(quotes, freq).yields(curve, len(quotes))
+
+
+def _approximate_zeros(quotes: Sequence[Quote], freq: int) -> FloatArray:
+    return np.array(
+        [
+            math.log1p(q.rate * q.years) / q.years
+            if q.kind == "bill"
+            else freq * math.log1p(q.rate / freq)
+            for q in quotes
+        ]
+    )
+
+
+def fit_nss_quotes(
+    quotes: Sequence[Quote],
+    *,
+    freq: int = 2,
+    start: NssFit | None = None,
+    warm_tolerance_bp: float = 1.0,
+) -> NssFit:
+    """Fit NSS to quoted bill and par-bond yields, starting from a previous fit when given.
+
+    Cold, zero rates approximated from the quotes seed ``fit_nss``; either way all six
+    parameters are then polished on the yield errors. A warm start whose RMSE ends more than
+    ``warm_tolerance_bp`` above the previous fit's falls back to the cold fit.
+
+    Equation:
+        min_θ Σᵢ (yᵢ(θ) − ŷᵢ)²,  yᵢ from ``quote_yields``,  s.t.  β₀ ≥ 0,  β₀ + β₁ ≥ 0,  0 < τ₁ < τ₂
+        cold seed: bills zᵢ = ln(1 + ŷᵢ·Tᵢ)/Tᵢ,  par bonds zᵢ ≈ f·ln(1 + ŷᵢ/f)
+    """
+    if len(quotes) < 6:
+        raise ValueError("need at least six quotes")
+    layout = _QuoteGrid.build(quotes, freq)
+    target = np.array([q.rate for q in quotes], dtype=np.float64)
+
+    def curve_of(p: FloatArray) -> NelsonSiegelSvensson:
+        b0, gamma, b2, b3, tau1, gap = (float(v) for v in p)
+        return NelsonSiegelSvensson(b0, gamma - b0, b2, b3, tau1, tau1 + gap)
+
+    def residuals_bp(p: FloatArray) -> FloatArray:
+        return (layout.yields(curve_of(p), target.size) - target) * 1e4
+
+    def jacobian_bp(p: FloatArray) -> FloatArray:
+        return layout.jacobian(curve_of(p), p, target.size) * 1e4
+
+    lower = np.array([0.0, 0.0, -np.inf, -np.inf, 0.02, _MIN_TAU_GAP])
+    upper = np.array([np.inf, np.inf, np.inf, np.inf, 30.0, 60.0])
+
+    def polish(seed: NelsonSiegelSvensson, max_nfev: int) -> NssFit:
+        x0 = np.array(
+            [seed.beta0, seed.beta0 + seed.beta1, seed.beta2, seed.beta3, seed.tau1,
+             seed.tau2 - seed.tau1]
+        )  # fmt: skip
+        sol = least_squares(
+            residuals_bp,
+            np.clip(x0, lower, upper),
+            jac=jacobian_bp,
+            bounds=(lower, upper),
+            method="trf",
+            x_scale="jac",
+            max_nfev=max_nfev,
+        )
+        curve = curve_of(np.asarray(sol.x, dtype=np.float64))
+        errors = np.asarray(sol.fun, dtype=np.float64)
+        return NssFit(
+            curve=curve,
+            rmse_bp=float(np.sqrt(np.mean(errors**2))),
+            max_abs_error_bp=float(np.max(np.abs(errors))),
+            n_points=len(quotes),
+        )
+
+    warm: NssFit | None = None
+    if start is not None:
+        warm = polish(start.curve, 60)
+        if warm.rmse_bp <= start.rmse_bp + warm_tolerance_bp:
+            return warm
+    times = np.array([q.years for q in quotes], dtype=np.float64)
+    cold = polish(fit_nss(times, _approximate_zeros(quotes, freq)).curve, 2_000)
+    return cold if warm is None or cold.rmse_bp < warm.rmse_bp else warm

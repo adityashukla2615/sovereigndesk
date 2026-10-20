@@ -23,7 +23,11 @@ log = logging.getLogger(__name__)
 
 REFRESH_LOOKBACK = timedelta(days=730)
 """Refreshes re-fetch two years so revisions land; full history comes from the seed."""
-SOURCE_LOOKBACK: Mapping[str, timedelta] = {"rbi": timedelta(days=7), "fbil": timedelta(days=30)}
+SOURCE_LOOKBACK: Mapping[str, timedelta] = {
+    "rbi": timedelta(days=7),
+    "fbil": timedelta(days=30),
+    "fbil_gsec": timedelta(days=14),
+}
 """Shorter windows for page-by-page sources, so a daily refresh never crawls RBI's archive."""
 
 

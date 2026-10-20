@@ -71,6 +71,7 @@ Values are stored as published: amounts in ₹ crore, rates in %. Series IDs are
 | RBI homepage | Policy repo, SDF, MSF, Bank Rate, fixed reverse repo, CRR, SLR; FBIL's INR/USD reference rate | Rates are stamped with the IST date the page is read, as the rates in force that day. The reference rate keeps the page's own "as at 1.00pm of <date>", and is a week fresher than FBIL's public JSON. The box's T-bill cut-offs are not stored: they carry no auction date (its "as on" footnote belongs to the G-sec yields) |
 | RBI Money Market Operations | A release for every calendar day since 2024 (in 2022–23 most 2nd and 4th Saturdays and a few holidays have none): WACR with volume and range; TREPS, market repo, notice and term money; RBI's operations; net liquidity; banks' cash balances and the CRR requirement; government surplus cash; net durable liquidity | Crawled from 8 Apr 2022, when the SDF became the corridor floor. The press-release page lists only about the latest ten days; earlier days are listed month by month through the archive (an ASP.NET form). One request a second. CCIL's segments come from here: the release's footnote reads "Based on RBI / CCIL" |
 | FBIL | T-bill benchmarks 7D–12M, overnight MIBOR, INR/USD reference rate | The public JSON the FBIL site itself reads (`/wasdm/<product>/fetchfiltered?authenticated=false`), in 31-day windows. The public data runs about a week behind: on 20 Oct 2026 it ended at 12 Oct. Over a holiday MIBOR is fixed for the whole break (a "4D" fixing, say); it is stored as that day's overnight rate |
+| FBIL G-sec | The daily G-sec valuation's par-yield curve (3M to 30Y stored) | Phase 7: see the G-sec curve section below |
 | NSDL | Daily FPI net investment by class (equity, debt by route, hybrid, total), ₹ crore and US$ million | Current month only. NSDL's archive arrives with the linkage work (Phase 9) |
 
 How a Money Market Operations release is read:
@@ -80,9 +81,9 @@ How a Money Market Operations release is read:
 - **Dates.** Values RBI dates separately keep their own "as on" date: cash balances (the release day), government surplus cash (0–4 days earlier) and net durable liquidity (13–33 days earlier). Releases write dates both as "October 24, 2023" and as "24/10/2023".
 - **WACR leaves the corridor.** Of 1,214 trading days, real WACR printed below the SDF rate on 257 (222 of them in surplus, with RBI absorbing net) and above the MSF rate on 80 (66 in deficit, 50 of them in 2023). The widest gaps are thin Saturday sessions, policy-change days and financial-year ends: on 31 Mar 2023 WACR was 7.37% against an MSF of 6.75%.
 - **Aggregate NDTL** is implied by the fortnight's reserve requirement: NDTL = CRR requirement ÷ CRR. For the fortnight ending 31 Oct 2026 that is ₹8,33,309 cr ÷ 3% ≈ ₹278 lakh crore.
-- **Refresh.** Daily, IST: RBI 10:30, FBIL 18:15, NSDL 20:30. RBI looks back 7 days and FBIL 30, so a daily refresh never crawls the archive. A release never changes once published, so a copy saved by an earlier crawl is parsed rather than downloaded again.
+- **Refresh.** Daily, IST: RBI 10:30, FBIL 18:15, FBIL's G-sec workbooks 20:00, NSDL 20:30. RBI looks back 7 days, FBIL 30 and the G-sec workbooks 14, so a daily refresh never crawls an archive. A release or workbook never changes once published, so a copy saved by an earlier crawl is parsed rather than downloaded again.
 
-Not yet, and where each arrives: MOSPI CPI and RBI's MPC decision history in Phase 8 (CPI was rebased to 2024 = 100 in Feb 2026 and must be chain-linked); FBIL G-sec par yields in Phase 7; RBI's Weekly Statistical Supplement (forex reserves, currency in circulation) and NSDL's history in Phase 9.
+Not yet, and where each arrives: MOSPI CPI and RBI's MPC decision history in Phase 8 (CPI was rebased to 2024 = 100 in Feb 2026 and must be chain-linked); RBI's Weekly Statistical Supplement (forex reserves, currency in circulation) and NSDL's history in Phase 9.
 
 ## Indian banks and RBI rules (engine, Phase 5)
 
@@ -132,7 +133,7 @@ The participation check runs on every order: an order that would take the day's 
 | Autonomous noise | A mean-reverting (OU) component of system liquidity with a daily s.d. of ₹23,900 crore: 1.4826 × the median absolute daily change away from tax dates. The 30-day half-life is an assumption |
 | NDTL growth | 11.8% a year (implied NDTL over the last year), applied at each fortnight start |
 | RBI's reaction | Logistic regressions of "a new VRR (VRRR) was held" on the previous day's surplus ℓ: VRR p = 1/(1 + e^−(−2.20 − 1.05ℓ)) from 136 such days, VRRR p = 1/(1 + e^−(−2.80 + 0.52ℓ)) from 128. Each runs at the median size of new operations (₹34,500 crore and ₹33,500 crore), overnight |
-| T-bills | FBIL's 3M, 6M and 12M benchmarks (a week behind; see above), moved one for one by repo and by the fitted slope of T-bill − repo on surplus: 3M −8.8 bp and 6M −3.5 bp per point of NDTL. The 12M fit (+4.9 bp) has the wrong sign, mixing in rate expectations, and is set to zero |
+| T-bills | FBIL's 3M, 6M and 12M benchmarks (a week behind; see above), moved by repo through the G-sec pass-through β (1, 0.95 and 0.86 at 3, 6 and 12 months; one for one when the G-sec curve is unavailable) and by the fitted slope of T-bill − repo on surplus: 3M −8.8 bp and 6M −3.5 bp per point of NDTL. The 12M fit (+4.9 bp) has the wrong sign, mixing in rate expectations, and is set to zero |
 
 **Assumptions, not fitted (all in `IndiaModelParams`).**
 
@@ -155,9 +156,35 @@ The participation check runs on every order: an order that would take the day's 
 
 - *RBI's fine-tuning auctions barely move the map.* The map's liquidity is RBI's whole net position, operations included, because that fits better: on the overnight part alone (SDF − MSF) the RMSE is 17.9 bp against 17.4. So a VRR that only replaces MSF borrowing leaves the map where it was, and its effect on WACR comes only through the call market itself, by changing who still needs to borrow. In the simulator, repo moves, CRR changes and tax days move WACR more than VRR and VRRR auctions do.
 - *Deep deficits can silence the call market.* Banks' own positions have a stationary s.d. of 0.6% of NDTL, so when the system is short by much more than about 1.5% of NDTL every synthetic bank is short, nobody lends, and the shortfall goes to the MSF. The data's deepest deficit was 1.7%.
-- *T-bills are a week old.* FBIL's public data runs about a week behind, so the T-bill anchors are flagged STALE in the WACR panel and on the ticker whenever their own date is more than 3 days old (`stale_after_days`).
+- *T-bills are a week old.* FBIL's public data runs about a week behind, so the T-bill anchors are flagged STALE in the WACR panel and on the ticker whenever their own date is more than 3 days old (`stale_after_days`). The G-sec curve is flagged the same way.
 
 Commands: `REPO ±25BP` moves repo, SDF and MSF together at once; `CRR 3.5` takes effect from the next reporting fortnight; `VRR 50000CR 7D` and `VRRR …` run at 09:30 or the next round, with banks bidding their gaps in a multiple-price auction.
+
+## India G-sec curve (Phase 7)
+
+**Data.** FBIL's daily G-sec valuation workbook ("FBIL GOI Prices including Par Yield, Special and Note on FRB and IIB"), sheet "Par Yield": FBIL's base/par yield curve every quarter year out to 40–50 years, semi-annual par yields except the 3-month point, which is a simple (money-market) yield. Workbooks are downloaded anonymously from `/wasdm/gsec/downloadPublished?date=…`; `/wasdm/gsec/fetchfiltered` lists the dates published in a window. Values are stored as published (%), at 3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 14Y, 20Y and 30Y (`fbil/gsec/par/<tenor>`).
+
+- *Coverage.* Daily from 13 Feb 2023, FBIL's first .xlsx workbook. Before that FBIL served legacy .xls files of about 0.75 MB each (a "Par-Yield" sheet, more decimals), so for 2022 and early 2023 only the publications around each repo change are fetched: the one before, the day, the one after. The seed has 902 days per tenor, to 13 Oct 2026.
+- *Crawl.* One request a second. A workbook never changes once published, so a saved copy is parsed instead of downloaded again. A workbook whose printed date differs from the one requested is refused.
+- *Lag.* Like FBIL's other public data, about a week behind: on 20 Oct 2026 the latest workbook was 13 Oct. The GSEC panel shows a STALE badge when the curve's date is more than 3 days old.
+- *Conventions check* (engine test): bootstrapping FBIL's par curve with these conventions reproduces FBIL's own published zero-coupon curve (the ZCYC sheet of its STRIPS workbook) on 12 Oct 2026 within 0.7 bp RMSE, and 2.0 bp at worst, out to 30 years.
+
+**The curve.** The market points are the 91, 182 and 364-day T-bills at FBIL's T-bill benchmarks (the money market's, so the same numbers as the WACR panel), then FBIL's par yields from 2Y to 30Y. FBIL's par curve has its own 3, 6 and 12-month points, values of its fitted curve that can differ from the benchmarks by several basis points: the event study uses them (one curve from one source), the live curve uses the bills. The two can carry different dates (12 and 13 Oct 2026 on the seed). Nelson–Siegel–Svensson is fitted to the eleven points as quotes, bills at their simple yield (ACT/365) and bonds at par with semi-annual coupons, by bounded least squares on the yield errors: cold when the anchors are built, then warm-started from the last fit on every update (about 2 ms). On the seed the fit is within 2.9 bp RMSE of the points. NSS is smoother than FBIL's own curve: fitted to the eleven quoted tenors on 12 Oct 2026, it is within 9 bp RMSE (17 bp at worst) of FBIL's zero curve, which wiggles between them.
+
+**Repo pass-through: the event study** (`sovereign_engine/india/passthrough.py`).
+
+- *Events.* Every day the repo rate changed since 8 Apr 2022: 11 of them (six hikes from May 2022 to Feb 2023, cuts in Feb, Apr, Jun and Dec 2025, a hike on 7 Oct 2026). Repo each day is the midpoint of the SDF and MSF in RBI's releases. Each par yield's move is measured from FBIL's previous publication to the event day's close. The MPC announces in the morning; the intermeeting hike of 4 May 2022 came at 2 pm, and its 1-year point moved only the next day.
+- *Same-day slopes* on the actual change, b(τ) = Σ Δr·Δy(τ) / Σ Δr²: 0.20 at 3 months, 0.15 at 1 year, 0.13 at 10 years and 0.09 at 30 years. They are small because most changes were expected and priced before the meeting.
+- *Response per unit of policy surprise*, ρ(τ) = b(τ) / b(3M): the 3-month yield's move measures the surprise and the actual change instruments it, so day-to-day noise in the 3-month yield does not bias the ratio towards zero. 1 at 3 months by construction, 0.80 at 6 months, 0.76 at 1 year, 0.73 at 2 years, 0.65 at 10 and 0.46 at 30.
+- *Uncertainty.* 2,000 bootstrap resamples of the 11 events give 90% bands, e.g. 0.24–1.94 at 2 years and 0.10–1.45 at 10. They are wide: the events are few, and the 4 May 2022 surprise weighs heavily (without it ρ at 10 years is 0.44).
+- *Fit.* β(τ) = (A(τ; κ) + γ·T(τ)) / (A(3M; κ) + γ·T(3M)). Here A(τ; κ) = (1 − e^(−κτ))/(κτ) is the expected path of a surprise that fades at rate κ, and T(τ) = (1 − e^(−τ/7))/(1 − e^(−10/7)) is a term-premium loading (the US curve's, scale 7 years, an assumption). Weighted least squares, weights 1/s.d.² from the bootstrap. κ = 0.62 a year, a half-life of 1.1 years (band 0.07 to the bound of 5); γ = 0.35 (band −0.04 to 0.63). The fitted β is 1.00 at 3 months, 0.95 at 6 months, 0.86 at 1 year, 0.73 at 2 years, 0.58 at 5, 0.54 at 10 and 0.54 at 30; at 10 years 0.17 of it is expectations and 0.37 term premium. Band for β at 10 years: 0.06–1.26.
+- *Use.* A repo change moves the T-bills by β at their maturity and each coupon tenor by β(τ)·Δrepo, at once: the simulator treats it as a surprise. Hold decisions are not in the sample (the MPC calendar arrives in Phase 8), and neither the partly expected part of a change nor a path signal (June 2025's −50 bp came with a neutral stance, and the 10-year rose 4 bp) is modelled separately.
+
+**Day-to-day moves.** Two factors with the pass-through's own loadings, expectations A(τ; κ) and term premium T(τ), move the coupon tenors. Their daily shocks come from regressing each day's par-yield changes (2Y to 30Y) on the two loadings over 880 days of FBIL's daily coverage, repo-change days left out: an s.d. of 5.3 bp a day for the expectations factor (whose loading is 0.57 at 2 years and 0.16 at 10) and 1.8 bp for the term premium (one at 10 years), correlation +0.27. What the two loadings leave unexplained, 1.5 bp RMS per tenor and day, is not simulated. The factors step with every clearing round (09:15–17:00 IST on business days) as OU processes with a half-life of 125 business days, about six months: an **assumption** (`GsecParams.factor_half_life_days`). Without news the curve so drifts back to FBIL's close plus the policy moves. The bills move with the money market only (repo and liquidity).
+
+**SPRD.** FBIL's 10-year par yield against Treasury's 10-year par yield (both semi-annual), on the dates both published: 853 days from 7 Feb 2023 to 13 Oct 2026 on the seed, during which the spread fell from 361 bp to 218 bp. In the simulation each business day's G-sec close (23:59 IST) is paired with the US 10-year at that moment, and the panel adds the live spread. The two markets do not move each other yet: US → India transmission is Phase 9 (LINK).
+
+**Invariants** (every tick): every point is finite and between −5% and 50%, and the NSS refit stays within 25 bp RMSE of the points.
 
 ## Bond conventions (engine, Phase 2)
 
@@ -190,6 +217,7 @@ Simplifications:
   - Parameterisation: Gürkaynak–Sack–Wright (2007), fitted to continuously compounded zero rates.
   - Constraints: β₀ ≥ 0, β₀ + β₁ ≥ 0 and τ₁ < τ₂ (with a 0.05-year gap).
   - Fitting: a (τ₁, τ₂) grid with bounded linear least squares for β, then a polish of one seed per τ₁ row. Polishing only the global top seeds was tested and rejected: on the 2002 GSW curve all of them sat in a wrong basin, leaving a 0.6 bp error.
+  - Market quotes (`fit_nss_quotes`, Phase 7): bills at their simple yield and par bonds at their coupon, fitted on the yield errors with an analytic Jacobian, seeded by the zero-rate fit or warm-started from the previous fit. With the long end still rising at 30 years the fit can put β₀ at its bound of zero and carry the level in the τ₂ hump; within 30 years the curve is unaffected, beyond it the extrapolation is not used.
 
 ## Short-rate models (engine, Phase 2)
 

@@ -10,10 +10,6 @@ planned(
     "Phase 12 (terminal completion)",
 )
 planned(
-    "GSEC", "GSEC", "India G-sec curve (NSS) and repo pass-through", "IN", "Phase 7 (G-sec curve)"
-)
-planned("SPRD", "SPRD", "US 10Y vs India 10Y spread", "X", "Phase 7 (G-sec curve)")
-planned(
     "MPC", "MPC", "Next MPC decision: probabilities and backtest", "IN", "Phase 8 (MPC predictor)"
 )
 planned("LINK", "LINK", "US → India transmission chain", "X", "Phase 9 (linkage)")

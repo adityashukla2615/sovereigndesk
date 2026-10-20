@@ -26,6 +26,7 @@ from sovereign_engine.bonds.approx import price_yield_profile
 from sovereign_engine.bonds.cashflows import CashFlows, risk_measures
 from sovereign_engine.rates.corridor import corridor_ou_step, logit_sigma_for
 from sovereign_engine.rates.hull_white import HullWhite
+from sovereign_engine.rates.loadings import expectations_loading, term_premium_loading
 from sovereign_engine.us.balance_sheet import (
     AVERAGE_MONTH_DAYS,
     FedBalanceSheet,
@@ -139,16 +140,6 @@ class USState:
     qt_halted: bool = False
 
 
-def tp_loading(tenors: FloatArray, scale: float) -> FloatArray:
-    """Term-premium loading by maturity, normalised to one at 10 years."""
-    return np.asarray(-np.expm1(-tenors / scale) / -math.expm1(-10 / scale), dtype=np.float64)
-
-
-def policy_loading(tenors: FloatArray, kappa: float) -> FloatArray:
-    """Share of a policy-rate surprise passed to each maturity (Vasicek-type loading)."""
-    return np.asarray(-np.expm1(-kappa * tenors) / (kappa * tenors), dtype=np.float64)
-
-
 def par_from_zero(zeros: FloatArray) -> dict[str, float]:
     """Bond-equivalent par yields at the display tenors from zero rates on ``EVAL_TENORS``."""
     discount = np.exp(-zeros * EVAL_TENORS)
@@ -207,8 +198,8 @@ class USMarket:
         p = self.params
         self._base_zero = self.anchors.zero_curve.zero_rate(EVAL_TENORS)
         self._x_loading = self.hw.loading(0.0, EVAL_TENORS) / EVAL_TENORS
-        self._tp_loading = tp_loading(EVAL_TENORS, p.tp_scale_years)
-        self._policy_loading = policy_loading(EVAL_TENORS, p.policy_passthrough)
+        self._tp_loading = term_premium_loading(EVAL_TENORS, p.tp_scale_years)
+        self._policy_loading = expectations_loading(EVAL_TENORS, p.policy_passthrough)
         base = par_from_zero(self._base_zero)
         return {k: self.anchors.par_curve[k] - v for k, v in base.items()}
 

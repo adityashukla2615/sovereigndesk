@@ -3,11 +3,12 @@
     py tasks.py demo
 
 Boots the whole app offline against data/seed (no network) in a throwaway database, connects
-to /ws the way the terminal does, and walks the MVP demo: the four startup panels, a Fed hike,
-QT, a Japanese sale, then India: a reverse repo, a CRR change and a repo cut, run forward at
-a simulated day per second. Each beat must succeed with its narrative in the event log, and
-the live ticks must keep EFFR inside the Fed's range and WACR inside its band (RBI's corridor
-in policy mode; in realistic mode, the default, as far outside it as WACR has printed).
+to /ws the way the terminal does, and walks the demo: the four startup panels, a Fed hike,
+QT, a Japanese sale, then India: the G-sec curve, a repo cut (which moves it), a CRR change, a
+reverse repo and the spread to Treasuries, run forward at a simulated day per second. Each beat
+must succeed with its narrative in the event log, and the live ticks must keep EFFR inside the
+Fed's range and WACR inside its band (RBI's corridor in policy mode; in realistic mode, the
+default, as far outside it as WACR has printed).
 """
 
 import io
@@ -87,9 +88,11 @@ BEATS = [
     Beat("HIKE 25BP", "FED", "HIKE", "the target range moves 25 bp"),
     Beat("QT 95B", "FED", "QT", "a 24-month reserves path"),
     Beat("SHOCK JP 200B 10D LONG", "UST", "SHOCK", "long-run 10Y effect is positive"),
-    Beat("REPO -25BP", "WACR", "REPO", "the corridor moves down 25 bp"),
+    Beat("GSEC", "GSEC", check="the event study on RBI's repo changes and a live NSS fit"),
+    Beat("REPO -25BP", "WACR", "REPO", "the corridor and the G-sec curve move down"),
     Beat("CRR 3.5", "LAF", "CRR", "a drain from the next fortnight"),
     Beat("VRRR 50000CR 1D", "LAF", None, "queued for the next window"),
+    Beat("SPRD", "SPRD", check="India 10Y against US 10Y since 2023, and now"),
     Beat("SPEED 1440X", None, None, "a simulated day per second"),
 ]
 
@@ -121,8 +124,14 @@ def verify(beat: Beat, reply: dict[str, Any]) -> str:
             expect(len(data["reserves"]) == 24, len(data["reserves"]))
         case "SHOCK":
             expect(data["long_run"]["10Y"] > 0, data["long_run"])
+        case "GSEC":
+            expect(len(data["passthrough"]["events"]) >= 11, data["passthrough"]["events"])
+            expect(data["now"]["rmse_bp"] < 6, data["now"]["rmse_bp"])
         case "REPO":
-            expect("MPC cut" in message, message)
+            expect("MPC cut" in message and "G-secs 2Y" in message, message)
+        case "SPRD":
+            expect(len(data["real"]) > 500, len(data["real"]))
+            expect(data["now"]["spread"] is not None, data["now"])
         case "CRR":
             expect("fortnight beginning" in message, message)
         case "VRRR":
