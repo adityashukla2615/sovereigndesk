@@ -1,9 +1,10 @@
 """The simulator: a clock, the markets, the tick loop, invariants and published topics.
 
 By default one wall-clock second is one simulated minute (``speed`` = 60 sim seconds per wall
-second). Each tick advances the markets, asserts the invariants, and publishes ``us.tick``.
-When the simulated date rolls over and newer real data has arrived, the markets re-anchor to it
-while keeping every shock.
+second). Each tick advances the US and Indian markets, asserts their invariants, and publishes
+``us.tick`` and ``in.tick``. The two markets are built independently: if one cannot anchor to
+real data, the other still runs. When the simulated date rolls over and newer US data has
+arrived, the US market re-anchors to it while keeping every shock.
 """
 
 import asyncio
@@ -17,7 +18,9 @@ import numpy as np
 
 from app.data.service import DataService
 from app.sim.anchors import USAnchors, build_us_anchors
-from app.sim.events import Event, EventKind, EventLog, pct
+from app.sim.events import Event, EventKind, EventLog, inr_cr, pct
+from app.sim.india_anchors import INAnchors, build_india_anchors
+from app.sim.india_market import IndiaMarket
 from app.sim.pubsub import PubSub
 from app.sim.us_market import USMarket
 
@@ -48,33 +51,57 @@ class Simulator:
         self.sim_time = clock()
         self.us: USMarket | None = None
         self.error: str | None = None
+        self.india: IndiaMarket | None = None
+        self.india_error: str | None = None
         self._task: asyncio.Task[None] | None = None
         self._rng = np.random.default_rng(seed)
 
     # ------------------------------------------------------------------ lifecycle
 
-    def load(self, anchors: USAnchors | None = None) -> None:
-        """Build the markets from real anchors (or the given ones); records why if it cannot."""
+    def load(
+        self, anchors: USAnchors | None = None, india_anchors: INAnchors | None = None
+    ) -> None:
+        """Build the markets from real anchors (or the given ones); records why if one cannot."""
+        self.sim_time = self.clock()
+        self.events.clear()
+        self._rng = np.random.default_rng(self.seed)
         try:
             anchors = anchors or build_us_anchors(self._require_data())
         except Exception as exc:  # surfaced to the UI rather than crashing the app
             self.error = f"{type(exc).__name__}: {exc}"
             self.us = None
-            log.warning("simulator unavailable: %s", self.error)
-            return
-        self._rng = np.random.default_rng(self.seed)
-        self.us = USMarket(anchors, self._rng)
-        self.error = None
-        self.sim_time = self.clock()
-        self.events.clear()
-        c = anchors.corridor
-        self.emit(
-            "info",
-            "ANCHOR",
-            f"Anchored to real data as of {anchors.as_of}: target range "
-            f"{pct(c.lower)}–{pct(c.upper)}, "
-            f"EFFR {pct(anchors.effr)}, 10Y {pct(anchors.par_curve['10Y'])}",
-        )
+            log.warning("US simulator unavailable: %s", self.error)
+        else:
+            self.us = USMarket(anchors, self._rng)
+            self.error = None
+            c = anchors.corridor
+            self.emit(
+                "info",
+                "ANCHOR",
+                f"Anchored to real data as of {anchors.as_of}: target range "
+                f"{pct(c.lower)}–{pct(c.upper)}, "
+                f"EFFR {pct(anchors.effr)}, 10Y {pct(anchors.par_curve['10Y'])}",
+            )
+        try:
+            india_anchors = india_anchors or build_india_anchors(self._require_data())
+        except Exception as exc:
+            self.india_error = f"{type(exc).__name__}: {exc}"
+            self.india = None
+            log.warning("India simulator unavailable: %s", self.india_error)
+        else:
+            # A stream of its own, so India's draws never shift the US path for a given seed.
+            rng = np.random.default_rng(None if self.seed is None else self.seed + 1)
+            self.india = IndiaMarket(india_anchors, rng, self.sim_time)
+            self.india_error = None
+            a = india_anchors
+            self.emit(
+                "info",
+                "ANCHOR",
+                f"India anchored to RBI data as of {a.as_of}: repo {pct(a.repo)} "
+                f"(SDF {pct(a.sdf)}, MSF {pct(a.msf)}), surplus {inr_cr(a.surplus)} "
+                f"({a.surplus_pct:.2f}% of NDTL), WACR {pct(a.wacr)} on {a.wacr_as_of}; "
+                f"{len(self.india.books)} SYNTHETIC banks",
+            )
 
     def _require_data(self) -> DataService:
         if self.data is None:
@@ -95,7 +122,7 @@ class Simulator:
     async def _run(self) -> None:
         while True:
             await asyncio.sleep(self.tick_seconds)
-            if self.paused or self.us is None:
+            if self.paused or (self.us is None and self.india is None):
                 continue
             previous_day = self.sim_time.date()
             try:
@@ -111,14 +138,20 @@ class Simulator:
     # ------------------------------------------------------------------ ticking
 
     def tick(self, wall_seconds: float) -> None:
-        if self.us is None:
+        if self.us is None and self.india is None:
             return
         sim_seconds = wall_seconds * self.speed
         self.sim_time += timedelta(seconds=sim_seconds)
-        for notice in self.us.step(sim_seconds / YEAR_SECONDS):
-            self.emit("info", "US", notice)
-        self.us.check_invariants()
-        self.bus.publish("us.tick", self.us_payload())
+        if self.us is not None:
+            for notice in self.us.step(sim_seconds / YEAR_SECONDS):
+                self.emit("info", "US", notice)
+            self.us.check_invariants()
+            self.bus.publish("us.tick", self.us_payload())
+        if self.india is not None:
+            for n in self.india.advance(self.sim_time):
+                self.emit(n.kind, n.code, n.text, n.data)
+            self.india.check_invariants()
+            self.bus.publish("in.tick", self.india_payload())
 
     async def _maybe_reanchor(self) -> None:
         if self.data is None or self.us is None:
@@ -150,9 +183,16 @@ class Simulator:
             return {}
         return {"sim_time": self.sim_time.isoformat(), **self.us.snapshot()}
 
+    def india_payload(self) -> dict[str, Any]:
+        if self.india is None:
+            return {}
+        return {"sim_time": self.sim_time.isoformat(), **self.india.snapshot()}
+
     def status(self) -> dict[str, Any]:
         quality = self.us.anchors.quality if self.us else {}
         stale = sorted({label for label in quality.values() if label != "LIVE"})
+        india_quality = self.india.anchors.quality if self.india else {}
+        india_stale = sorted({label for label in india_quality.values() if label != "LIVE"})
         return {
             "running": self.us is not None,
             "error": self.error,
@@ -161,12 +201,20 @@ class Simulator:
             "sim_time": self.sim_time.isoformat(),
             "anchored_as_of": self.us.anchors.as_of.isoformat() if self.us else None,
             "input_quality": stale or ["LIVE"],
+            "india": {
+                "running": self.india is not None,
+                "error": self.india_error,
+                "anchored_as_of": self.india.anchors.as_of.isoformat() if self.india else None,
+                "input_quality": india_stale or ["LIVE"],
+            },
         }
 
     def snapshot(self, topic: str) -> Any:
         """What a new subscriber receives first."""
         if topic == "us.tick":
             return self.us_payload() or None
+        if topic == "in.tick":
+            return self.india_payload() or None
         if topic == "events":
             return [e.to_wire() for e in self.events.recent()]
         if topic == "status":

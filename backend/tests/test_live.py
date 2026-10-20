@@ -85,3 +85,20 @@ def test_command_catalogue_endpoint(live: TestClient) -> None:
     assert commands["PY"]["available"] is True
     assert commands["MPC"]["available"] is False
     assert "Phase 8" in commands["MPC"]["available_in"]
+
+
+def test_india_anchors_to_the_real_seed_and_streams(live: TestClient) -> None:
+    status = live.get("/api/sim/status").json()["india"]
+    assert status["running"] is True, status["error"]
+    assert status["input_quality"] != ["LIVE"]
+    with live.websocket_connect("/ws") as ws:
+        ws.send_text(json.dumps({"op": "subscribe", "topics": ["in.tick"]}))
+        tick = _until(ws, "in.tick")["data"]
+        ws.send_text(json.dumps({"op": "command", "text": "WACR"}))
+        reply = _until(ws, "command")["data"]
+    c = tick["corridor"]
+    assert c["sdf"] < c["repo"] < c["msf"]
+    assert c["sdf"] <= tick["map_rate"] <= c["msf"]
+    assert tick["ndtl"] > 1e7  # ₹ crore: above ₹100 lakh crore
+    assert reply["ok"] is True, reply["message"]
+    assert reply["data"]["map"]["points"] > 500  # fitted on years of RBI releases

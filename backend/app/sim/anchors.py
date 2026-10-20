@@ -69,14 +69,14 @@ class USAnchors:
     """Badge label of every input series, for the STALE/SEED indicators."""
 
 
-def _series(service: DataService, series_id: str, start: date | None = None) -> pd.Series:
+def required_series(service: DataService, series_id: str, start: date | None = None) -> pd.Series:
     view = service.series(series_id, start=start)
     if view is None or not view.values:
         raise AnchorError(f"required series {series_id} has no data")
     return pd.Series(view.values, index=pd.to_datetime(view.dates), name=series_id)
 
 
-def _latest(service: DataService, series_id: str) -> tuple[date, float]:
+def required_latest(service: DataService, series_id: str) -> tuple[date, float]:
     values = service.latest_values([series_id])
     if series_id not in values:
         raise AnchorError(f"required series {series_id} has no data")
@@ -85,12 +85,15 @@ def _latest(service: DataService, series_id: str) -> tuple[date, float]:
 
 def _fit_reserve_curve(service: DataService) -> tuple[ReserveDemandCurve, float]:
     """Weekly EFFR − IORB (IOER before 29 Jul 2021) against reserves / bank assets."""
-    reserves = _series(service, "fred/WRESBAL", RESERVE_FIT_START) / 1000
-    assets = _series(service, "fred/TLAACBW027SBOG", RESERVE_FIT_START)
-    effr = _series(service, "fred/EFFR", RESERVE_FIT_START) / 100
+    reserves = required_series(service, "fred/WRESBAL", RESERVE_FIT_START) / 1000
+    assets = required_series(service, "fred/TLAACBW027SBOG", RESERVE_FIT_START)
+    effr = required_series(service, "fred/EFFR", RESERVE_FIT_START) / 100
     admin = (
         pd.concat(
-            [_series(service, "fred/IOER", RESERVE_FIT_START), _series(service, "fred/IORB")]
+            [
+                required_series(service, "fred/IOER", RESERVE_FIT_START),
+                required_series(service, "fred/IORB"),
+            ]
         ).sort_index()
         / 100
     )
@@ -104,7 +107,7 @@ def _fit_reserve_curve(service: DataService) -> tuple[ReserveDemandCurve, float]
 
 def _observed_runoff(service: DataService, series_id: str) -> float:
     """USD bn per month by which holdings fell over the last 13 weeks (0 if they rose)."""
-    held = _series(service, series_id) / 1000
+    held = required_series(service, series_id) / 1000
     recent = held[held.index >= held.index[-1] - pd.Timedelta(weeks=13)]
     months = float((recent.index[-1] - recent.index[0]).days) / (365.25 / 12)
     if len(recent) < 2 or months <= 0:
@@ -151,12 +154,12 @@ def build_us_anchors(service: DataService) -> USAnchors:
     infos = {i.series_id: i.label for i in service.series_info()}
 
     def pct(series_id: str) -> float:
-        return _latest(service, series_id)[1] / 100
+        return required_latest(service, series_id)[1] / 100
 
     par: dict[str, float] = {}
     for tenor in TREASURY_TENORS.values():
-        par[tenor] = _latest(service, f"ust/par/{tenor}")[1] / 100
-    as_of = _latest(service, "ust/par/10Y")[0]
+        par[tenor] = required_latest(service, f"ust/par/{tenor}")[1] / 100
+    as_of = required_latest(service, "ust/par/10Y")[0]
     tenors = np.array([TENOR_YEARS[t] for t in par])
     order = np.argsort(tenors)
     discount = bootstrap_par_yields(tenors[order], np.array(list(par.values()))[order])
@@ -164,13 +167,13 @@ def build_us_anchors(service: DataService) -> USAnchors:
     zero_curve = fit_nss(grid, discount.zero_rate(grid)).curve
 
     sheet = FedBalanceSheet.from_h41(
-        total_assets=_latest(service, "fred/WALCL")[1] / 1000,
-        treasuries=_latest(service, "fred/TREAST")[1] / 1000,
-        mbs=_latest(service, "fred/WSHOMCB")[1] / 1000,
-        reserves=_latest(service, "fred/WRESBAL")[1] / 1000,
-        on_rrp=_latest(service, "fred/RRPONTSYD")[1],
-        tga=_latest(service, "fred/WTREGEN")[1] / 1000,
-        currency=_latest(service, "fred/WCURCIR")[1] / 1000,
+        total_assets=required_latest(service, "fred/WALCL")[1] / 1000,
+        treasuries=required_latest(service, "fred/TREAST")[1] / 1000,
+        mbs=required_latest(service, "fred/WSHOMCB")[1] / 1000,
+        reserves=required_latest(service, "fred/WRESBAL")[1] / 1000,
+        on_rrp=required_latest(service, "fred/RRPONTSYD")[1],
+        tga=required_latest(service, "fred/WTREGEN")[1] / 1000,
+        currency=required_latest(service, "fred/WCURCIR")[1] / 1000,
     )
     curve, rmse = _fit_reserve_curve(service)
 
@@ -181,12 +184,12 @@ def build_us_anchors(service: DataService) -> USAnchors:
         if info.as_of == tic_latest and info.last_value is not None:
             holdings[info.title.removeprefix("Foreign holdings of Treasuries: ")] = info.last_value
 
-    debt = _series(service, "fiscal/debt/public") / 1e9
+    debt = required_series(service, "fiscal/debt/public") / 1e9
     june_2010 = debt[debt.index <= pd.Timestamp("2010-06-30")]
     if june_2010.empty:
         raise AnchorError("fiscal/debt/public needs history back to June 2010")
-    receipts = _series(service, "fred/MTSR133FMS") / 1000
-    outlays = _series(service, "fred/MTSO133FMS") / 1000
+    receipts = required_series(service, "fred/MTSR133FMS") / 1000
+    outlays = required_series(service, "fred/MTSO133FMS") / 1000
     rows, _ = service.mspd()
     if not rows:
         raise AnchorError("no MSPD securities snapshot")
@@ -203,19 +206,19 @@ def build_us_anchors(service: DataService) -> USAnchors:
         zero_curve=zero_curve,
         term_premium=pct("fred/THREEFYTP10"),
         balance_sheet=sheet,
-        bank_assets=_latest(service, "fred/TLAACBW027SBOG")[1],
+        bank_assets=required_latest(service, "fred/TLAACBW027SBOG")[1],
         observed_qt=QTPlan(
             treasury_cap=_observed_runoff(service, "fred/TREAST"),
             mbs_cap=_observed_runoff(service, "fred/WSHOMCB"),
         ),
         reserve_curve=curve,
         reserve_fit_rmse_bp=rmse,
-        dollar_index=_latest(service, "fred/DTWEXBGS")[1],
+        dollar_index=required_latest(service, "fred/DTWEXBGS")[1],
         foreign_holdings=holdings,
         tic_as_of=tic_latest,
         debt_public=float(debt.iloc[-1]),
         debt_public_2010=float(june_2010.iloc[-1]),
-        nominal_gdp=_latest(service, "fred/GDP")[1],
+        nominal_gdp=required_latest(service, "fred/GDP")[1],
         receipts_12m=float(receipts.iloc[-12:].sum()),
         deficit_12m=float(outlays.iloc[-12:].sum() - receipts.iloc[-12:].sum()),
         ladder=ladder,

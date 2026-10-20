@@ -20,14 +20,23 @@ class CommandInfo(BaseModel):
     available_in: str | None
 
 
+class IndiaStatus(BaseModel):
+    running: bool
+    error: str | None
+    anchored_as_of: str | None
+    input_quality: list[str]
+
+
 class SimStatus(BaseModel):
     running: bool
+    """The US market."""
     error: str | None
     paused: bool
     speed: float
     sim_time: str
     anchored_as_of: str | None
     input_quality: list[str]
+    india: IndiaStatus
 
 
 def get_sim(request: Request) -> Simulator:

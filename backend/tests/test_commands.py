@@ -67,7 +67,8 @@ def test_registry_lists_every_planned_function() -> None:
     codes = {c["code"] for c in catalog()}
     assert {"PY", "UST", "FED", "HIKE", "CUT", "QT", "DEBT", "TIC", "SHOCK", "CORR"} <= codes
     assert {"CALL", "WACR", "LAF", "MPC", "LINK", "REPLAY", "HELP", "SPEED"} <= codes
-    assert not REGISTRY["WACR"].available
+    assert REGISTRY["WACR"].available
+    assert not REGISTRY["MPC"].available
     assert REGISTRY["PY"].available
 
 
@@ -75,9 +76,9 @@ def test_unknown_and_planned_codes(sim: Simulator) -> None:
     unknown = run(sim, "UTS")
     assert not unknown.ok
     assert "Did you mean UST?" in unknown.message
-    later = run(sim, "WACR")
+    later = run(sim, "MPC")
     assert not later.ok
-    assert "Phase 6" in later.message
+    assert "Phase 8" in later.message
     assert not run(sim, "").ok
 
 

@@ -172,23 +172,47 @@ def limit_check(
     fortnight_sum: float,
     avg_cap: float,
     peak_cap: float | None,
-    fortnight_days: int = 14,
+    fortnight_days: int,
+    carry_days: int = 1,
 ) -> str | None:
     """Why a new call/notice trade would breach a participation limit, or ``None`` if it fits.
 
     The average test keeps the fortnight attainable: even if the remaining days carried
-    nothing, the fortnight's daily average must not exceed the cap.
+    nothing, the fortnight's daily average must not exceed the cap. N is the reporting
+    fortnight's length (13 to 16 days since half-month fortnights; see ``rules.fortnight``),
+    and c the days the position stays outstanding within it (3 for a Friday loan repaid on
+    Monday, as non-working days count at the previous day's balance).
 
     Equation:
         peak:     b + q ≤ peak_cap
-        average:  Σ_{past days} b_d + (b + q) ≤ avg_cap · N
+        average:  Σ_{past days} b_d + c·(b + q) ≤ avg_cap · N
     """
     after = outstanding + proposed
     if peak_cap is not None and after > peak_cap + 1e-9:
         return f"daily cap {peak_cap:,.0f} cr would be exceeded ({after:,.0f} cr)"
-    if fortnight_sum + after > avg_cap * fortnight_days + 1e-9:
+    if fortnight_sum + carry_days * after > avg_cap * fortnight_days + 1e-9:
         return f"fortnightly average cap {avg_cap:,.0f} cr would be exceeded"
     return None
+
+
+def limit_room(
+    *,
+    outstanding: float,
+    fortnight_sum: float,
+    avg_cap: float,
+    peak_cap: float | None,
+    fortnight_days: int,
+    carry_days: int = 1,
+) -> float:
+    """The largest further trade both participation limits still allow (0 if none).
+
+    Equation:
+        room = max(0, min(peak_cap − b,  (avg_cap·N − Σ_{past days} b_d)/c − b))
+    """
+    room = (avg_cap * fortnight_days - fortnight_sum) / carry_days - outstanding
+    if peak_cap is not None:
+        room = min(room, peak_cap - outstanding)
+    return max(0.0, room)
 
 
 def crr_change_liquidity(total_ndtl: float, old_crr: float, new_crr: float) -> float:

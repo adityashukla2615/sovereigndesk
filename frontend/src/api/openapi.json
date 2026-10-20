@@ -313,6 +313,51 @@
         ],
         "title": "HealthResponse"
       },
+      "IndiaStatus": {
+        "properties": {
+          "running": {
+            "type": "boolean",
+            "title": "Running"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "anchored_as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchored As Of"
+          },
+          "input_quality": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Input Quality"
+          }
+        },
+        "type": "object",
+        "required": [
+          "running",
+          "error",
+          "anchored_as_of",
+          "input_quality"
+        ],
+        "title": "IndiaStatus"
+      },
       "Quality": {
         "type": "string",
         "enum": [
@@ -472,6 +517,9 @@
             },
             "type": "array",
             "title": "Input Quality"
+          },
+          "india": {
+            "$ref": "#/components/schemas/IndiaStatus"
           }
         },
         "type": "object",
@@ -482,7 +530,8 @@
           "speed",
           "sim_time",
           "anchored_as_of",
-          "input_quality"
+          "input_quality",
+          "india"
         ],
         "title": "SimStatus"
       },

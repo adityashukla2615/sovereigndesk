@@ -28,6 +28,8 @@ _BP = re.compile(r"^([+-]?\d+(?:\.\d+)?)(?:BPS?)?$")
 _USD = re.compile(r"^\$?(\d+(?:\.\d+)?)(B|BN|T|TN)?$")
 _DAYS = re.compile(r"^(\d+(?:\.\d+)?)(D|W|M)$")
 _SPEED = re.compile(r"^(\d+(?:\.\d+)?)X?$")
+_INR = re.compile(r"^₹?(\d+(?:\.\d+)?)(CR|L|LCR)$")
+_PERCENT = re.compile(r"^(\d+(?:\.\d+)?)%?$")
 
 
 def parse_bp(token: str) -> float:
@@ -53,6 +55,22 @@ def parse_days(token: str) -> float:
     if not match:
         raise CommandError(f"Expected a pace like 10D, 2W or 1M, got {token}")
     return float(match[1]) * {"D": 1.0, "W": 7.0, "M": AVERAGE_MONTH_DAYS}[match[2]]
+
+
+def parse_inr_cr(token: str) -> float:
+    """``50000CR`` → 50000, ``1.5L`` or ``1.5LCR`` → 150000 (₹ crore)."""
+    match = _INR.match(token)
+    if not match:
+        raise CommandError(f"Expected an amount like 50000CR or 1.5L (lakh crore), got {token}")
+    return float(match[1]) * (1.0 if match[2] == "CR" else 100_000.0)
+
+
+def parse_percent(token: str) -> float:
+    """``3.5`` or ``3.5%`` → 0.035."""
+    match = _PERCENT.match(token)
+    if not match:
+        raise CommandError(f"Expected a percentage like 3.5, got {token}")
+    return float(match[1]) / 100
 
 
 def parse_speed(token: str) -> float:

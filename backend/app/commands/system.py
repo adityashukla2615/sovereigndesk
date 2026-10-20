@@ -23,7 +23,13 @@ async def help_(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     return CommandResult(True, "HELP", f"{spec.usage}: {spec.summary}{status}", panel="HELP")
 
 
-@command("SPEED", "SPEED 10X", "Simulation speed as a multiple of 1 sim-minute per second", "SYS")
+@command(
+    "SPEED",
+    "SPEED 10X",
+    "Simulation speed as a multiple of 1 sim-minute per second",
+    "SYS",
+    needs_market=False,
+)
 async def speed(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     if len(args) != 1:
         raise CommandError("Usage: SPEED 10X (1X = one simulated minute per second)")
@@ -38,22 +44,27 @@ async def speed(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     )
 
 
-@command("PAUSE", "PAUSE", "Freeze the simulation clock", "SYS")
+@command("PAUSE", "PAUSE", "Freeze the simulation clock", "SYS", needs_market=False)
 async def pause(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     sim.paused = True
     return CommandResult(True, "PAUSE", "Simulation paused")
 
 
-@command("RESUME", "RESUME", "Restart the simulation clock", "SYS")
+@command("RESUME", "RESUME", "Restart the simulation clock", "SYS", needs_market=False)
 async def resume(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     sim.paused = False
     return CommandResult(True, "RESUME", "Simulation resumed")
 
 
-@command("RESET", "RESET", "Clear every shock and policy change; back to the real anchors", "SYS")
+@command(
+    "RESET",
+    "RESET",
+    "Clear every shock and policy change; back to the real anchors",
+    "SYS",
+    needs_market=False,
+)
 async def reset(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
-    anchors = sim.us.anchors if sim.us else None
-    sim.load(anchors)
+    sim.load(sim.us.anchors if sim.us else None, sim.india.anchors if sim.india else None)
     return CommandResult(True, "RESET", "Reset to the real anchors; all shocks cleared")
 
 

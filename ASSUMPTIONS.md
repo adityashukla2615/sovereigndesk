@@ -96,8 +96,12 @@ Not yet, and where each arrives: MOSPI CPI and RBI's MPC decision history in Pha
 | Lending | RBI sets **no** limit; banks lend within board-approved internal limits. The model's 25% (fortnightly average) and 50% (any day) of capital funds are an **assumption**, the brief's figures | same |
 | CRR | the fortnightly average must reach CRR × NDTL; the daily minimum is 99% of the requirement from the fortnight beginning 16 Oct 2026 (90% before), for all scheduled banks | RBI/2026-27/290 (9 Oct 2026) |
 | MSF | banks may dip into the SLR by up to 2% of NDTL (restored from 3% on 1 Jan 2022); standalone PDs have no MSF access | RBI/2021-22/138 |
+| Reporting fortnight | the 1st-15th and the 16th to the month's end since 16 Dec 2025 (13-15 Dec 2025 a transition period); Saturday to the second following Friday before | RBI/2025-26/148 (11 Dec 2025) |
+| CRR history (for NDTL in the fits) | 4.00% until 20 May 2022, 4.50% from 21 May 2022, 4.25% from 14 Dec 2024, 4.00% from 28 Dec 2024, then 3.75%, 3.50%, 3.25% and 3.00% from 6 Sep, 4 Oct, 1 Nov and 29 Nov 2025 | RBI/2022-23/46, RBI/2024-25/95, RBI/2025-26/46 |
+| Incremental CRR | 10% on NDTL growth between 19 May and 28 Jul 2023, released 9 Sep-7 Oct 2023: requirement ÷ CRR overstates NDTL then, so 10 Aug-20 Oct 2023 is left out of the fits | Press release 2023-2024/886 |
+| VRR / VRRR auctions | multiple-price: VRR bids ranked by rate descending and VRRR ascending, cut-off where the notified amount fills, each winning bid at its own rate, pro rata at the cut-off; VRR bids at or below repo and VRRR bids at or above it rejected; minimum bid ₹1 crore | Press releases 2021-2022/1572 (VRR) and 2019-2020/1947 (VRRR) |
 
-The participation check runs on every trade: it rejects a trade that would take the day's outstanding over the daily cap, or put the fortnight's daily average over the average cap even if every remaining day carried nothing. The rejection says which cap and by how much.
+The participation check runs on every order: an order that would take the day's outstanding over the daily cap, or put the fortnight's daily average over the average cap even if every remaining day carried nothing, is trimmed to the room left and the trimmed amount is logged with the reason. A position taken on a Friday counts for Saturday and Sunday too, because non-working days carry the previous day's balance.
 
 **Bank universe (SYNTHETIC).** 40 institutions with generic codes: 12 PSB, 16 PVT, 6 FGN, 4 SFB and 2 standalone PDs. Their NDTL adds up exactly to the real aggregate above. Everything else is illustrative and not fitted to any bank's data:
 
@@ -108,6 +112,40 @@ The participation check runs on every trade: it rejects a trade that would take 
 | Capital funds / NDTL | PSB 8.5%, PVT 13%, FGN 10%, SFB 14% |
 | SLR holdings | the SLR plus 2.25–6.75% of NDTL (uniform); the excess backs repo and MSF |
 | Primary dealers | NDTL 0; net owned funds ₹1,500–4,000 cr (uniform) |
+
+## India simulator (Phase 6)
+
+**Anchors.** Every starting value comes from stored real data (`backend/app/sim/india_anchors.py`), and a missing input stops the build:
+
+- repo, SDF, MSF, CRR and SLR from RBI's homepage
+- from the latest Money Market Operations release: net absorption, VRR and VRRR outstanding, the CRR requirement (hence NDTL), WACR and net durable liquidity
+- FBIL's 3M, 6M and 12M T-bill benchmarks
+
+**Fitted to data**, again each time the anchors are built. Values on the October 2026 seed:
+
+| Item | Fit |
+|---|---|
+| Macro map | WACR − repo against surplus as % of NDTL, on weekdays from 8 Apr 2022 to 17 Oct 2026 (I-CRR weeks left out). Repo each day is the midpoint of the SDF and MSF rates, which sit at repo ∓ 25 bp on every day of the data. Logistic: deficit +25.3 bp, surplus −45.2 bp, midpoint 0.79%, width 0.95 point; RMSE 17.4 bp over 1,045 days. The residuals' day-to-day autocorrelation (0.29) and size drive the simulated deviation of each day's WACR from the map |
+| Other segments | Last year's medians against WACR: TREPS −14 bp, market repo −12 bp, notice −5 bp, term +54.5 bp. Volumes as multiples of call volume: TREPS 27.7×, market repo 11.3× |
+| Tax cycle | The median fall in surplus across the 13th-17th of Mar, Jun, Sep and Dec (advance tax) is ₹1.28 lakh crore, and across the 18th-22nd of other months (GST) ₹88,000 crore, over 54 episodes. Measured: 3% of an advance-tax drain back after 10 days, 73% after 20. Simulated: each drain is spread over its five days, held for 10 days, then returned evenly over 14 |
+| Autonomous noise | A mean-reverting (OU) component of system liquidity with a daily s.d. of ₹23,900 crore: 1.4826 × the median absolute daily change away from tax dates. The 30-day half-life is an assumption |
+| NDTL growth | 11.8% a year (implied NDTL over the last year), applied at each fortnight start |
+| RBI's reaction | Logistic regressions of "a new VRR (VRRR) was held" on the previous day's surplus ℓ: VRR p = 1/(1 + e^−(−2.20 − 1.05ℓ)) from 136 such days, VRRR p = 1/(1 + e^−(−2.80 + 0.52ℓ)) from 128. Each runs at the median size of new operations (₹34,500 crore and ₹33,500 crore), overnight |
+| T-bills | FBIL's 3M, 6M and 12M benchmarks (a week behind; see above), moved one for one by repo and by the fitted slope of T-bill − repo on surplus: 3M −8.8 bp and 6M −3.5 bp per point of NDTL. The 12M fit (+4.9 bp) has the wrong sign, mixing in rate expectations, and is set to zero |
+
+**Assumptions, not fitted (all in `IndiaModelParams`).**
+
+| Item | Choice |
+|---|---|
+| Calendar | Business days are Monday to Friday; there is no holiday calendar. Clearing rounds every 15 minutes from 09:15 to 17:00 IST, RBI's auctions at 09:30, the SDF and MSF at 17:30 every day, CRR accounting at 23:59 |
+| Call market | A uniform-price auction each round, settling at the midpoint of the marginal bid and offer. Reservation rates are the map rate plus the day's deviation, round noise (8 bp) and bank noise (5 bp), leaning up to 10 bp toward the facilities by the close. They are clamped to [SDF, MSF], so the simulated WACR cannot leave the corridor (the real one did on 337 days; see the data section). Banks offer gap × min(1, 1.5 / rounds left) each round |
+| Banks' own positions | Zero-sum and mean-reverting: a stationary s.d. of 0.6% of each bank's NDTL and a 10-day half-life, so somebody can lend even when the system is short. With these values the median weekday call volume over 90 simulated days is ₹17,500 crore (real: ₹15,700 crore). System-wide flows are shared by NDTL |
+| CRR behaviour | Each bank aims for the balance that still meets the fortnight average, never below the daily floor. In the evening surplus goes to the SDF and deficit to the MSF, up to excess SLR plus 2% of NDTL; what the MSF cannot cover leaves the bank short (flagged) |
+| Primary dealers | Borrow 1 × net owned funds of call money each business day; the cash pays for securities and returns to banks by NDTL; the loans are repaid the next business day |
+| Opening position | Banks start at their requirement, with the release's SDF − MSF residual and its VRRR shared by NDTL plus their own positions. The release gives the VRRR total but not maturities, so it is assumed to mature in a week |
+| Not modelled | Interest on reserves and loans (balances move by principal only); currency in circulation, FX intervention and OMOs (Phase 9's linkage); bank holidays. The India market re-anchors to new RBI data on RESET only |
+
+Commands: `REPO ±25BP` moves repo, SDF and MSF together at once; `CRR 3.5` takes effect from the next reporting fortnight; `VRR 50000CR 7D` and `VRRR …` run at 09:30 or the next round, with banks bidding their gaps in a multiple-price auction.
 
 ## Bond conventions (engine, Phase 2)
 

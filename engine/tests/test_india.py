@@ -1,4 +1,5 @@
 from collections import Counter
+from datetime import date
 
 import numpy as np
 import pytest
@@ -15,10 +16,17 @@ from sovereign_engine.india.banks import (
     implied_ndtl,
     lending_caps,
     limit_check,
+    limit_room,
     msf_capacity,
     ndtl_change_liquidity,
 )
-from sovereign_engine.india.rules import CITATIONS, MoneyMarketRules
+from sovereign_engine.india.rules import (
+    CITATIONS,
+    CRR_SCHEDULE,
+    MoneyMarketRules,
+    crr_on,
+    fortnight,
+)
 
 RULES = MoneyMarketRules(crr=0.03, slr=0.18)
 NDTL = implied_ndtl(833_309.0, 0.03)  # RBI MMO, fortnight ending 31 Oct 2026
@@ -82,31 +90,39 @@ def test_participation_caps() -> None:
 
 def test_limit_check_rejects_with_reasons() -> None:
     avg, peak = borrowing_caps(BANK, RULES)
-    assert (
-        limit_check(outstanding=0, proposed=100_000, fortnight_sum=0, avg_cap=avg, peak_cap=peak)
-        is None
-    )
-    over_peak = limit_check(
-        outstanding=100_000, proposed=70_000, fortnight_sum=0, avg_cap=avg, peak_cap=peak
-    )
+
+    def check(outstanding: float, proposed: float, used: float, days: int = 14) -> str | None:
+        return limit_check(
+            outstanding=outstanding,
+            proposed=proposed,
+            fortnight_sum=used,
+            avg_cap=avg,
+            peak_cap=peak,
+            fortnight_days=days,
+        )
+
+    assert check(0, 100_000, 0) is None
+    over_peak = check(100_000, 70_000, 0)
     assert over_peak is not None
     assert "daily cap" in over_peak
-    # Twelve days at 150,000 use 1,800,000 of the fortnight's budget of 14 × 130,000 = 1,820,000.
+    # Twelve days at 150,000 use 1,800,000 of a 14-day fortnight's budget of 14 × 130,000.
     used = 12 * 150_000
-    assert (
-        limit_check(outstanding=0, proposed=20_000, fortnight_sum=used, avg_cap=avg, peak_cap=peak)
-        is None
-    )
-    over_avg = limit_check(
-        outstanding=0, proposed=50_000, fortnight_sum=used, avg_cap=avg, peak_cap=peak
-    )
+    assert check(0, 20_000, used) is None
+    over_avg = check(0, 50_000, used)
     assert over_avg is not None
     assert "fortnightly average" in over_avg
+    # A 16-day half-month fortnight (16-31 Oct) has room for 2 × 130,000 more.
+    assert check(0, 50_000, used, days=16) is None
     pd_avg, _ = borrowing_caps(DEALER, RULES)
-    assert (
-        limit_check(outstanding=0, proposed=60_000, fortnight_sum=0, avg_cap=pd_avg, peak_cap=None)
-        is None
+    pd_check = limit_check(
+        outstanding=0,
+        proposed=60_000,
+        fortnight_sum=0,
+        avg_cap=pd_avg,
+        peak_cap=None,
+        fortnight_days=15,
     )
+    assert pd_check is None
 
 
 def test_liquidity_from_reserve_changes() -> None:
@@ -116,7 +132,75 @@ def test_liquidity_from_reserve_changes() -> None:
 
 
 def test_every_rule_is_cited() -> None:
-    assert len(CITATIONS) == 3
+    assert len(CITATIONS) == 10
     assert all(c.url.startswith("https://") for c in CITATIONS)
     with pytest.raises(ValueError, match="fractions"):
         MoneyMarketRules(crr=3.0, slr=0.18)
+
+
+def test_reporting_fortnights_follow_rbi_2025_26_148() -> None:
+    # Half-months from 16 Dec 2025: the first half is always 15 days, the second 13 to 16.
+    assert fortnight(date(2026, 10, 20)) == (date(2026, 10, 16), date(2026, 10, 31))
+    assert fortnight(date(2026, 10, 15)) == (date(2026, 10, 1), date(2026, 10, 15))
+    assert fortnight(date(2026, 2, 20)) == (date(2026, 2, 16), date(2026, 2, 28))
+    assert fortnight(date(2025, 12, 16)) == (date(2025, 12, 16), date(2025, 12, 31))
+    # The three-day transition, and the Saturday-to-Friday fortnights before it.
+    assert fortnight(date(2025, 12, 14)) == (date(2025, 12, 13), date(2025, 12, 15))
+    assert fortnight(date(2025, 12, 12)) == (date(2025, 11, 29), date(2025, 12, 12))
+    for start, _ in CRR_SCHEDULE[1:]:  # every CRR change took effect on a fortnight's first day
+        assert fortnight(start)[0] == start
+
+
+def test_crr_schedule() -> None:
+    assert crr_on(date(2022, 5, 20)) == 0.04
+    assert crr_on(date(2022, 5, 21)) == 0.045
+    assert crr_on(date(2024, 12, 20)) == 0.0425
+    assert crr_on(date(2025, 10, 10)) == 0.035
+    assert crr_on(date(2026, 10, 20)) == 0.03
+    with pytest.raises(ValueError, match="no CRR on record"):
+        crr_on(date(2021, 1, 1))
+
+
+def _room(outstanding: float, used: float, carry: int = 1) -> float:
+    avg, peak = borrowing_caps(BANK, RULES)
+    return limit_room(
+        outstanding=outstanding,
+        fortnight_sum=used,
+        avg_cap=avg,
+        peak_cap=peak,
+        fortnight_days=14,
+        carry_days=carry,
+    )
+
+
+def _check(proposed: float, used: float, carry: int = 1) -> str | None:
+    avg, peak = borrowing_caps(BANK, RULES)
+    return limit_check(
+        outstanding=0,
+        proposed=proposed,
+        fortnight_sum=used,
+        avg_cap=avg,
+        peak_cap=peak,
+        fortnight_days=14,
+        carry_days=carry,
+    )
+
+
+def test_limit_room_is_the_largest_trade_that_passes() -> None:
+    assert _room(100_000, 0) == pytest.approx(62_500)  # the 125% daily cap binds
+    used = 12 * 150_000
+    room = _room(0, used)
+    assert room == pytest.approx(20_000)  # the fortnightly average binds
+    assert _check(room, used) is None
+    assert _check(room + 1, used) is not None
+    assert _room(200_000, 0) == 0.0
+
+
+def test_a_friday_loan_counts_for_the_whole_weekend() -> None:
+    used = 12 * 130_000  # 260,000 of the fortnight's 14 × 130,000 budget left
+    assert _room(0, used) == pytest.approx(162_500)  # a weekday: the daily cap binds
+    assert _room(0, used, carry=3) == pytest.approx(260_000 / 3)  # Friday: the average binds
+    assert _check(100_000, used) is None
+    reason = _check(100_000, used, carry=3)
+    assert reason is not None
+    assert "fortnightly average" in reason

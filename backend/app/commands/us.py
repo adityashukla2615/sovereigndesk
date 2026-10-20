@@ -247,6 +247,7 @@ async def shock(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
 async def corridor(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     us = _us(sim)
     c = us.state.corridor
+    india = sim.india
     data = {
         "us": {
             "lower": c.lower,
@@ -255,10 +256,16 @@ async def corridor(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
             "on_rrp": c.on_rrp,
             "effr": us.state.effr,
         },
-        "india": None,
+        "india": (
+            {"sdf": india.sdf, "repo": india.repo, "msf": india.msf, "wacr": india.wacr()}
+            if india
+            else None
+        ),
     }
-    message = (
-        f"Fed funds: EFFR {pct(us.state.effr)} in {pct(c.lower)}–{pct(c.upper)}. "
-        "India's call money corridor arrives in Phase 6."
-    )
+    message = f"Fed funds: EFFR {pct(us.state.effr)} in {pct(c.lower)}–{pct(c.upper)}"
+    if india:
+        message += (
+            f". India: WACR {pct(india.wacr())} in {pct(india.sdf)}–{pct(india.msf)} "
+            f"(repo {pct(india.repo)})"
+        )
     return CommandResult(True, "CORR", message, panel="CORR", data=data)

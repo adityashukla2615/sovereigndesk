@@ -52,3 +52,10 @@ def usd_bn(amount: float) -> str:
 
 def pct(rate: float, digits: int = 2) -> str:
     return f"{rate * 100:.{digits}f}%"
+
+
+def inr_cr(amount: float) -> str:
+    """Rupees in crore, switching to lakh crore at ₹1 lakh crore: 34528 → '₹34,528 cr'."""
+    if abs(amount) >= 100_000:
+        return f"₹{amount / 100_000:,.2f} lakh cr"
+    return f"₹{amount:,.0f} cr"

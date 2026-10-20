@@ -12,6 +12,7 @@ from tenacity import wait_none
 
 if TYPE_CHECKING:
     from app.sim.anchors import USAnchors
+    from app.sim.india_anchors import INAnchors
 
 from app.data.catalog import SeriesSpec
 from app.data.http import Fetcher, RawCache
@@ -126,3 +127,52 @@ def make_us_anchors(**overrides: object) -> "USAnchors":
     }
     values.update(overrides)
     return USAnchors(**values)  # type: ignore[arg-type]
+
+
+def make_india_anchors(**overrides: object) -> "INAnchors":
+    """India anchors with the magnitudes fitted on the real seed (Oct 2026), no database."""
+    from datetime import timedelta
+
+    from app.sim.india_anchors import INAnchors, Reaction, SegmentSpreads, TaxCycle
+    from sovereign_engine.india.liquidity_map import LiquidityMap
+    from sovereign_engine.india.reaction import ReactionCurve
+
+    as_of = date(2026, 10, 16)
+    values: dict[str, Any] = {
+        "as_of": as_of,
+        "repo": 0.055,
+        "sdf": 0.0525,
+        "msf": 0.0575,
+        "crr": 0.03,
+        "slr": 0.18,
+        "ndtl": 27_776_966.67,
+        "crr_requirement": 833_309.0,
+        "surplus": 185_873.0,
+        "vrr_outstanding": 0.0,
+        "vrrr_outstanding": 56_825.0,
+        "durable_liquidity": 1_014_401.0,
+        "durable_as_of": date(2026, 9, 30),
+        "wacr": 0.0528,
+        "wacr_as_of": as_of,
+        "call_volume": 15_677.0,
+        "liquidity_map": LiquidityMap(0.00253, -0.00452, 0.792, 0.954),
+        "map_rmse_bp": 17.4,
+        "map_points": 1045,
+        "map_residual_ar1": 0.29,
+        "map_residual": 0.0,
+        "spreads": SegmentSpreads(-0.0014, -0.0012, -0.0005, 0.00545, 27.7, 11.3, 0.0175, 0.05),
+        "tbills": {"3M": 0.0565, "6M": 0.0586, "12M": 0.0632},
+        "tbill_as_of": date(2026, 10, 12),
+        "tbill_slopes": {"3M": -0.00088, "6M": -0.00035, "12M": 0.0},
+        "tbill_slopes_fitted": {"3M": -0.00088, "6M": -0.00035, "12M": 0.00049},
+        "tax": TaxCycle(128_425.0, 88_109.0, {10: -0.03, 20: 0.73}, 54),
+        "noise_sd": 23_852.0,
+        "ndtl_growth": 0.118,
+        "reaction": Reaction(
+            ReactionCurve(-2.2, -1.05), ReactionCurve(-2.8, 0.52), 34_528.0, 33_453.0, 136, 128
+        ),
+        "history": [(as_of - timedelta(days=k), -0.0012) for k in range(30, 0, -1)],
+        "quality": {"rbi/repo": "SEED 2026-10-20"},
+    }
+    values.update(overrides)
+    return INAnchors(**values)

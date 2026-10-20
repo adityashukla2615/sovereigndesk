@@ -152,6 +152,17 @@ export interface components {
             /** Fred Key Configured */
             fred_key_configured: boolean;
         };
+        /** IndiaStatus */
+        IndiaStatus: {
+            /** Running */
+            running: boolean;
+            /** Error */
+            error: string | null;
+            /** Anchored As Of */
+            anchored_as_of: string | null;
+            /** Input Quality */
+            input_quality: string[];
+        };
         /**
          * Quality
          * @enum {string}
@@ -203,6 +214,7 @@ export interface components {
             anchored_as_of: string | null;
             /** Input Quality */
             input_quality: string[];
+            india: components["schemas"]["IndiaStatus"];
         };
         /** SourceStatus */
         SourceStatus: {
