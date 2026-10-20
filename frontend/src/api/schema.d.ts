@@ -89,10 +89,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Impact
+         * @description Both Module E views for the given portfolio and businesses (the presets when omitted).
+         */
+        post: operations["postImpact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** BondIn */
+        BondIn: {
+            /** Name */
+            name: string;
+            /** Face */
+            face: number;
+            /**
+             * Coupon
+             * @description Annual coupon, decimal
+             */
+            coupon: number;
+            /** Years */
+            years: number;
+            /**
+             * Spread Bp
+             * @description Over the G-sec curve
+             * @default 0
+             */
+            spread_bp: number;
+        };
         /** CommandInfo */
         CommandInfo: {
             /** Code */
@@ -126,6 +166,17 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** FundIn */
+        FundIn: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: number;
+            /** Modified Duration */
+            modified_duration: number;
+            /** Convexity */
+            convexity: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -152,6 +203,30 @@ export interface components {
             /** Fred Key Configured */
             fred_key_configured: boolean;
         };
+        /** ImpactRequest */
+        ImpactRequest: {
+            /** Bonds */
+            bonds?: components["schemas"]["BondIn"][] | null;
+            /** Funds */
+            funds?: components["schemas"]["FundIn"][] | null;
+            /** Profiles */
+            profiles?: components["schemas"]["ProfileIn"][] | null;
+            /**
+             * Shift Bp
+             * @description Hypothetical yields
+             */
+            shift_bp?: number | null;
+            /**
+             * Repo Bp
+             * @description Hypothetical repo move
+             */
+            repo_bp?: number | null;
+            /**
+             * Inr Pct
+             * @description Hypothetical rupee move
+             */
+            inr_pct?: number | null;
+        };
         /** IndiaStatus */
         IndiaStatus: {
             /** Running */
@@ -162,6 +237,46 @@ export interface components {
             anchored_as_of: string | null;
             /** Input Quality */
             input_quality: string[];
+        };
+        /** LoanIn */
+        LoanIn: {
+            /** Amount */
+            amount: number;
+            /**
+             * Benchmark
+             * @enum {string}
+             */
+            benchmark: "EBLR" | "MCLR";
+            /** Spread */
+            spread: number;
+            /** Reset Months */
+            reset_months: number;
+            /** First Reset Month */
+            first_reset_month: number;
+            /** Tenor Months */
+            tenor_months: number;
+        };
+        /** ProfileIn */
+        ProfileIn: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Monthly Sales */
+            monthly_sales: number;
+            /** Cost Share */
+            cost_share: number;
+            /** Import Share */
+            import_share: number;
+            /** Fx To Price */
+            fx_to_price: number;
+            /** Inventory Days */
+            inventory_days: number;
+            /** Rate Semi Elasticity */
+            rate_semi_elasticity: number;
+            /** Price Elasticity */
+            price_elasticity: number;
+            loan: components["schemas"]["LoanIn"];
         };
         /**
          * Quality
@@ -363,6 +478,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimStatus"];
+                };
+            };
+        };
+    };
+    postImpact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImpactRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -128,6 +128,13 @@ STEPS: list[tuple[str, list[str], float]] = [
     ("mpc-1-forecast", ["@3", "MPC"], 25.0),
     # A Fed hike run through to India: the chain, then a few simulated days of it.
     ("link-1-chain", ["@4", "SHOCK FED 50BP", "SPEED 1440X"], 12.0),
+    # Module E: what a 100 bp rise does to a portfolio, and the businesses' loans.
+    (
+        "impact-1-retail",
+        ["SPEED 1X", "@2", "IMPACT RETAIL +100BP"],
+        5.0,
+    ),
+    ("impact-2-business", ["IMPACT BUSINESS IMPORTER +25BP INR+5"], 5.0),
 ]
 
 

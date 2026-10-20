@@ -33,4 +33,31 @@ export async function apiGet<P extends GetPath>(
   return (await response.json()) as GetResponse<P>;
 }
 
+type PostPath = {
+  [P in keyof paths]: paths[P] extends { post: object } ? P : never;
+}[keyof paths];
+
+type JsonBody<Op> = Op extends { requestBody: { content: { 'application/json': infer Body } } }
+  ? Body
+  : never;
+
+export type PostBody<P extends PostPath> = paths[P] extends { post: infer Op } ? JsonBody<Op> : never;
+export type PostResponse<P extends PostPath> = paths[P] extends { post: infer Op } ? JsonOk<Op> : never;
+
+export async function apiPost<P extends PostPath>(
+  path: P,
+  body: PostBody<P>,
+  init?: { signal?: AbortSignal },
+): Promise<PostResponse<P>> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    ...init,
+  });
+  if (!response.ok) throw new ApiError(response.status, `POST ${path} failed: HTTP ${response.status}`);
+  return (await response.json()) as PostResponse<P>;
+}
+
 export type Health = GetResponse<'/api/health'>;
+export type ImpactRequest = PostBody<'/api/impact'>;

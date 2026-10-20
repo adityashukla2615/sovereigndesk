@@ -7,7 +7,7 @@ import type { CommandInfo } from '../market/types';
 import { useConnection } from '../store/connection';
 import { initialSlots, useMarket } from '../store/market';
 import { FakeSocket, envelope } from '../test/fakeSocket';
-import { GSEC_DATA, IN_TICK, LINK_DATA, MPC_DATA, PY_DATA, SPRD_DATA, US_TICK } from '../test/marketData';
+import { GSEC_DATA, IMPACT_DATA, IN_TICK, LINK_DATA, MPC_DATA, PY_DATA, SPRD_DATA, US_TICK } from '../test/marketData';
 import { App } from './App';
 
 vi.mock('../components/Chart', () => ({
@@ -41,6 +41,11 @@ const COMMANDS: CommandInfo[] = [
 
 function fakeFetch(input: RequestInfo | URL): Promise<Response> {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (url.endsWith('/api/impact')) {
+    const totals = IMPACT_DATA.retail.totals;
+    const edited = { ...IMPACT_DATA, retail: { ...IMPACT_DATA.retail, totals: totals && { ...totals, change: -12345 } } };
+    return Promise.resolve(Response.json(edited));
+  }
   if (url.endsWith('/api/sim/status')) return Promise.resolve(Response.json(SIM));
   if (url.endsWith('/api/commands')) return Promise.resolve(Response.json(COMMANDS));
   return Promise.resolve(Response.json(HEALTH));
@@ -205,6 +210,37 @@ describe('App terminal', () => {
     expect(JSON.parse(socket.sent.at(-1) ?? '{}')).toEqual({ op: 'command', text: 'LINK VRR' });
     fireEvent.click(within(link).getByRole('button', { name: 'RUN SHOCK FED 50BP' }));
     expect(JSON.parse(socket.sent.at(-1) ?? '{}')).toEqual({ op: 'command', text: 'SHOCK FED 50BP' });
+  });
+
+  it('reprices the portfolio, posts edits and shows a business', async () => {
+    render(<App />);
+    await screen.findByText('KEY OK');
+    const socket = FakeSocket.latest();
+    act(() => {
+      socket.serverOpen();
+      socket.serverSend(
+        envelope('command', 1, { ok: true, code: 'IMPACT', message: 'Hypothetical move', panel: 'IMPACT', data: IMPACT_DATA }),
+      );
+    });
+    const panel = screen.getByRole('region', { name: 'panel 1: IMPACT' });
+    expect(panel).toHaveTextContent('HYPOTHETICAL');
+    const table = within(panel).getByRole('table', { name: 'portfolio' });
+    expect(table).toHaveTextContent('10-year G-sec');
+    expect(table).toHaveTextContent('7.54% held / −₹34,000 sold');
+    expect(table).toHaveTextContent('no cash flows'); // the fund
+    fireEvent.change(within(panel).getByLabelText('10-year G-sec face'), { target: { value: '250000' } });
+    fireEvent.change(within(panel).getByLabelText('YIELDS ±BP'), { target: { value: '200' } });
+    fireEvent.click(within(panel).getByRole('button', { name: 'APPLY' }));
+    await within(panel).findByText('−₹12,345');
+    const post = vi.mocked(fetch).mock.calls.find(([url]) => typeof url === 'string' && url.endsWith('/api/impact'));
+    const sent = post?.[1]?.body;
+    const body = JSON.parse(typeof sent === 'string' ? sent : '{}') as { bonds: { face: number }[]; shift_bp: number };
+    expect(body.bonds[0]?.face).toBe(250000);
+    expect(body.shift_bp).toBe(200);
+    fireEvent.click(within(panel).getByRole('button', { name: 'BUSINESS' }));
+    expect(panel).toHaveTextContent('EBLR LOAN, 3M RESET');
+    expect(within(panel).getByRole('img', { name: /Small shop/ })).toBeInTheDocument();
+    expect(within(panel).getByLabelText('LOAN ₹')).toHaveValue(1000000);
   });
 
   it('suggests functions while a code is typed and completes with Tab', async () => {

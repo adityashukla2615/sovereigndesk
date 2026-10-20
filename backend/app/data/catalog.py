@@ -258,6 +258,7 @@ IN_RBI_POLICY_SERIES: tuple[SeriesSpec, ...] = (
     _policy("wss/reserves", "Foreign exchange reserves, total (WSS)", "USD mn", "W"),
     _policy("wss/fca", "Foreign exchange reserves, foreign currency assets (WSS)", "USD mn", "W"),
     _policy("wss/gold", "Foreign exchange reserves, gold (WSS)", "USD mn", "W"),
+    _policy("rates/mclr_1y", "Scheduled commercial banks' 1-year median MCLR", "%", "M"),
 )
 
 _CPI_2012_GROUPS = (

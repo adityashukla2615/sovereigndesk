@@ -1,6 +1,7 @@
 """Terminal function codes: parsing, the registry (single source of truth) and handlers."""
 
 from app.commands import (  # noqa: F401 - importing registers the handlers
+    impact,
     india,
     linkage,
     planned,

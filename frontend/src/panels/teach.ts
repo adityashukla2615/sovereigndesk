@@ -42,6 +42,15 @@ export const TEACH: Record<string, string> = {
     'The backtest refits each model on earlier decisions only and scores the next one, against ' +
     'repeating the last decision and always holding. Holds dominate the sample, so a high hit ' +
     'rate alone says little: macro-F1 and the Brier score reward getting the moves right.',
+  IMPACT:
+    'What the simulated moves mean for people. A bond loses value when yields rise: by about ' +
+    'its modified duration times the rise, a little less because of convexity, and exactly what ' +
+    'repricing its cash flows says. Held to maturity it still pays every coupon and its face ' +
+    'value, so the loss is only crystallised by selling. A business with a floating-rate loan ' +
+    'pays more once the loan resets: an EBLR loan takes a repo move in full, an MCLR loan only ' +
+    'part of it and slowly (fitted on RBI’s monthly data). An importer also pays more for its ' +
+    'stock when the rupee weakens, passes some of it to prices and sells less. The portfolio ' +
+    'and the businesses are illustrative: edit them to your own.',
   LINK:
     'How a US shock reaches India’s money market. A Fed hike lifts the US 10-year; India’s ' +
     '10-year follows only partly, so the yield gap narrows and foreign portfolio money leaves ' +

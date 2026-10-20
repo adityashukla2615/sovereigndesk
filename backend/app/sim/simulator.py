@@ -21,6 +21,7 @@ import numpy as np
 from app.data.service import DataService
 from app.sim.anchors import USAnchors, build_us_anchors
 from app.sim.events import Event, EventKind, EventLog, inr_cr, pct
+from app.sim.impact import ImpactModel, build_impact
 from app.sim.india_anchors import INAnchors, build_india_anchors
 from app.sim.india_market import IST, IndiaMarket
 from app.sim.linkage import LinkModel, LinkRun, build_link
@@ -77,6 +78,10 @@ class Simulator:
         self._link_lock = asyncio.Lock()
         self.link_runs: list[LinkRun] = []
         """The US shocks run through the linkage since the markets were built."""
+        self.impact: ImpactModel | None = None
+        """Module E's pass-through, calibrated on first use."""
+        self.impact_error: str | None = None
+        self._impact_lock = asyncio.Lock()
         self._task: asyncio.Task[None] | None = None
         self._rng = np.random.default_rng(seed)
 
@@ -92,6 +97,7 @@ class Simulator:
         self.mpc, self.mpc_error = None, None
         self.link, self.link_error = None, None
         self.link_runs = []
+        self.impact, self.impact_error = None, None
         self._rng = np.random.default_rng(self.seed)
         try:
             anchors = anchors or build_us_anchors(self._require_data())
@@ -222,6 +228,21 @@ class Simulator:
                         self.link_error = f"{type(exc).__name__}: {exc}"
                         log.warning("linkage unavailable: %s", self.link_error)
             return self.link
+
+    async def impact_model(self) -> ImpactModel | None:
+        """Module E's calibrated pass-through, built from the data on first use; None (with the
+        reason in ``impact_error``) when the data cannot support it."""
+        async with self._impact_lock:
+            if self.impact is None and self.impact_error is None:
+                if self.data is None:
+                    self.impact_error = "no data service"
+                else:
+                    try:
+                        self.impact = await asyncio.to_thread(build_impact, self.data)
+                    except Exception as exc:  # surfaced to the user rather than raised
+                        self.impact_error = f"{type(exc).__name__}: {exc}"
+                        log.warning("impact unavailable: %s", self.impact_error)
+            return self.impact
 
     def sim_day(self) -> date:
         return self.sim_time.astimezone(IST).date()

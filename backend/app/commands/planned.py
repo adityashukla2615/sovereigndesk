@@ -10,13 +10,6 @@ planned(
     "Phase 12 (terminal completion)",
 )
 planned(
-    "IMPACT",
-    "IMPACT [RETAIL|BUSINESS profile]",
-    "What a shock means for a bond portfolio and for a small business",
-    "X",
-    "Phase 10 (retail and business impact)",
-)
-planned(
     "REPLAY",
     "REPLAY TAPER2013",
     "Replay a real episode against the model",

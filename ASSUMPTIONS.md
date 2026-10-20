@@ -326,6 +326,66 @@ The debt-flow slope has the expected sign but is not distinguishable from zero: 
 - *The VIX is an input.* A Fed surprise that comes with risk-off moves money mostly through the VIX link, whose size the user gives.
 - *Swaps and OMOs outlast the horizon.* A buy/sell swap's forward leg and an OMO's maturity are beyond the 30 days followed.
 
+## Retail and business impact (Module E, Phase 10)
+
+`IMPACT` (also `IMPACT RETAIL [+100BP]` and `IMPACT BUSINESS [SHOP|IMPORTER] [+25BP] [INR+5]`) shows what the simulated moves mean for a bond investor and two small businesses. The panel's inputs can be edited; it posts them to `POST /api/impact`. The engine is in `sovereign_engine/impact/`, the calibration and presets in `backend/app/sim/impact.py`.
+
+**The shock.** Each module's shocks reach the impact through the simulated markets, measured against the real data they were anchored to:
+
+- the G-sec curve against FBIL's close, interpolated at each bond's maturity (a fund's at its duration);
+- repo against RBI's;
+- the 3-month T-bill against FBIL's benchmark;
+- the rupee against FBIL's reference rate, once the linkage has moved it.
+
+So a repo move, a CRR change, a Fed shock or a tax-day squeeze all show up. A hypothetical move can be given instead:
+
+- a parallel yield shift (`+100BP` in the retail view), which leaves lending rates alone;
+- a repo move (`+25BP` in the business view), which also moves the G-sec curve by the event study's β(τ) (Phase 7) and the 3-month bill by its β;
+- a rupee move (`INR+5`, + is weaker).
+
+**Retail investor.**
+
+- *Bonds.* Each bond is repriced exactly from its cash flows: semi-annual coupons, the yield at its maturity on the curve plus a fixed spread for non-government bonds.
+- *Funds.* A fund has no cash flows of its own, so only the duration and duration + convexity estimates from its stated modified duration and convexity are available.
+- *The table.* For every holding: the exact change next to the two estimates, modified duration, convexity and DV01.
+- *Hold or sell.* Held to maturity, a bond pays every coupon and its face. Its realised yield is the yield it was bought at, plus or minus the effect of reinvesting coupons at the new yield. Sold now, the price change is crystallised.
+- *The engine's tests.* A 7% 10-year par bond falls 6.80% for a 100 bp rise (modified duration 7.11). The duration estimate's error falls with Δy², the convexity estimate's with Δy³. DV01 matches a 1 bp repricing.
+
+**Business.**
+
+| Item | Rule or fit | Value |
+|---|---|---|
+| EBLR | A repo-linked external benchmark moves one for one with repo. Banks raised theirs by the full 250 bp of May 2022 – Feb 2023 (RBI Bulletin, "Monetary Policy Transmission in India: Recent Dynamics", 16 Nov 2023). New floating-rate retail and MSME loans have been external-benchmark linked since 1 Oct 2019, with a reset at least every three months (RBI's circular of 4 Sep 2019, as reported). **VERIFY** | 1.0 × Δrepo, no lag |
+| MCLR | Fitted on RBI's monthly 1-year median MCLR, Jun 2022 – Sep 2026 (52 months, from the "Lending and Deposit Rates of Scheduled Commercial Banks" releases), against every repo decision since 2014: Bₜ = c + b·Σ Δrepoⱼ·(1 − e^(−(t − tⱼ)/τ)). The RBI Bulletin above found 152 bp of 250 (0.61) by October 2023 | b = 0.57, τ = 6.9 months; RMSE 11.5 bp |
+| MCLR and liquidity | The money market's move beyond what repo explains (3-month T-bill − β·Δrepo) also reaches MCLR: banks' marginal cost of funds is mostly deposits, which reprice slowly, and partly CDs, which move at once. **Assumption** | 0.3 |
+| Base rates | EBLR = repo before the shock + the loan's spread; MCLR = the latest median 1-year MCLR (8.61% in Sep 2026) + spread | |
+| Resets | The loan takes the benchmark's level at each reset, every R months from its first reset after the shock (the pass-through lag) | per profile |
+| Imported costs | Rise with the rupee as the stock bought at the old rate runs off, linearly over the inventory days | per profile |
+| Prices and demand | A share of the imported-cost rise is passed to prices. Sales volume responds to the repo-linked rate (semi-elasticity) and to prices (elasticity) | per profile |
+
+**ILLUSTRATIVE presets.** Every size, share and elasticity below is an assumption, not any firm's or investor's data, and every field can be edited in the panel.
+
+| Preset | Choice |
+|---|---|
+| Portfolio | 1-, 5-, 10- and 30-year G-secs (₹2, 3, 5 and 2 lakh face) and a 3-year AAA PSU bond (₹2 lakh, +60 bp over G-secs), each bought at par at today's yield; a gilt fund (₹3 lakh, duration 7.5, convexity 80) and a short-duration fund (₹2 lakh, duration 2.2, convexity 7) |
+| Small shop | Sales ₹6 lakh a month; costs 82% of sales, 5% of them imported; inventory 20 days; half of a cost rise passed on. ₹10 lakh working-capital loan on EBLR + 3.5%, reset quarterly (next reset in a month). Sales semi-elasticity −0.3% per point of rates, price elasticity −0.5 |
+| Electronics importer | Sales ₹1.5 crore a month; costs 88% of sales, 70% of them imported; inventory 60 days; 60% of a cost rise passed on. ₹2 crore loan on MCLR + 1.5%, reset yearly (next in six months), an older MCLR-linked loan of the kind that runs until renewal. Credit-financed demand: −2% per point of rates; price elasticity −1.2 |
+
+**On the seed.**
+
+- *A 100 bp rise in yields* takes the illustrative portfolio from ₹19,00,000 to ₹18,00,757 (−5.22%; modified duration 5.50, DV01 ₹1,045 per bp). Duration alone would have said −₹1,04,482; with convexity −₹99,022.
+- *A 25 bp repo hike with the rupee 5% weaker:*
+  - the shop's loan resets +25 bp next month (₹208 a month more interest);
+  - the importer's MCLR loan is +8 bp at its month-six reset;
+  - the importer's dearer stock cuts its margin by ₹2.30 lakh a month (−14.1%) once the old inventory has run off.
+
+**Known limitations.**
+
+- *Presets, not data.* No firm's or investor's numbers are used, and the elasticities are rough values chosen for illustration, not estimates.
+- *MCLR from a short sample.* The highlights state MCLR only from mid-2022 (earlier figures are in attached files on rbidocs.rbi.org.in, which is not used). The fit therefore leans on one hiking and one easing cycle, and the liquidity share is assumed.
+- *No credit spreads or defaults.* A bond's spread over G-secs is held fixed, and a business's loan spread and its access to credit do not change with the shock.
+- *Partial equilibrium.* The businesses do not feed back into the markets. Interest is on a fully drawn working-capital limit of fixed size, with no repayment in the period followed.
+
 ## Bond conventions (engine, Phase 2)
 
 Each convention is defined in `engine/src/sovereign_engine/bonds/conventions.py`, with its sources and the date it was checked.

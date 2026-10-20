@@ -326,6 +326,129 @@ export function isGsecPanel(value: unknown): value is GsecPanelData {
   );
 }
 
+export interface ImpactHolding {
+  name: string;
+  kind: 'bond' | 'fund';
+  years: number | null;
+  coupon: number | null;
+  face: number | null;
+  base_yield: number | null;
+  spread_bp: number | null;
+  dy_bp: number;
+  value0: number;
+  value1: number;
+  change: number;
+  exact_pct: number | null;
+  duration_pct: number;
+  convexity_pct: number;
+  modified_duration: number;
+  convexity: number;
+  dv01: number;
+  hold: {
+    coupons: number;
+    redemption: number;
+    payments: number;
+    bought_yield: number;
+    realised_yield: number;
+    sale_proceeds: number;
+    sale_gain: number;
+  } | null;
+}
+
+export interface ImpactLoan {
+  amount: number;
+  benchmark: 'EBLR' | 'MCLR';
+  spread: number;
+  reset_months: number;
+  first_reset_month: number;
+  tenor_months: number;
+}
+
+export interface ImpactProfile {
+  monthly_sales: number;
+  cost_share: number;
+  import_share: number;
+  fx_to_price: number;
+  inventory_days: number;
+  rate_semi_elasticity: number;
+  price_elasticity: number;
+  loan: ImpactLoan;
+}
+
+export interface ImpactBusiness {
+  key: string;
+  name: string;
+  profile: ImpactProfile;
+  base_rate: number;
+  base_interest: number;
+  base_margin: number;
+  months: number[];
+  loan_rate_bp: number[];
+  interest: number[];
+  import_cost: number[];
+  price_pct: number[];
+  volume_pct: number[];
+  sales: number[];
+  margin: number[];
+  summary: {
+    loan_rate_bp: number;
+    interest: number;
+    margin: number;
+    margin_pct: number | null;
+    sales_pct: number;
+    year_margin: number;
+  };
+}
+
+/** IMPACT: Module E's two views (backend app.sim.impact.impact_panel). */
+export interface ImpactPanelData {
+  illustrative: boolean;
+  view?: 'RETAIL' | 'BUSINESS';
+  profile?: string | null;
+  shock: {
+    source: 'simulation' | 'hypothetical';
+    notes: string[];
+    as_of: string | null;
+    curve: { tenor: string; years: number; base: number; now: number; change_bp: number }[];
+    repo_bp: number;
+    money_bp: number;
+    liquidity_bp: number;
+    inr_pct: number;
+    inr_base: number | null;
+    inr_now: number | null;
+  };
+  retail: {
+    holdings: ImpactHolding[];
+    totals: {
+      value0: number;
+      value1: number;
+      change: number;
+      change_pct: number;
+      duration_only: number;
+      duration_convexity: number;
+      modified_duration: number;
+      convexity: number;
+      dv01: number;
+    } | null;
+  };
+  business: ImpactBusiness[];
+  passthrough: {
+    eblr_per_repo: number;
+    eblr_lag_months: number;
+    mclr_per_repo: number;
+    mclr_months: number;
+    mclr_per_money: number;
+    mclr_fit: { share: number; months: number; rmse_bp: number; n: number; sample: string };
+    mclr_now: number;
+    mclr_as_of: string;
+    repo_base: number;
+  };
+}
+
+export function isImpactPanel(value: unknown): value is ImpactPanelData {
+  return isRecord(value) && isRecord(value.shock) && isRecord(value.retail) && Array.isArray(value.business);
+}
+
 export type LinkResponse = 'none' | 'vrr' | 'omo' | 'swap' | 'hike';
 
 export interface LinkNode {

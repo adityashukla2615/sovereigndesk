@@ -16,12 +16,14 @@ from app.data.sources.rbi_policy import (
     RbiPolicyAdapter,
     Reserves,
     is_decision_title,
+    is_lending_rates_title,
     is_schedule_title,
     is_tbill_title,
     is_wss_title,
     merge_meetings,
     parse_decision,
     parse_listing,
+    parse_mclr,
     parse_mmo_summary,
     parse_reserves,
     parse_schedule,
@@ -166,6 +168,18 @@ def test_weekly_forex_reserves_in_every_era(name: str, reserves: Reserves) -> No
     assert is_wss_title("Reserve Bank of India – Bulletin Weekly Statistical Supplement – Extract")
     with pytest.raises(SourceError, match="no foreign exchange reserves table"):
         parse_reserves(page("rbi_policy_2026-10-07"))
+
+
+def test_lending_rates_give_the_median_mclr() -> None:
+    assert is_lending_rates_title(
+        "Lending and Deposit Rates of Scheduled Commercial Banks – September 2026"
+    )
+    # "increased from 7.75 per cent in September 2022 to 7.90 per cent in October 2022"
+    assert parse_mclr(page("rbi_rates_2022-10")) == {date(2022, 9, 1): 7.75, date(2022, 10, 1): 7.9}
+    # "Marginal Cost of fund-based Lending Rate ... moved to 8.79 per cent in May 2024 from ..."
+    assert parse_mclr(page("rbi_rates_2024-05")) == {date(2024, 5, 1): 8.79, date(2024, 4, 1): 8.85}
+    assert parse_mclr(page("rbi_rates_2026-09")) == {date(2026, 9, 1): 8.61, date(2026, 8, 1): 8.7}
+    assert parse_mclr(page("rbi_rates_2022-06")) == {}  # tables only, in an attached file
 
 
 def test_listing_dates_every_release() -> None:

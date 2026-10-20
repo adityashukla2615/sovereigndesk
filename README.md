@@ -31,12 +31,15 @@ Four resizable panels, a ticker, data-quality badges (LIVE, SEED, STALE) and an 
 | `WACR`, `REPO -25BP`, `CRR 3.5`, `VRR 50000CR 7D` | India's corridor, an MPC move and RBI's operations |
 | `MPC` | The next MPC decision: probabilities from a Taylor rule, an ordered logit and boosted trees, trained on RBI's decisions since 2014 and backtested walk-forward from 2018 against naive baselines ([report](docs/MPC_BACKTEST.md)) |
 | `SHOCK FED 50BP`, `LINK` | A Fed hike runs through to India: the US 10Y, FPI outflows, RBI's dollar sales, the rupee, rupee liquidity and WACR, each link calibrated on NSDL, RBI and FRED data; RBI can answer with VRR, OMOs, a swap or a hike |
+| `IMPACT RETAIL +100BP`, `IMPACT BUSINESS IMPORTER` | What a shock means for people: an (editable, illustrative) bond portfolio repriced exactly and by duration and convexity, held against sold; a small shop and an electronics importer with EBLR and MCLR loans, imported costs and demand |
 | `GSEC`, `SPRD` | India's G-sec curve (NSS) and how a repo surprise passes through it, measured on RBI's repo changes; India's 10Y against the US 10Y |
 | `TEACH`, `HELP`, `SPEED 60X` | The economics behind each panel, every function, faster time |
 
 ![GSEC: India's G-sec curve after a 25 bp repo cut, with the event study's pass-through by maturity; SPRD: India's 10Y against the US 10Y since 2023](docs/screenshots/gsec-1-curve.png)
 
 ![LINK: a 50 bp Fed hike run through to India, node by node, six simulated days in; MPC: the next decision's probabilities and the backtest](docs/screenshots/link-1-chain.png)
+
+![IMPACT: an illustrative bond portfolio after a 100 bp rise in yields, each holding repriced exactly and by duration and convexity, held against sold](docs/screenshots/impact-1-retail.png)
 
 `/` focuses the command bar and Alt+1..4 a panel. `py tasks.py demo` walks this demo end to end on the real seed, and `py tasks.py screenshots` re-captures [docs/screenshots](docs/screenshots). What is real data and what is modelled is listed in [ASSUMPTIONS.md](ASSUMPTIONS.md).
 

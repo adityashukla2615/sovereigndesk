@@ -20,6 +20,9 @@
 * Foreign exchange reserves: the weekly "Reserve Bank of India – Bulletin Weekly Statistical
   Supplement – Extract", table 2: total reserves, foreign currency assets and gold (US$
   million) as on the Friday before, for the linkage's calibration.
+* Lending rates: the monthly "Lending and Deposit Rates of Scheduled Commercial Banks" (from July
+  2021) states the banks' 1-year median MCLR in its highlights ("declined to 8.61 per cent in
+  September 2026 from 8.70 per cent in August 2026"), for the business impact (Module E).
 
 Releases are listed month by month through the press-release archive (an ASP.NET form). A
 release never changes once published, so a saved copy is parsed instead of downloaded again,
@@ -309,6 +312,33 @@ def parse_reserves(content: bytes) -> Reserves:
     return Reserves(as_of, values["total"], values["fca"], values["gold"])
 
 
+# ----------------------------------------------------------------------- lending rates
+
+
+def is_lending_rates_title(title: str) -> bool:
+    return title.lower().startswith("lending and deposit rates of scheduled commercial banks")
+
+
+_MCLR = re.compile(r"(?i)median Marginal Cost of Funds?[- ]based Lending Rate \(MCLR\)")
+_PER_CENT_IN = re.compile(rf"([\d.]+)\s*per\s*cent in {_MONTH},? (\d{{4}})")
+
+
+def parse_mclr(content: bytes) -> dict[date, float]:
+    """The 1-year median MCLR by month (dated the month's first day) from a release's
+    highlights: the sentence names this month's and usually last month's ("increased from 7.75
+    per cent in September 2022 to 7.90 per cent in October 2022", "remained unchanged at 8.80
+    per cent in February 2024"). Empty when the release has no such sentence."""
+    text = _text(content.decode("utf-8", "replace"))
+    found = _MCLR.search(text)
+    if found is None:
+        return {}
+    sentence = re.split(r"(?i)Deposit Rates|The share of|WALR", text[found.end() :])[0][:400]
+    return {
+        date(int(m[3]), _MONTHS.index(m[2]) + 1, 1): float(m[1])
+        for m in _PER_CENT_IN.finditer(sentence)
+    }
+
+
 # ----------------------------------------------------------------------- money markets
 
 
@@ -538,6 +568,11 @@ class RbiPolicyAdapter:
             points["wss/reserves"].append((reserves.as_of, reserves.total))
             points["wss/fca"].append((reserves.as_of, reserves.fca))
             points["wss/gold"].append((reserves.as_of, reserves.gold))
+        mclr: dict[date, float] = {}
+        for entry in listing:  # in release order, so a later release's figure wins
+            if is_lending_rates_title(entry.title) and (content := read(entry.prid, "rates")):
+                mclr |= parse_mclr(content)
+        points["rates/mclr_1y"].extend(sorted(mclr.items()))
         if not bodies:
             raise SourceError(f"rbi_policy: nothing could be read: {outcome.errors}")
         latest = bodies[-1]

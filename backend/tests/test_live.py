@@ -85,8 +85,9 @@ def test_command_catalogue_endpoint(live: TestClient) -> None:
     assert commands["PY"]["available"] is True
     assert commands["MPC"]["available"] is True
     assert commands["LINK"]["available"] is True
-    assert commands["IMPACT"]["available"] is False
-    assert "Phase 10" in commands["IMPACT"]["available_in"]
+    assert commands["IMPACT"]["available"] is True
+    assert commands["REPLAY"]["available"] is False
+    assert "Phase 11" in commands["REPLAY"]["available_in"]
 
 
 def test_india_anchors_to_the_real_seed_and_streams(live: TestClient) -> None:
@@ -182,3 +183,25 @@ def test_linkage_calibrates_and_runs_a_fed_shock(live: TestClient) -> None:
     anchors = shock["data"]["anchors"]
     assert 50 < anchors["inr"] < 150
     assert 300 < anchors["reserves_bn"] < 1500
+
+
+def test_impact_on_the_real_seed(live: TestClient) -> None:
+    """Module E: the MCLR's pass-through fitted on RBI's monthly lending-rate releases, and both
+    views for a hypothetical move."""
+    with live.websocket_connect("/ws") as ws:
+        ws.send_text(json.dumps({"op": "command", "text": "IMPACT RETAIL +100BP"}))
+        retail = _until(ws, "command", limit=200)["data"]
+        ws.send_text(json.dumps({"op": "command", "text": "IMPACT BUSINESS +25BP INR+5"}))
+        business = _until(ws, "command", limit=200)["data"]
+    assert retail["ok"] is True, retail["message"]
+    assert business["ok"] is True, business["message"]
+    pt = retail["data"]["passthrough"]
+    assert 0.2 < pt["mclr_per_repo"] < 1.2  # RBI's own figure for 2022-23: 152 of 250 bp
+    assert 0.25 < pt["mclr_months"] < 36
+    assert pt["mclr_fit"]["n"] >= 40  # months since June 2022
+    assert 0.05 < pt["mclr_now"] < 0.15
+    totals = retail["data"]["retail"]["totals"]
+    assert -10 < totals["change_pct"] < 0
+    rows = {b["key"]: b for b in business["data"]["business"]}
+    assert rows["SHOP"]["loan_rate_bp"][0] == pytest.approx(25.0)
+    assert rows["IMPORTER"]["summary"]["margin"] < 0

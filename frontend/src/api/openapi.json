@@ -168,10 +168,99 @@
           }
         }
       }
+    },
+    "/api/impact": {
+      "post": {
+        "tags": [
+          "impact"
+        ],
+        "summary": "Impact",
+        "description": "Both Module E views for the given portfolio and businesses (the presets when omitted).",
+        "operationId": "postImpact",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImpactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Postimpact"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "BondIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "face": {
+            "type": "number",
+            "maximum": 1000000000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Face"
+          },
+          "coupon": {
+            "type": "number",
+            "maximum": 0.3,
+            "minimum": 0.0,
+            "title": "Coupon",
+            "description": "Annual coupon, decimal"
+          },
+          "years": {
+            "type": "number",
+            "maximum": 50.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Years"
+          },
+          "spread_bp": {
+            "type": "number",
+            "maximum": 2000.0,
+            "minimum": -500.0,
+            "title": "Spread Bp",
+            "description": "Over the G-sec curve",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "face",
+          "coupon",
+          "years"
+        ],
+        "title": "BondIn"
+      },
       "CommandInfo": {
         "properties": {
           "code": {
@@ -260,6 +349,42 @@
         ],
         "title": "DataStatus"
       },
+      "FundIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "value": {
+            "type": "number",
+            "maximum": 1000000000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Value"
+          },
+          "modified_duration": {
+            "type": "number",
+            "maximum": 40.0,
+            "minimum": 0.0,
+            "title": "Modified Duration"
+          },
+          "convexity": {
+            "type": "number",
+            "maximum": 3000.0,
+            "minimum": 0.0,
+            "title": "Convexity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "value",
+          "modified_duration",
+          "convexity"
+        ],
+        "title": "FundIn"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -313,6 +438,99 @@
         ],
         "title": "HealthResponse"
       },
+      "ImpactRequest": {
+        "properties": {
+          "bonds": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/BondIn"
+                },
+                "type": "array",
+                "maxItems": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bonds"
+          },
+          "funds": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FundIn"
+                },
+                "type": "array",
+                "maxItems": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Funds"
+          },
+          "profiles": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ProfileIn"
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profiles"
+          },
+          "shift_bp": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000.0,
+                "minimum": -1000.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shift Bp",
+            "description": "Hypothetical yields"
+          },
+          "repo_bp": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 500.0,
+                "minimum": -500.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Bp",
+            "description": "Hypothetical repo move"
+          },
+          "inr_pct": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 50.0,
+                "minimum": -50.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inr Pct",
+            "description": "Hypothetical rupee move"
+          }
+        },
+        "type": "object",
+        "title": "ImpactRequest"
+      },
       "IndiaStatus": {
         "properties": {
           "running": {
@@ -357,6 +575,133 @@
           "input_quality"
         ],
         "title": "IndiaStatus"
+      },
+      "LoanIn": {
+        "properties": {
+          "amount": {
+            "type": "number",
+            "maximum": 1000000000000.0,
+            "minimum": 0.0,
+            "title": "Amount"
+          },
+          "benchmark": {
+            "type": "string",
+            "enum": [
+              "EBLR",
+              "MCLR"
+            ],
+            "title": "Benchmark"
+          },
+          "spread": {
+            "type": "number",
+            "maximum": 0.2,
+            "minimum": -0.05,
+            "title": "Spread"
+          },
+          "reset_months": {
+            "type": "integer",
+            "maximum": 36.0,
+            "minimum": 1.0,
+            "title": "Reset Months"
+          },
+          "first_reset_month": {
+            "type": "integer",
+            "maximum": 36.0,
+            "minimum": 0.0,
+            "title": "First Reset Month"
+          },
+          "tenor_months": {
+            "type": "integer",
+            "maximum": 360.0,
+            "minimum": 1.0,
+            "title": "Tenor Months"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "benchmark",
+          "spread",
+          "reset_months",
+          "first_reset_month",
+          "tenor_months"
+        ],
+        "title": "LoanIn"
+      },
+      "ProfileIn": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "monthly_sales": {
+            "type": "number",
+            "maximum": 1000000000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Monthly Sales"
+          },
+          "cost_share": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Cost Share"
+          },
+          "import_share": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Import Share"
+          },
+          "fx_to_price": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Fx To Price"
+          },
+          "inventory_days": {
+            "type": "number",
+            "maximum": 730.0,
+            "minimum": 0.0,
+            "title": "Inventory Days"
+          },
+          "rate_semi_elasticity": {
+            "type": "number",
+            "maximum": 0.0,
+            "minimum": -50.0,
+            "title": "Rate Semi Elasticity"
+          },
+          "price_elasticity": {
+            "type": "number",
+            "maximum": 0.0,
+            "minimum": -20.0,
+            "title": "Price Elasticity"
+          },
+          "loan": {
+            "$ref": "#/components/schemas/LoanIn"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "monthly_sales",
+          "cost_share",
+          "import_share",
+          "fx_to_price",
+          "inventory_days",
+          "rate_semi_elasticity",
+          "price_elasticity",
+          "loan"
+        ],
+        "title": "ProfileIn"
       },
       "Quality": {
         "type": "string",

@@ -54,6 +54,18 @@ def usd_bn(amount: float) -> str:
     return f"{sign}${size:,.0f}bn" if size >= 10 else f"{sign}${size:,.1f}bn"
 
 
+def inr(amount: float) -> str:
+    """Rupees in the Indian grouping: 1900000 → '₹19,00,000', -34000.4 → '−₹34,000'."""
+    sign, digits = ("−" if amount < 0 else ""), f"{abs(amount):.0f}"
+    head, tail = digits[:-3], digits[-3:]
+    groups: list[str] = []
+    while len(head) > 2:
+        head, group = head[:-2], head[-2:]
+        groups.insert(0, group)
+    grouped = ",".join([g for g in (head, *groups) if g] + [tail])
+    return f"{sign}₹{grouped}"
+
+
 def flow_bn(amount: float) -> str:
     """A signed flow in USD billions, to the ten million: -0.5 → '−$0.50bn', 3.2 → '+$3.20bn'."""
     sign = "−" if amount < 0 else "+"
