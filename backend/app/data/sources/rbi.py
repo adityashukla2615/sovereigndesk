@@ -17,7 +17,7 @@ import html
 import re
 import time
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -272,6 +272,22 @@ def archive_form(listing_page: bytes, year: int, month: int) -> dict[str, str]:
     return {**form, "hdnYear": str(year), "hdnMonth": str(month), "UsrFontCntr$btn": ""}
 
 
+def archive_month(
+    fetcher: Fetcher, source: str, front: bytes, year: int, month: int, *, pause_s: float
+) -> bytes:
+    """One month's press-release listing, through the archive form. A listing saved by a crawl
+    after the month ended is complete and never changes, so it is reused instead of posted
+    again; one saved during the month is posted again."""
+    month_end = date(year + month // 12, month % 12 + 1, 1) - timedelta(days=1)
+    fields = {"hdnYear": str(year), "hdnMonth": str(month)}
+    saved = fetcher.saved_post(source, PRESS_URL, fields)
+    if saved is not None and saved.fetched_at.astimezone(INDIA).date() > month_end:
+        return saved.content
+    time.sleep(pause_s)
+    form = archive_form(front, year, month)
+    return fetcher.post(source, PRESS_URL, form, key_fields=("hdnYear", "hdnMonth")).content
+
+
 # ----------------------------------------------------------------------- adapter
 
 
@@ -331,12 +347,15 @@ class RbiAdapter:
         month = date(start.year, start.month, 1)
         while month <= last:
             if covered is None or max(start, month) < covered:
-                time.sleep(self.pause_s)
-                form = archive_form(first.content, month.year, month.month)
-                page = self.fetcher.post(
-                    self.source, PRESS_URL, form, key_fields=("hdnYear", "hdnMonth")
+                page = archive_month(
+                    self.fetcher,
+                    self.source,
+                    first.content,
+                    month.year,
+                    month.month,
+                    pause_s=self.pause_s,
                 )
-                links.update(parse_release_links(page.content))
+                links.update(parse_release_links(page))
             month = date(month.year + month.month // 12, month.month % 12 + 1, 1)
         return {d: p for d, p in links.items() if start <= d <= last}, first.from_cache
 

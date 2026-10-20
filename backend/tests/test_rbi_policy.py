@@ -2,8 +2,9 @@
 era, parsed from recorded press releases, and the adapter that crawls them."""
 
 import re
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
+from urllib.parse import parse_qsl
 
 import httpx2
 import pytest
@@ -13,13 +14,16 @@ from app.data.sources.rbi import parse_mmo
 from app.data.sources.rbi_policy import (
     Decision,
     RbiPolicyAdapter,
+    Reserves,
     is_decision_title,
     is_schedule_title,
     is_tbill_title,
+    is_wss_title,
     merge_meetings,
     parse_decision,
     parse_listing,
     parse_mmo_summary,
+    parse_reserves,
     parse_schedule,
     parse_tbill_cutoff,
 )
@@ -145,6 +149,25 @@ def test_money_markets_of_every_era() -> None:
         parse_mmo_summary(page("rbi_tbill_2025-06-25"))
 
 
+@pytest.mark.parametrize(
+    ("name", "reserves"),
+    [
+        # ₹ billion with a "`" for the rupee sign, en dashes for minus and for zero; dates as
+        # "As on January 24, 2014", "As on April 1 2016" and "As on Aug. 29, 2025"
+        ("rbi_wss_2014-01-31", Reserves(date(2014, 1, 24), 292_238.8, 266_051.9, 19_724.5)),
+        ("rbi_wss_2016-04-08", Reserves(date(2016, 4, 1), 359_759.8, 335_686.6, 20_115.0)),
+        ("rbi_wss_2019-08-30", Reserves(date(2019, 8, 23), 429_050.8, 397_128.5, 26_867.4)),
+        ("rbi_wss_2025-06-27", Reserves(date(2025, 6, 20), 697_935.0, 589_069.0, 85_743.0)),
+        ("rbi_wss_2025-09-05", Reserves(date(2025, 8, 29), 694_230.0, 583_937.0, 86_769.0)),
+    ],
+)
+def test_weekly_forex_reserves_in_every_era(name: str, reserves: Reserves) -> None:
+    assert parse_reserves(page(name)) == reserves
+    assert is_wss_title("Reserve Bank of India – Bulletin Weekly Statistical Supplement – Extract")
+    with pytest.raises(SourceError, match="no foreign exchange reserves table"):
+        parse_reserves(page("rbi_policy_2026-10-07"))
+
+
 def test_listing_dates_every_release() -> None:
     entries = parse_listing(page("rbi_archive_2015_01"))
     statement = next(e for e in entries if is_decision_title(e.title))
@@ -177,6 +200,28 @@ def test_adapter_reads_a_months_decision_and_bill(tmp_path: Path) -> None:
     # but it lies outside the window).
     assert list(frames["rbi/tbill91/cutoff"]["date"]) == [date(2026, 10, 14)]
     assert "rbi/hist/wacr" not in frames  # 2026 is covered by the daily MMO series
+
+
+def test_a_listing_saved_after_its_month_ended_is_reused(tmp_path: Path) -> None:
+    posts: list[str] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if request.method == "POST":
+            form = dict(parse_qsl(request.content.decode()))
+            posts.append(f"{form['hdnYear']}-{form['hdnMonth']}")
+            name = "rbi_archive_2015_01" if form["hdnYear"] == "2015" else "rbi_archive_2026_10"
+            return httpx2.Response(200, content=page(name))
+        return httpx2.Response(200, content=page("rbi_archive_2026_10"))
+
+    fetcher = make_fetcher(handler, tmp_path)
+    fetcher.clock = lambda: datetime(2026, 10, 20, 5, 0, tzinfo=UTC)
+    adapter = RbiPolicyAdapter(fetcher, pause_s=0)
+    for _ in range(2):
+        january = adapter._listing(date(2015, 1, 1), date(2015, 1, 31))
+        adapter._listing(date(2026, 10, 1), date(2026, 10, 19))
+    assert any(e.prid == "33012" for e in january)  # the saved copy still lists the month
+    # January 2015 is posted once; October 2026, listed while it ran, is posted each time.
+    assert posts == ["2015-1", "2026-10", "2026-10"]
 
 
 def test_adapter_reads_money_markets_up_to_the_daily_series(tmp_path: Path) -> None:

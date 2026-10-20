@@ -31,6 +31,38 @@
   }
 }
 
+/* LINK: a new run lights each node of the chain in turn, then the arrow after it. */
+@keyframes link-pulse {
+  from {
+    border-color: var(--color-term-amber);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-term-amber) 60%, transparent);
+  }
+  to {
+    border-color: var(--color-term-line);
+    box-shadow: none;
+  }
+}
+.link-node {
+  animation: link-pulse 900ms ease-out both;
+}
+@keyframes link-arrow {
+  from {
+    opacity: 0.15;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.link-arrow {
+  animation: link-arrow 400ms ease-in both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .link-node,
+  .link-arrow {
+    animation: none;
+  }
+}
+
 /* A quote that has just changed flashes amber, then fades (TickerTape). */
 @keyframes tick {
   from {

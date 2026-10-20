@@ -29,6 +29,7 @@ SOURCE_LOOKBACK: Mapping[str, timedelta] = {
     "fbil_gsec": timedelta(days=14),
     "rbi_policy": timedelta(days=60),
     "mospi": timedelta(days=400),
+    "nsdl": timedelta(days=7),  # into last month early in a month, which its archive covers
 }
 """Shorter windows for page-by-page sources, so a daily refresh never crawls RBI's archive."""
 

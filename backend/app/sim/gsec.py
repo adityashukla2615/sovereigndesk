@@ -88,6 +88,11 @@ class GsecCurve:
         self.fit: NssFit = anchors.fit
         self.history: list[CurveClose] = []
 
+    def shift_term_premium(self, change: float) -> None:
+        """Move the term-premium factor (decimal at 10 years), e.g. by the US 10Y's spillover;
+        it then decays like any other move of the factor."""
+        self.tp += change
+
     def tbill_beta(self, years: float) -> float:
         """β at a bill maturity, for the money market's T-bills."""
         return float(self.anchors.passthrough.curve.beta(years))

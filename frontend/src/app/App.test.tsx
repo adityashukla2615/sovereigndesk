@@ -7,7 +7,7 @@ import type { CommandInfo } from '../market/types';
 import { useConnection } from '../store/connection';
 import { initialSlots, useMarket } from '../store/market';
 import { FakeSocket, envelope } from '../test/fakeSocket';
-import { GSEC_DATA, IN_TICK, MPC_DATA, PY_DATA, SPRD_DATA, US_TICK } from '../test/marketData';
+import { GSEC_DATA, IN_TICK, LINK_DATA, MPC_DATA, PY_DATA, SPRD_DATA, US_TICK } from '../test/marketData';
 import { App } from './App';
 
 vi.mock('../components/Chart', () => ({
@@ -180,6 +180,31 @@ describe('App terminal', () => {
     expect(within(mpc).getByRole('table', { name: 'xgboost confusion matrix' })).toBeInTheDocument();
     fireEvent.click(within(mpc).getByRole('button', { name: /2026-10-20/ }));
     expect(JSON.parse(socket.sent.at(-1) ?? '{}')).toEqual({ op: 'command', text: 'MPC' });
+  });
+
+  it('shows the US → India chain with live rupee and reserves, and runs a shock', async () => {
+    render(<App />);
+    await screen.findByText('KEY OK');
+    const socket = FakeSocket.latest();
+    act(() => {
+      socket.serverOpen();
+      socket.serverSend(envelope('in.tick', 1, { ...IN_TICK, fx: { inr: 88.05, reserves_bn: 699.6, runs: 1 } }));
+      socket.serverSend(
+        envelope('command', 2, { ok: true, code: 'LINK', message: 'SHOCK FED +50 bp', panel: 'LINK', data: LINK_DATA }),
+      );
+    });
+    const link = screen.getByRole('region', { name: 'panel 1: LINK' });
+    expect(link).toHaveTextContent('day 5 of 30');
+    expect(link).toHaveTextContent('₹88.05/$'); // the live tick, not the run's start
+    const chain = within(link).getByRole('list', { name: 'transmission chain' });
+    expect(within(chain).getAllByRole('listitem')).toHaveLength(9);
+    expect(within(chain).getByLabelText('FPI flows: −$0.96bn')).toBeInTheDocument();
+    expect(within(chain).getByLabelText('Rupee liquidity: −₹5,100 cr')).toBeInTheDocument();
+    expect(within(link).getByRole('table', { name: 'calibration' })).toHaveTextContent('0.10…0.30');
+    fireEvent.click(within(link).getByRole('button', { name: 'VRR' }));
+    expect(JSON.parse(socket.sent.at(-1) ?? '{}')).toEqual({ op: 'command', text: 'LINK VRR' });
+    fireEvent.click(within(link).getByRole('button', { name: 'RUN SHOCK FED 50BP' }));
+    expect(JSON.parse(socket.sent.at(-1) ?? '{}')).toEqual({ op: 'command', text: 'SHOCK FED 50BP' });
   });
 
   it('suggests functions while a code is typed and completes with Tab', async () => {

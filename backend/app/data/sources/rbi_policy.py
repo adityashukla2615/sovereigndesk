@@ -17,8 +17,13 @@
   release does not print net liquidity, so it is summed from the LAF legs as RBI's own footnote
   later defines it: repo + MSF + SLF − reverse repo.
 
+* Foreign exchange reserves: the weekly "Reserve Bank of India – Bulletin Weekly Statistical
+  Supplement – Extract", table 2: total reserves, foreign currency assets and gold (US$
+  million) as on the Friday before, for the linkage's calibration.
+
 Releases are listed month by month through the press-release archive (an ASP.NET form). A
-release never changes once published, so a saved copy is parsed instead of downloaded again.
+release never changes once published, so a saved copy is parsed instead of downloaded again,
+and so is a month's listing saved after the month ended.
 """
 
 import contextlib
@@ -33,7 +38,7 @@ from datetime import UTC, date, datetime, timedelta
 from app.data.catalog import IN_RBI_POLICY_SERIES, SeriesSpec
 from app.data.http import FetchedBody, Fetcher
 from app.data.sources.base import FetchOutcome, Provenance, SeriesFrame, SourceError, tidy
-from app.data.sources.rbi import INDIA, PRESS_URL, archive_form
+from app.data.sources.rbi import INDIA, PRESS_URL, archive_month
 
 _TAGS = re.compile(r"<[^>]+>")
 _SPACE = re.compile(r"\s+")
@@ -249,6 +254,61 @@ def parse_tbill_cutoff(content: bytes) -> float | None:
     return None
 
 
+# ----------------------------------------------------------------------- forex reserves
+
+
+def is_wss_title(title: str) -> bool:
+    return "weekly statistical supplement" in title.lower()
+
+
+@dataclass(frozen=True, slots=True)
+class Reserves:
+    """Foreign exchange reserves (US$ million) as on one day."""
+
+    as_of: date
+    total: float
+    fca: float
+    """Foreign currency assets."""
+    gold: float
+
+
+_RESERVE_ROWS = {"total reserves": "total", "foreign currency assets": "fca", "gold": "gold"}
+_AS_ON = re.compile(r"As on\s+([A-Z][a-z]{2,8})\.?\s+(\d{1,2}),?\s*(\d{4})")
+""""As on June 20, 2025", "As on April 1 2016" and, since mid-2025, "As on Aug. 29, 2025"."""
+
+
+def parse_reserves(content: bytes) -> Reserves:
+    """Table 2 of a Weekly Statistical Supplement extract: the reserves "As on" a day, in US$
+    million (the second column; the first is ₹, in billion until 2020 and in crore since)."""
+    page = content.decode("utf-8", "replace")
+    as_of: date | None = None
+    values: dict[str, float] = {}
+    started = False
+    for row in re.findall(r"<tr[^>]*>(.*?)</tr>", page, flags=re.S | re.I):
+        cells = [_text(c) for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", row, re.S | re.I)]
+        joined = " ".join(cells)
+        if re.match(r"(?i)\d\.\s*Foreign Exchange Reserves", joined):
+            started = True
+            continue
+        if not started:
+            continue
+        if re.match(r"\d\.\s+[A-Z]", joined):
+            break  # the next table
+        if as_of is None and (on := _AS_ON.search(joined)):
+            month = next((i for i, m in enumerate(_MONTHS) if m.startswith(on[1][:3])), None)
+            if month is not None:
+                as_of = date(int(on[3]), month + 1, int(on[2]))
+            continue
+        label = re.sub(r"^[\d.]+\s*", "", cells[0] if cells else "").rstrip(" #*").lower()
+        if (key := _RESERVE_ROWS.get(label)) and len(cells) >= 3:
+            usd = _number(cells[2].replace("–", "-"))
+            if usd is not None:
+                values[key] = usd
+    if as_of is None or set(values) != set(_RESERVE_ROWS.values()):
+        raise SourceError("rbi_policy: no foreign exchange reserves table in the release")
+    return Reserves(as_of, values["total"], values["fca"], values["gold"])
+
+
 # ----------------------------------------------------------------------- money markets
 
 
@@ -369,12 +429,10 @@ class RbiPolicyAdapter:
         front = self.fetcher.get(self.source, PRESS_URL)
         entries = parse_listing(front.content)
         for year, month in _months(first, last):
-            time.sleep(self.pause_s)
-            form = archive_form(front.content, year, month)
-            page = self.fetcher.post(
-                self.source, PRESS_URL, form, key_fields=("hdnYear", "hdnMonth")
+            page = archive_month(
+                self.fetcher, self.source, front.content, year, month, pause_s=self.pause_s
             )
-            entries.extend(parse_listing(page.content))
+            entries.extend(parse_listing(page))
         unique = {(e.prid, e.day): e for e in entries if first <= e.day <= last}
         return sorted(unique.values(), key=lambda e: (e.day, e.prid))
 
@@ -469,6 +527,17 @@ class RbiPolicyAdapter:
             ):
                 if value is not None:
                     points[key].append((summary.as_of, value))
+        for entry in listing:
+            if not is_wss_title(entry.title) or (content := read(entry.prid, "wss")) is None:
+                continue
+            try:
+                reserves = parse_reserves(content)
+            except SourceError as exc:
+                outcome.errors[f"wss {entry.prid}"] = str(exc)
+                continue
+            points["wss/reserves"].append((reserves.as_of, reserves.total))
+            points["wss/fca"].append((reserves.as_of, reserves.fca))
+            points["wss/gold"].append((reserves.as_of, reserves.gold))
         if not bodies:
             raise SourceError(f"rbi_policy: nothing could be read: {outcome.errors}")
         latest = bodies[-1]

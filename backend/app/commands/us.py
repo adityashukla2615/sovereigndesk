@@ -3,6 +3,7 @@
 import asyncio
 from dataclasses import asdict
 
+from app.commands.linkage import shock_fed
 from app.commands.parser import (
     CommandError,
     is_days,
@@ -197,13 +198,13 @@ async def tic(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
 
 @command(
     "SHOCK",
-    "SHOCK JP 200B [10D] [SHORT|BELLY|LONG]",
-    "A foreign holder sells Treasuries: yields, term premium, dollar and debt cost",
+    "SHOCK JP 200B [10D] [SHORT|BELLY|LONG] | SHOCK FED 50BP [VRR|OMO|SWAP|HIKE] [VIX+10]",
+    "A foreign holder sells Treasuries; or a Fed move runs through to India's money market",
     "US",
 )
 async def shock(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     if args and args[0] == "FED":
-        raise CommandError("SHOCK FED arrives in Phase 9 (US → India linkage)")
+        return await shock_fed(sim, args[1:])
     if len(args) < 2:
         raise CommandError("Usage: SHOCK JP 200B [10D] [SHORT|BELLY|LONG]")
     us = _us(sim)

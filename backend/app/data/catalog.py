@@ -244,7 +244,8 @@ def _policy(remote: str, title: str, units: str, frequency: Frequency = "D") -> 
     return SeriesSpec(f"rbi/{remote}", "rbi_policy", remote, title, units, frequency)
 
 
-# RBI's policy record and the money-market readings before each decision (see rbi_policy).
+# RBI's policy record, the money-market readings before each decision, and the weekly
+# foreign exchange reserves, all from RBI's press releases (see rbi_policy).
 IN_RBI_POLICY_SERIES: tuple[SeriesSpec, ...] = (
     _policy("mpc/repo", "Policy repo rate set at each decision", "%"),
     _policy("mpc/scheduled", "Decision at a scheduled policy meeting (1) or off-cycle (0)", "flag"),
@@ -254,6 +255,9 @@ IN_RBI_POLICY_SERIES: tuple[SeriesSpec, ...] = (
     _policy("hist/call_volume", "Call money volume before each decision", "INR cr"),
     _policy("hist/net_liquidity", "Net liquidity injected before each decision", "INR cr"),
     _policy("hist/crr_requirement", "CRR requirement before each decision", "INR cr"),
+    _policy("wss/reserves", "Foreign exchange reserves, total (WSS)", "USD mn", "W"),
+    _policy("wss/fca", "Foreign exchange reserves, foreign currency assets (WSS)", "USD mn", "W"),
+    _policy("wss/gold", "Foreign exchange reserves, gold (WSS)", "USD mn", "W"),
 )
 
 _CPI_2012_GROUPS = (

@@ -322,6 +322,12 @@ class USMarket:
 
     # ------------------------------------------------------------------ shocks and policy
 
+    def policy_curve_change(self, change: float) -> dict[str, float]:
+        """How the par curve would move for a policy move, without making it."""
+        zeros = self._zeros()
+        now, moved = par_from_zero(zeros), par_from_zero(zeros + change * self._policy_loading)
+        return {k: moved[k] - now[k] for k in now}
+
     def set_policy(self, change: float) -> None:
         """Move the target range; EFFR moves with it on the effective date."""
         s = self.state

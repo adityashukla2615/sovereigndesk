@@ -6,6 +6,7 @@ import { type Slot, useMarket } from '../store/market';
 import { FedPanel } from './FedPanel';
 import { GenericPanel } from './GenericPanel';
 import { GsecPanel } from './GsecPanel';
+import { LinkPanel } from './LinkPanel';
 import { MpcPanel } from './MpcPanel';
 import { PyPanel } from './PyPanel';
 import { SprdPanel } from './SprdPanel';
@@ -20,9 +21,10 @@ const PANELS: Record<string, ComponentType<{ slot: Slot }>> = {
   GSEC: GsecPanel,
   SPRD: SprdPanel,
   MPC: MpcPanel,
+  LINK: LinkPanel,
 };
 
-const INDIA_PANELS = new Set(['WACR', 'CALL', 'LAF', 'NDTL', 'TAXCAL', 'GSEC', 'SPRD', 'MPC']);
+const INDIA_PANELS = new Set(['WACR', 'CALL', 'LAF', 'NDTL', 'TAXCAL', 'GSEC', 'SPRD', 'MPC', 'LINK']);
 
 export interface Quality {
   us: readonly string[];

@@ -21,6 +21,11 @@ processes the same day:
 The G-sec curve (``gsec``) moves with the clearing rounds: its factors step every round, and
 repo changes and the T-bills' liquidity spread reach it at once.
 
+A US shock run through the linkage (``schedule_link``) lands from the next business day: each
+day's rupee liquidity from RBI's dollar trades and its durable response joins the autonomous
+flows at 00:00, its VRR/VRRR auctions run at 09:30, a repo hike moves the corridor, and the
+rupee and the reserves follow the chain.
+
 Business days are Monday to Friday (the simulator keeps no holiday calendar). Interest on
 reserves and loans is not credited, so balances move only by principal.
 """
@@ -34,7 +39,7 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-from app.sim.events import EventKind, inr_cr
+from app.sim.events import EventKind, flow_bn, inr_cr
 from app.sim.gsec import GsecCurve
 from app.sim.india_anchors import (
     ADVANCE_TAX_DAY,
@@ -58,6 +63,7 @@ from sovereign_engine.india.banks import (
 )
 from sovereign_engine.india.call_market import Order, clear_call
 from sovereign_engine.india.rules import MoneyMarketRules, fortnight
+from sovereign_engine.linkage import ChainPath
 
 IST = ZoneInfo("Asia/Kolkata")
 WacrMode = Literal["realistic", "policy"]
@@ -104,6 +110,20 @@ class IndiaModelParams:
     the calibrated deviations say; ``policy``: reservation rates are clamped to [SDF, MSF]."""
     stale_after_days: int = 3
     """Inputs older than this (calendar days) are flagged STALE, e.g. FBIL's lagged T-bills."""
+
+
+@dataclass(slots=True)
+class FxRun:
+    """A linkage chain applied to the money market, one business day at a time."""
+
+    path: ChainPath
+    days: list[date]
+    """The business day each of the chain's days lands on."""
+    applied: int = 0
+
+
+LINK_AUCTION_DAYS = 7
+"""Tenor of the linkage's weekly VRR/VRRR auctions: each matures at the next."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -267,6 +287,11 @@ class IndiaMarket:
         self.last_surplus_pct = anchors.surplus_pct
         self.auction_today = False
         self.pd_need: dict[str, float] = {}
+        self.fx_runs: list[FxRun] = []
+        self.inr: float | None = None
+        """Rupees per dollar, once a linkage run has anchored it."""
+        self.reserves_bn: float | None = None
+        """RBI's foreign exchange reserves (US$ bn), likewise."""
         self.today = now.astimezone(IST).date()
         self.fortnight = fortnight(self.today)
         self._open_position()
@@ -446,6 +471,7 @@ class IndiaMarket:
             )
         if not opening:
             notices += self._autonomous(day)
+            notices += self._fx_day(day)
         for book in self.depositors:
             self._set_target(book)
         return notices
@@ -560,6 +586,104 @@ class IndiaMarket:
                 book.balance += float(move)
             self.idio = updated
         return notices
+
+    def _fx_day(self, day: date) -> list[Notice]:
+        """Today's step of each linkage run: liquidity, auctions, repo, the rupee, reserves."""
+        notices: list[Notice] = []
+        for run in self.fx_runs:
+            if run.applied >= len(run.days) or run.days[run.applied] != day:
+                continue
+            k, p = run.applied, run.path
+            run.applied += 1
+            flow = float(p.drain_cr[k] + p.injection_cr[k])
+            self.autonomous += flow
+            self._spread(flow)
+            inr_before = p.start.inr if k == 0 else float(p.inr[k - 1])
+            reserves_before = p.start.reserves_bn if k == 0 else float(p.reserves_bn[k - 1])
+            self.inr = (self.inr or p.start.inr) * float(p.inr[k]) / inr_before
+            self.reserves_bn = (self.reserves_bn or p.start.reserves_bn) + (
+                float(p.reserves_bn[k]) - reserves_before
+            )
+            if k == 0:
+                if self.gsec is not None:
+                    self.gsec.shift_term_premium(float(p.in10y_bp[0]) / 1e4)
+                    self._update_gsec()
+                total = float(p.fpi_bn.sum())
+                notices.append(
+                    Notice(
+                        "info",
+                        "LINK",
+                        f"Day 1 of the US shock: India 10Y {float(p.in10y_bp[0]):+.1f} bp; "
+                        f"FPI flows of about {flow_bn(total)} begin over the month; RBI "
+                        f"{'sells' if total < 0 else 'buys'} {p.params.intervention:.0%} of them",
+                    )
+                )
+            move = float(p.repo_bp[k] - (p.repo_bp[k - 1] if k else 0.0))
+            if move:
+                self.set_repo(move / 1e4)
+                notices.append(
+                    Notice(
+                        "policy",
+                        "REPO",
+                        f"RBI answers the outflow with a repo hike of {move:+.0f} bp: "
+                        f"repo {self.repo * 100:.2f}%, SDF {self.sdf * 100:.2f}%, "
+                        f"MSF {self.msf * 100:.2f}%",
+                    )
+                )
+            vrr = float(p.vrr_cr[k])
+            if abs(vrr) >= 1.0:
+                kind: AuctionKind = "VRR" if vrr > 0 else "VRRR"
+                self.order_auction(kind, abs(vrr), LINK_AUCTION_DAYS)
+                notices.append(
+                    Notice(
+                        "info",
+                        "LINK",
+                        f"RBI offers a {LINK_AUCTION_DAYS}-day {kind} of {inr_cr(abs(vrr))} at "
+                        f"09:30 against the {'drain' if vrr > 0 else 'inflow'} so far",
+                    )
+                )
+            injected = float(p.injection_cr[k])
+            if abs(injected) >= 1.0:
+                what = (
+                    ("a buy/sell swap" if p.response == "swap" else "OMO purchases")
+                    if injected > 0
+                    else ("a sell/buy swap" if p.response == "swap" else "OMO sales")
+                )
+                notices.append(
+                    Notice(
+                        "info",
+                        "LINK",
+                        f"RBI {'injects' if injected > 0 else 'absorbs'} {inr_cr(abs(injected))} "
+                        f"through {what}",
+                    )
+                )
+            if run.applied == len(run.days):
+                t = p.totals()
+                notices.append(
+                    Notice(
+                        "info",
+                        "LINK",
+                        f"The US shock's {len(run.days)} business days are over: FPI "
+                        f"{flow_bn(t['fpi_bn'])}, RBI's reserves {flow_bn(t['reserves_bn'])}, "
+                        f"rupee {t['inr_pct']:+.2f}%, liquidity from RBI's dollar trades "
+                        f"{inr_cr(t['drain_cr'])}",
+                        t,
+                    )
+                )
+        self.fx_runs = [r for r in self.fx_runs if r.applied < len(r.days)]
+        return notices
+
+    def schedule_link(self, path: ChainPath) -> list[date]:
+        """Run a linkage chain from the next business day (a US move comes after India's close),
+        on top of any still running; returns the business day of each chain day."""
+        if self.inr is None or self.reserves_bn is None:
+            self.inr, self.reserves_bn = path.start.inr, path.start.reserves_bn
+        days, day = [], self._today()
+        for _ in range(path.days):
+            day = next_business_day(day)
+            days.append(day)
+        self.fx_runs.append(FxRun(path, days))
+        return days
 
     def _open(self, at: datetime) -> list[Notice]:
         self.rounds = []
@@ -1170,6 +1294,11 @@ class IndiaMarket:
             "tbills_as_of": self.anchors.tbill_as_of.isoformat(),
             "tbills_stale": self.stale_label(self.anchors.tbill_as_of),
             "gsec": self.gsec_tick(),
+            "fx": (
+                None
+                if self.inr is None
+                else {"inr": self.inr, "reserves_bn": self.reserves_bn, "runs": len(self.fx_runs)}
+            ),
             "as_of": self.anchors.as_of.isoformat(),
         }
 

@@ -54,6 +54,12 @@ def usd_bn(amount: float) -> str:
     return f"{sign}${size:,.0f}bn" if size >= 10 else f"{sign}${size:,.1f}bn"
 
 
+def flow_bn(amount: float) -> str:
+    """A signed flow in USD billions, to the ten million: -0.5 → '−$0.50bn', 3.2 → '+$3.20bn'."""
+    sign = "−" if amount < 0 else "+"
+    return f"{sign}${abs(amount):,.2f}bn"
+
+
 def pct(rate: float, digits: int = 2) -> str:
     return f"{rate * 100:.{digits}f}%"
 

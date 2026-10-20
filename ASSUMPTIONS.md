@@ -72,7 +72,8 @@ Values are stored as published: amounts in ₹ crore, rates in %. Series IDs are
 | RBI Money Market Operations | A release for every calendar day since 2024 (in 2022–23 most 2nd and 4th Saturdays and a few holidays have none): WACR with volume and range; TREPS, market repo, notice and term money; RBI's operations; net liquidity; banks' cash balances and the CRR requirement; government surplus cash; net durable liquidity | Crawled from 8 Apr 2022, when the SDF became the corridor floor. The press-release page lists only about the latest ten days; earlier days are listed month by month through the archive (an ASP.NET form). One request a second. CCIL's segments come from here: the release's footnote reads "Based on RBI / CCIL" |
 | FBIL | T-bill benchmarks 7D–12M, overnight MIBOR, INR/USD reference rate | The public JSON the FBIL site itself reads (`/wasdm/<product>/fetchfiltered?authenticated=false`), in 31-day windows. The public data runs about a week behind: on 20 Oct 2026 it ended at 12 Oct. Over a holiday MIBOR is fixed for the whole break (a "4D" fixing, say); it is stored as that day's overnight rate |
 | FBIL G-sec | The daily G-sec valuation's par-yield curve (3M to 30Y stored) | Phase 7: see the G-sec curve section below |
-| NSDL | Daily FPI net investment by class (equity, debt by route, hybrid, total), ₹ crore and US$ million | Current month only. NSDL's archive arrives with the linkage work (Phase 9) |
+| NSDL | Daily FPI net investment by class (equity, debt by route, hybrid, total), ₹ crore and US$ million | Daily from January 2014: the current month's report, earlier months through NSDL's archive form (one request per month). The classes changed over the years: equity and one debt class until 2019, then the VRR (2019), hybrid, the FAR (reported inside debt until September 2024), mutual funds and AIFs. Each day's classes add up to its total; the archive's monthly and yearly totals and its derivatives table are not read |
+| RBI Weekly Statistical Supplement | Foreign exchange reserves: total, foreign currency assets and gold (US$ million), weekly | From the weekly press release "Bulletin Weekly Statistical Supplement – Extract", table 2: 668 weeks from Dec 2013. Dates are printed as "January 24, 2014", "April 1 2016" or "Aug. 29, 2025" |
 
 How a Money Market Operations release is read:
 
@@ -83,7 +84,7 @@ How a Money Market Operations release is read:
 - **Aggregate NDTL** is implied by the fortnight's reserve requirement: NDTL = CRR requirement ÷ CRR. For the fortnight ending 31 Oct 2026 that is ₹8,33,309 cr ÷ 3% ≈ ₹278 lakh crore.
 - **Refresh.** Daily, IST: RBI 10:30, FBIL 18:15, FBIL's G-sec workbooks 20:00, NSDL 20:30. RBI looks back 7 days, FBIL 30 and the G-sec workbooks 14, so a daily refresh never crawls an archive. A release or workbook never changes once published, so a copy saved by an earlier crawl is parsed rather than downloaded again.
 
-MoSPI's CPI and GDP and RBI's policy record arrived with the MPC predictor (Phase 8, below). Not yet: RBI's Weekly Statistical Supplement (forex reserves, currency in circulation) and NSDL's history, in Phase 9.
+MoSPI's CPI and GDP and RBI's policy record arrived with the MPC predictor (Phase 8), and NSDL's history and RBI's weekly reserves with the linkage (Phase 9); both are described below. RBI's monthly intervention data is not used (see the linkage's limitations), and neither is currency in circulation.
 
 ## Indian banks and RBI rules (engine, Phase 5)
 
@@ -145,7 +146,7 @@ The participation check runs on every order: an order that would take the day's 
 | CRR behaviour | Each bank aims for the balance that still meets the fortnight average, never below the daily floor. In the evening surplus goes to the SDF and deficit to the MSF, up to excess SLR plus 2% of NDTL; what the MSF cannot cover leaves the bank short (flagged) |
 | Primary dealers | Borrow 1 × net owned funds of call money each business day; the cash pays for securities and returns to banks by NDTL; the loans are repaid the next business day |
 | Opening position | Banks start at their requirement, with the release's SDF − MSF residual and its VRRR shared by NDTL plus their own positions. The release gives the VRRR total but not maturities, so it is assumed to mature in a week |
-| Not modelled | Interest on reserves and loans (balances move by principal only); currency in circulation, FX intervention and OMOs (Phase 9's linkage); bank holidays. The India market re-anchors to new RBI data on RESET only |
+| Not modelled | Interest on reserves and loans (balances move by principal only); currency in circulation; FX intervention and OMOs except through the linkage (`SHOCK FED`, Phase 9); bank holidays. The India market re-anchors to new RBI data on RESET only |
 
 **WACR modes.** `WACR REALISTIC` (the default) or `WACR POLICY` switches; the WACR panel has the same toggle.
 
@@ -267,6 +268,63 @@ The Taylor rule also reads the output gap: real GDP over four quarters (which re
 - *What is left out.* The MPC's stance and guidance, its minutes and votes, the government's borrowing, oil prices and forecasts of inflation (the MPC targets the forecast, not today's print).
 - *The live T-bill differs from the backtest's*: FBIL's 3-month benchmark against the auction cut-off.
 - *Calendar edge cases.* A meeting moved without a notice in the archive keeps its old day: June 2020's meeting, brought forward to 20–22 May, still lists 5 Jun 2020. Past days do not matter, and a missed notice could only misdate the next meeting.
+
+## US → India linkage (Phase 9)
+
+`LINK` shows the chain and `SHOCK FED 50BP [NONE|VRR|OMO|SWAP|HIKE] [VIX+10]` runs it end to end: the Fed moves in the US simulation, the US 10Y's own response starts the chain, and India's money market takes it from the next business day. The chain is in `sovereign_engine/linkage/chain.py`, the calibration in `backend/app/sim/linkage.py`.
+
+    Fed → US 10Y → IN−US 10Y differential → FPI flows → RBI's dollar trades and the rupee → rupee liquidity → WACR and T-bills → RBI's response
+
+**Data** (all in the seed):
+
+| Series | Source | Use |
+|---|---|---|
+| Daily FPI net investment by class, US$ million | NSDL, from January 2014 (see India data sources) | flows, summed by month and by week |
+| Foreign exchange reserves: total, foreign currency assets (FCA), gold | RBI's weekly Statistical Supplement extract, Dec 2013 on | RBI's absorption; the reserves the chain starts from |
+| India 10-year G-sec yield, monthly | the OECD's, via FRED (`INDIRLTLT01STM`) | the differential, 2014 on |
+| FBIL's 10-year par yield, daily | FBIL, from Feb 2023 | the spillover |
+| US 10-year (`DGS10`), VIX (`VIXCLS`), broad dollar index (`DTWEXBGS`), rupees per dollar (`DEXINUS`) | FRED | the US side, risk appetite, valuation, the rupee |
+| INR/USD reference rate | FBIL | the rupee the chain starts from |
+
+**Calibration.** Each link is an OLS with Newey–West errors (3 lags monthly, 4 weekly). On the seed, with 90% intervals:
+
+| Link | Regression | Estimate (90% interval) | Sample |
+|---|---|---|---|
+| Spillover | weekly ΔIN10Y on ΔUS10Y (FBIL, DGS10) | 0.16 (0.12–0.20); R² 0.13 | 191 weeks, Feb 2023–Oct 2026 |
+| FPI debt flows | monthly debt flows on Δ(IN10Y − US10Y) and ΔVIX | +$0.26bn per point (−1.01 to +1.53); R² 0.04 | 152 months, Feb 2014–Sep 2026 |
+| FPI equity flows | monthly equity flows on ΔUS10Y and ΔVIX | −$3.99bn per point (−6.73 to −1.26); R² 0.16 | same |
+| Risk appetite | the two VIX slopes, summed | −$0.33bn per VIX point (−0.43 to −0.22) | same |
+| RBI's absorption | weekly ΔFCA on weekly FPI flows and the dollar's valuation effect (ΔDTWEXBGS × last week's FCA) | 59% of each flow (40–79%); R² 0.30 | 667 weeks, Jan 2014–Oct 2026 |
+| The rupee | weekly %ΔINR on weekly FPI flows and %ΔDTWEXBGS, divided by 1 − s | 0.17% weaker per US$ bn not absorbed (0.10–0.25); R² 0.17 | same |
+
+The debt-flow slope has the expected sign but is not distinguishable from zero: in this sample debt flows were driven more by access and index changes (the FAR route from 2020, JP Morgan's index inclusion from June 2024) than by yield gaps. It is used as estimated, so the yield channel is weak and most of a Fed shock's outflow comes through equity and the VIX.
+
+**How the chain runs** (assumptions, in `LinkAssumptions` and `LinkParams`):
+
+| Item | Choice |
+|---|---|
+| Flow timing | A month's flow arrives over 21 business days, front-loaded with a 5-day half-life; the chain is followed for 30 business days |
+| When India responds | From the next business day after the shock (US moves come after India's close) |
+| RBI's absorption | The share s of each day's flow, at once; the rest moves the rupee |
+| Rupee liquidity | Dollars RBI sells or buys × that day's rupee rate (₹ crore = US$ bn × ₹/$ × 100) |
+| Money market | The liquidity map and the 3M T-bill's slope on liquidity from the India simulator (Phase 6) for the chain's preview; in the simulation itself WACR comes out of the call market as usual |
+| India's 10Y | Moves by the spillover through the G-sec curve's term-premium factor, which then decays like any other move of it |
+| VIX | Unchanged unless given (`VIX+10`): the Fed's effect on risk appetite is not estimated |
+| Responses | VRR (VRRR after inflows): weekly 7-day auctions of the drain so far, run as real auctions in the simulator. OMO: weekly outright purchases (sales) of the drain not yet offset. Swap: a buy/sell swap on the first day for the dollars RBI expects to sell. Hike: repo +25 bp on the first day, which also lifts India's 10Y by the G-sec curve's β(10Y) and so slows the outflow |
+
+**Accounting.** The engine checks the chain's books on every run: FPI flow = RBI's part + the market's part each day; reserves = start + RBI's trades + swaps; each day's liquidity = RBI's dollars × the rate; surplus = start + liquidity + durable injections. In the simulator the FX liquidity joins the autonomous flows, so the market's own identity (system liquidity = start + autonomous flows) still holds on every tick.
+
+**Why VRR does not move the map.** Surplus is RBI's net liquidity position, as RBI reports it and as the map was fitted: net absorption through the LAF, VRR and VRRR included. A VRR funds a shortfall at the repo rate instead of the MSF, but leaves the net position, and so the map, where it was; OMO purchases and a buy/sell swap are durable and restore it. This is the known limitation the MVP review accepted (fine-tuning auctions barely move the map), and the simulator shows the VRR's effect only through the call market.
+
+**On the seed.** A 50 bp Fed hike, to which the US simulation answers with +11.8 bp at 10 years: India's 10Y +1.9 bp, the differential −9.9 bp; FPI −$0.50bn over the month; RBI sells $0.30bn; the rupee 0.04% weaker; ₹2,829 crore drained (0.010% of NDTL); WACR +0.2 bp. With a 10-point rise in the VIX as well: FPI −$3.76bn, RBI sells $2.23bn, the rupee 0.27% weaker, ₹21,426 crore drained (0.077% of NDTL), WACR +1.4 bp and the 3M T-bill +0.7 bp. Weekly OMOs or a swap offset the drain; a repo hike adds 25 bp to WACR and trims the outflow by $0.04bn.
+
+**Known limitations.**
+
+- *Not RBI's intervention data.* RBI publishes its monthly dollar purchases and sales (the Bulletin's "Sale/Purchase of U.S. Dollar by the RBI") only as files on rbidocs.rbi.org.in, which answered with a bot challenge, so they are not used. Absorption is measured from the weekly change in foreign currency assets instead, which also moves with interest income, forward deliveries and valuation the dollar index does not capture.
+- *Reduced form.* Flows, the rupee and RBI's sales are decided together (RBI leans against the rupee), so the weekly coefficients are associations over the sample, not causal estimates; the intervals are wide.
+- *One shock at a time, linear.* No second round: a weaker rupee does not raise inflation or move the MPC, and India's markets do not move the US. Shocks run at the same time add up.
+- *The VIX is an input.* A Fed surprise that comes with risk-off moves money mostly through the VIX link, whose size the user gives.
+- *Swaps and OMOs outlast the horizon.* A buy/sell swap's forward leg and an OMO's maturity are beyond the 30 days followed.
 
 ## Bond conventions (engine, Phase 2)
 

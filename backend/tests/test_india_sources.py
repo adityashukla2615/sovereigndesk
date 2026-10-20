@@ -324,6 +324,49 @@ def test_nsdl_monthly_flows() -> None:
         parse_monthly(b"<table></table>")
 
 
+@pytest.mark.parametrize(
+    ("name", "first", "equity", "debt", "total"),
+    [
+        # 2015: equity and one debt class, each with two routes and a sub-total
+        ("nsdl_archive_2015-01.html", date(2015, 1, 1), 87.64, 9.97, 97.61),
+        # 2020: the debt general limit plus the VRR, and hybrid
+        ("nsdl_archive_2020-03.html", date(2020, 3, 2), -462.79, -304.36, -766.27),
+    ],
+)
+def test_nsdl_archive_months_of_every_era(
+    name: str, first: date, equity: float, debt: float, total: float
+) -> None:
+    flows = parse_monthly(fixture(name))
+    assert (flows["equity_usd"][0], flows["debt_usd"][0]) == ((first, equity), (first, debt))
+    assert flows["total_usd"][0] == (first, total)
+    days = [d for d, _ in flows["total_usd"]]
+    assert len(days) == len(set(days))  # "Total for <month>" rows are not a reporting date
+    assert all(d.month == first.month for d in days)  # nor the derivatives table's
+    classes = ("equity", "debt", "hybrid", "mutual_funds", "aifs")
+    for day, value in flows["total_usd"]:  # the classes add up to each day's total
+        parts = sum(dict(flows.get(f"{c}_usd", [])).get(day, 0.0) for c in classes)
+        assert parts == pytest.approx(value, abs=0.011)
+
+
+def test_nsdl_adapter_reads_past_months_from_the_archive(tmp_path: Path) -> None:
+    posts: list[dict[str, str]] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if request.method == "POST":
+            posts.append(dict(parse_qsl(request.content.decode())))
+        return httpx2.Response(200, content=fixture("nsdl_archive_2015-01.html"))
+
+    nsdl = fetcher(handler, tmp_path)
+    outcome = NsdlAdapter(nsdl, pause_s=0).fetch(start=date(2015, 1, 1), end=date(2015, 1, 31))
+    equity = next(f.data for f in outcome.frames if f.spec.series_id == "nsdl/fpi/equity_usd")
+    assert len(equity) == 21
+    assert [(p["__EVENTTARGET"], p["hdnDate"]) for p in posts] == [("btnSubmit1", "31-Jan-2015")]
+    assert "__VIEWSTATE" in posts[0]
+    # Saved years after the month ended, the archive is final: the next crawl posts nothing.
+    NsdlAdapter(nsdl, pause_s=0).fetch(start=date(2015, 1, 1), end=date(2015, 1, 31))
+    assert len(posts) == 1
+
+
 def test_nsdl_adapter(tmp_path: Path) -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
         return httpx2.Response(200, content=fixture("nsdl_monthly.html"))

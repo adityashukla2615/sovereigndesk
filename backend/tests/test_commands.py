@@ -69,7 +69,8 @@ def test_registry_lists_every_planned_function() -> None:
     assert {"CALL", "WACR", "LAF", "MPC", "LINK", "REPLAY", "HELP", "SPEED"} <= codes
     assert REGISTRY["WACR"].available
     assert REGISTRY["MPC"].available
-    assert not REGISTRY["LINK"].available
+    assert REGISTRY["LINK"].available
+    assert not REGISTRY["IMPACT"].available
     assert REGISTRY["PY"].available
 
 
@@ -77,9 +78,9 @@ def test_unknown_and_planned_codes(sim: Simulator) -> None:
     unknown = run(sim, "UTS")
     assert not unknown.ok
     assert "Did you mean UST?" in unknown.message
-    later = run(sim, "LINK")
+    later = run(sim, "IMPACT")
     assert not later.ok
-    assert "Phase 9" in later.message
+    assert "Phase 10" in later.message
     assert not run(sim, "").ok
 
 
@@ -151,7 +152,7 @@ def test_shock_creates_an_order_and_narrative(sim: Simulator) -> None:
     assert result.data["long_run"]["30Y"] > 0
     assert result.data["debt"]["delta_by_year"]["1"] > 0
     assert not run(sim, "SHOCK JP 5000B").ok  # more than Japan holds
-    assert "Phase 9" in run(sim, "SHOCK FED 50BP").message
+    assert "SHOCK FED needs both markets running" in run(sim, "SHOCK FED 50BP").message
     assert not run(sim, "SHOCK JP 10B 5Q").ok
 
 

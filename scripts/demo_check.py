@@ -5,8 +5,8 @@
 Boots the whole app offline against data/seed (no network) in a throwaway database, connects
 to /ws the way the terminal does, and walks the demo: the four startup panels, a Fed hike,
 QT, a Japanese sale, then India: the G-sec curve, a repo cut (which moves it), a CRR change, a
-reverse repo, the spread to Treasuries and the MPC forecast, run forward at a simulated day
-per second. Each beat
+reverse repo, the spread to Treasuries, the MPC forecast and a Fed hike run through to India's
+money market (SHOCK FED, LINK), run forward at a simulated day per second. Each beat
 must succeed with its narrative in the event log, and the live ticks must keep EFFR inside the
 Fed's range and WACR inside its band (RBI's corridor in policy mode; in realistic mode, the
 default, as far outside it as WACR has printed).
@@ -95,6 +95,8 @@ BEATS = [
     Beat("VRRR 50000CR 1D", "LAF", None, "queued for the next window"),
     Beat("SPRD", "SPRD", check="India 10Y against US 10Y since 2023, and now"),
     Beat("MPC", "MPC", check="a walk-forward backtest and a forecast for the next meeting"),
+    Beat("SHOCK FED 50BP", "LINK", "LINK", "FPI outflows, RBI's dollar sales, a liquidity drain"),
+    Beat("LINK", "LINK", check="the chain's calibration on NSDL, RBI and FRED data"),
     Beat("SPEED 1440X", None, None, "a simulated day per second"),
 ]
 
@@ -124,6 +126,10 @@ def verify(beat: Beat, reply: dict[str, Any]) -> str:
             expect("FOMC hike +25 bp" in message, message)
         case "QT":
             expect(len(data["reserves"]) == 24, len(data["reserves"]))
+        case "SHOCK" if beat.command.startswith("SHOCK FED"):
+            nodes = {n["key"]: n["value"] for n in data["nodes"]}
+            expect(nodes["fpi"] < 0 and nodes["rbi"] < 0, nodes)
+            expect(nodes["liquidity"] < 0 and nodes["inr"] > 0, nodes)
         case "SHOCK":
             expect(data["long_run"]["10Y"] > 0, data["long_run"])
         case "GSEC":
@@ -136,6 +142,9 @@ def verify(beat: Beat, reply: dict[str, Any]) -> str:
             expect(data["next_meeting"] is not None, data["next_meeting"])
             for probs in data["probabilities"].values():
                 expect(abs(sum(probs) - 1) < 1e-6, probs)
+        case "LINK":
+            expect(data["mode"] == "run", data["mode"])
+            expect(len(data["estimates"]) == 6, data["estimates"])
         case "SPRD":
             expect(len(data["real"]) > 500, len(data["real"]))
             expect(data["now"]["spread"] is not None, data["now"])

@@ -9,7 +9,6 @@ planned(
     "IN",
     "Phase 12 (terminal completion)",
 )
-planned("LINK", "LINK", "US → India transmission chain", "X", "Phase 9 (linkage)")
 planned(
     "IMPACT",
     "IMPACT [RETAIL|BUSINESS profile]",

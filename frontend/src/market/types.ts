@@ -58,6 +58,8 @@ export interface InTick {
   tbills_stale: string | null;
   /** The live G-sec curve, or null when FBIL's par yields could not be used. */
   gsec: GsecTick | null;
+  /** The rupee and RBI's reserves, once a US shock has run through the linkage. */
+  fx: { inr: number; reserves_bn: number | null; runs: number } | null;
   as_of: string;
 }
 
@@ -322,6 +324,63 @@ export function isGsecPanel(value: unknown): value is GsecPanelData {
     isRecord(value.passthrough) &&
     Array.isArray(value.passthrough.estimates)
   );
+}
+
+export type LinkResponse = 'none' | 'vrr' | 'omo' | 'swap' | 'hike';
+
+export interface LinkNode {
+  key: string;
+  label: string;
+  value: number;
+  unit: string;
+  detail: string;
+}
+
+export interface LinkEstimate {
+  key: string;
+  label: string;
+  value: number | null;
+  low: number | null;
+  high: number | null;
+  used: number;
+  n: number;
+  r2: number | null;
+  sample: string;
+  method: string;
+}
+
+/** LINK: a US shock through India's markets (backend app.sim.linkage.link_panel). */
+export interface LinkPanelData {
+  mode: 'preview' | 'run';
+  response: LinkResponse;
+  responses: LinkResponse[];
+  response_labels: Record<string, string>;
+  nodes: LinkNode[];
+  progress: { day: number; days: number; dates: string[] | null };
+  path: {
+    fpi_bn: number[];
+    rbi_bn: number[];
+    inr: number[];
+    reserves_bn: number[];
+    surplus_pct: number[];
+    wacr_bp: number[];
+    vrr_cr: number[];
+  };
+  live: {
+    inr: number;
+    reserves_bn: number;
+    surplus_pct: number;
+    wacr: number;
+    repo: number;
+    runs: number;
+  };
+  anchors: { inr: number; inr_as_of: string; reserves_bn: number; reserves_as_of: string };
+  estimates: LinkEstimate[];
+  assumptions: Record<string, number>;
+}
+
+export function isLinkPanel(value: unknown): value is LinkPanelData {
+  return isRecord(value) && Array.isArray(value.nodes) && isRecord(value.path) && isRecord(value.live);
 }
 
 export function isMpcPanel(value: unknown): value is MpcPanelData {

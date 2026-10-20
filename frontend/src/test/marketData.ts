@@ -5,6 +5,7 @@ import type {
   GsecPanelData,
   GsecTick,
   InTick,
+  LinkPanelData,
   MpcPanelData,
   PriceYieldData,
   SpreadPanelData,
@@ -88,6 +89,7 @@ export const IN_TICK: InTick = {
   tbills_as_of: '2026-10-12',
   tbills_stale: 'STALE 8d',
   gsec: GSEC_TICK,
+  fx: null,
   as_of: '2026-10-18',
 };
 
@@ -228,4 +230,67 @@ export const MPC_DATA: MpcPanelData = {
   },
   sample: { first: '2014-06-03', last: '2026-10-07', decisions: 78, counts: [5, 12, 44, 11, 6], off_cycle: 5 },
   core_weights: [{ base: '2012', excluded: { food_beverages: 0.4586 }, rmse: 0.04, months: 180 }],
+};
+
+const days = 30;
+
+/** ``n`` Monday-to-Friday dates from ``first`` (an ISO date), as the backend schedules a run. */
+function businessDays(first: string, n: number): string[] {
+  const out: string[] = [];
+  for (let d = new Date(`${first}T00:00:00Z`); out.length < n; d.setUTCDate(d.getUTCDate() + 1)) {
+    if (d.getUTCDay() % 6 !== 0) out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
+const ramp = (total: number) => Array.from({ length: days }, (_, i) => total * (1 - 0.5 ** ((i + 1) / 5)));
+
+export const LINK_DATA: LinkPanelData = {
+  mode: 'run',
+  response: 'none',
+  responses: ['none', 'vrr', 'omo', 'swap', 'hike'],
+  response_labels: {
+    none: 'none: RBI lets rates move',
+    vrr: 'weekly VRR (VRRR) auctions of the drain so far',
+    omo: 'weekly OMO purchases (sales) of the drain not yet offset',
+    swap: 'a buy/sell swap of the dollars it expects to sell',
+    hike: 'a repo hike',
+  },
+  nodes: [
+    { key: 'fed', label: 'Fed funds', value: 50, unit: 'bp', detail: '' },
+    { key: 'us10y', label: 'US 10Y', value: 12, unit: 'bp', detail: "the US simulation's response" },
+    { key: 'differential', label: 'IN − US 10Y', value: -9.6, unit: 'bp', detail: 'India 10Y +2.4 bp (spillover 0.20)' },
+    { key: 'fpi', label: 'FPI flows', value: -0.96, unit: 'US$ bn', detail: 'over 21 business days' },
+    { key: 'rbi', label: "RBI's dollar trades", value: -0.58, unit: 'US$ bn', detail: '60% of the flow; reserves $699.4bn' },
+    { key: 'inr', label: 'Rupee', value: 0.08, unit: '%', detail: '₹88.07 per $ (+ is weaker)' },
+    { key: 'liquidity', label: 'Rupee liquidity', value: -5100, unit: '₹ cr', detail: '-0.020% of NDTL' },
+    { key: 'wacr', label: 'WACR', value: 0.4, unit: 'bp', detail: '3M T-bill +0.2 bp' },
+    { key: 'response', label: "RBI's response", value: 0, unit: '₹ cr', detail: 'none: RBI lets rates move' },
+  ],
+  progress: { day: 5, days, dates: businessDays('2026-10-14', days) },
+  path: {
+    fpi_bn: ramp(-0.96),
+    rbi_bn: ramp(-0.58),
+    inr: ramp(0.07).map((v) => 88 + v),
+    reserves_bn: ramp(-0.58).map((v) => 700 + v),
+    surplus_pct: ramp(-0.02).map((v) => 0.6 + v),
+    wacr_bp: ramp(0.4),
+    vrr_cr: Array.from({ length: days }, () => 0),
+  },
+  live: { inr: 88.03, reserves_bn: 699.7, surplus_pct: 0.59, wacr: 0.0528, repo: 0.055, runs: 1 },
+  anchors: { inr: 88.0, inr_as_of: '2026-10-19', reserves_bn: 700.0, reserves_as_of: '2026-10-16' },
+  estimates: [
+    {
+      key: 'spillover',
+      label: 'India 10Y per US 10Y move',
+      value: 0.2,
+      low: 0.1,
+      high: 0.3,
+      used: 0.2,
+      n: 190,
+      r2: 0.08,
+      sample: 'weekly, Feb 2023–Oct 2026',
+      method: 'ΔIN10Y on ΔUS10Y',
+    },
+  ],
+  assumptions: { flow_days: 21, half_life_days: 5, response_lag_days: 1, every_days: 5, hike_bp: 25, hike_10y: 0.54, horizon_days: 30 },
 };

@@ -84,8 +84,9 @@ def test_command_catalogue_endpoint(live: TestClient) -> None:
     commands = {c["code"]: c for c in live.get("/api/commands").json()}
     assert commands["PY"]["available"] is True
     assert commands["MPC"]["available"] is True
-    assert commands["LINK"]["available"] is False
-    assert "Phase 9" in commands["LINK"]["available_in"]
+    assert commands["LINK"]["available"] is True
+    assert commands["IMPACT"]["available"] is False
+    assert "Phase 10" in commands["IMPACT"]["available_in"]
 
 
 def test_india_anchors_to_the_real_seed_and_streams(live: TestClient) -> None:
@@ -150,3 +151,34 @@ def test_mpc_predictor_fits_on_rbi_mospi_and_fred(live: TestClient) -> None:
     # MoSPI's published 2012 weights: food and beverages 45.86, fuel and light 6.84.
     assert abs(weights["2012"]["excluded"]["food_beverages"] - 0.4586) < 0.01
     assert abs(weights["2012"]["excluded"]["fuel_light"] - 0.0684) < 0.01
+
+
+def test_linkage_calibrates_and_runs_a_fed_shock(live: TestClient) -> None:
+    """The real seed: NSDL's flows, RBI's reserves and FRED's rates calibrate every link, and a
+    50 bp Fed hike runs through to India's money market in plausible sizes."""
+    with live.websocket_connect("/ws") as ws:
+        ws.send_text(json.dumps({"op": "command", "text": "LINK"}))
+        preview = _until(ws, "command", limit=200)["data"]
+        assert preview["ok"] is True, preview["message"]
+        ws.send_text(json.dumps({"op": "command", "text": "SHOCK FED 50BP"}))
+        shock = _until(ws, "command", limit=200)["data"]
+        ws.send_text(json.dumps({"op": "command", "text": "RESET"}))
+        assert _until(ws, "command", limit=200)["data"]["ok"] is True
+    assert shock["ok"] is True, shock["message"]
+    estimates = {e["key"]: e for e in preview["data"]["estimates"]}
+    assert 0 < estimates["spillover"]["used"] < 1
+    assert estimates["spillover"]["n"] >= 150  # weeks of FBIL's daily coverage
+    assert 0 <= estimates["intervention"]["used"] <= 1
+    assert estimates["intervention"]["n"] >= 600  # weeks since 2014
+    assert estimates["debt_flow"]["n"] >= 140  # months since 2014
+    assert estimates["equity_flow"]["used"] < 0  # a rising US 10Y takes equity money out
+    assert estimates["risk_flow"]["used"] < 0  # and so does a rising VIX
+    nodes = {n["key"]: n["value"] for n in shock["data"]["nodes"]}
+    assert 0 < nodes["us10y"] < 50
+    assert -5 < nodes["fpi"] < 0  # US$ bn over a month
+    assert 0 < nodes["inr"] < 1  # per cent weaker
+    assert -50_000 < nodes["liquidity"] < 0  # ₹ crore drained
+    assert 0 <= nodes["wacr"] < 10  # bp
+    anchors = shock["data"]["anchors"]
+    assert 50 < anchors["inr"] < 150
+    assert 300 < anchors["reserves_bn"] < 1500

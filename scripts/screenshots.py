@@ -126,6 +126,8 @@ STEPS: list[tuple[str, list[str], float]] = [
     ("gsec-1-curve", ["TEACH", "@1", "GSEC", "@2", "SPRD"], 6.0),
     # The predictor's first fit runs its backtest: give it time.
     ("mpc-1-forecast", ["@3", "MPC"], 25.0),
+    # A Fed hike run through to India: the chain, then a few simulated days of it.
+    ("link-1-chain", ["@4", "SHOCK FED 50BP", "SPEED 1440X"], 12.0),
 ]
 
 

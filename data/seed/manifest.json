@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-20T14:01:29.553795+00:00",
+ "generated_at": "2026-10-20T18:02:10.473403+00:00",
  "series": [
   {
    "series_id": "fbil/gsec/par/10Y",
@@ -1535,11 +1535,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/debt_far_inr.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 514,
+   "start": "2024-09-02",
    "end": "2026-10-19",
-   "sha256": "3c46c850b63b2a42602f0596422435dca284f8246708ba6d5eeed1060fa6444a"
+   "sha256": "73675fa48ed4a24f823293ad866e796de5e95cd5b16c7ac597ec7e92f6dadf4b"
   },
   {
    "series_id": "nsdl/fpi/debt_far_usd",
@@ -1549,11 +1549,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/debt_far_usd.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 514,
+   "start": "2024-09-02",
    "end": "2026-10-19",
-   "sha256": "028f2b198fd244a787d761b70ed181443cfb6b79a4d9d0cfa95039c8613b9aa1"
+   "sha256": "d19d8b749f386fa59c95ce15c1ee92d03073f0602492cb3b3049b6224ab4e3c1"
   },
   {
    "series_id": "nsdl/fpi/debt_general_inr",
@@ -1563,11 +1563,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/debt_general_inr.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 3085,
+   "start": "2014-01-01",
    "end": "2026-10-19",
-   "sha256": "7d550e8688335fecc63b7cdd75a85d4e639458aec7a7abe441b70e80edc83a52"
+   "sha256": "7b44ed2c3d18b0e41e782520bc874659dcc7acb27caa3fbf68d1136a27e463eb"
   },
   {
    "series_id": "nsdl/fpi/debt_general_usd",
@@ -1577,11 +1577,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/debt_general_usd.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 3085,
+   "start": "2014-01-01",
    "end": "2026-10-19",
-   "sha256": "4640b368940255c10aa9d468c49604c98ef4224d31016a37f42245d948fe284c"
+   "sha256": "dffb07e8a8c5666c967bd6a3de28d7a4604d89f19b483008f55d39c98ed08e5b"
   },
   {
    "series_id": "nsdl/fpi/debt_inr",
@@ -1591,11 +1591,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/debt_inr.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 3085,
+   "start": "2014-01-01",
    "end": "2026-10-19",
-   "sha256": "43f28f93d22f2e886d5bd8b550cc488e6cc77872854cfbab464a1a64434eca4f"
+   "sha256": "6ac125cb240d6a2338cb0b30e5d8e10aa655c7589d5cf4acb58659129aa44341"
   },
   {
    "series_id": "nsdl/fpi/debt_usd",
@@ -1605,11 +1605,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/debt_usd.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 3085,
+   "start": "2014-01-01",
    "end": "2026-10-19",
-   "sha256": "ce9f49ad54b4219ce11346132060b8c71dcdfa5a6f48a99502200e5f71ac95d0"
+   "sha256": "c427463fafb39ab6eeb106be1d5d545db7977091bb836f71a88623c1e02deacd"
   },
   {
    "series_id": "nsdl/fpi/debt_vrr_inr",
@@ -1619,11 +1619,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/debt_vrr_inr.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 1640,
+   "start": "2020-01-07",
    "end": "2026-10-19",
-   "sha256": "aeab026f989c59fb5fa35cc2e318845c431b3b416b37b3b12ae8160202842309"
+   "sha256": "17e57969da91fb4e5d73aea134e0c2f75a6de63c96c8a9270af597e7e40e3e81"
   },
   {
    "series_id": "nsdl/fpi/debt_vrr_usd",
@@ -1633,11 +1633,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/debt_vrr_usd.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 1640,
+   "start": "2020-01-07",
    "end": "2026-10-19",
-   "sha256": "a185c8f0850ef24ad9d6553174fa74383137b2cb4f24692b46865814b9681b38"
+   "sha256": "1bed95353516bb1cd231dca1784597f0e44ec35d7d184db434c28d78ce43245b"
   },
   {
    "series_id": "nsdl/fpi/equity_inr",
@@ -1647,11 +1647,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/equity_inr.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 3085,
+   "start": "2014-01-01",
    "end": "2026-10-19",
-   "sha256": "bffa09d45e27c234b5f4a1068e3307e5e1c90dc2efcfa10b92b48d5e1273bdfd"
+   "sha256": "bec42907e9d95d045000029e77d20933e0059b63d4a353b20916a467e2904aa5"
   },
   {
    "series_id": "nsdl/fpi/equity_usd",
@@ -1661,11 +1661,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/equity_usd.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 3085,
+   "start": "2014-01-01",
    "end": "2026-10-19",
-   "sha256": "30e4b5f8ef3aa0925415ae90e11e1a7a61c817632883a766474044f2cc3ab2b6"
+   "sha256": "6ca3bed669efd6141f9b72674cf5d5059ddbcd97f54c4aaa394ea46f1b60921c"
   },
   {
    "series_id": "nsdl/fpi/hybrid_inr",
@@ -1675,11 +1675,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/hybrid_inr.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 2152,
+   "start": "2017-11-22",
    "end": "2026-10-19",
-   "sha256": "eac692485762d31dfdf78f7baaea688ca09fb8e877cee67b59f48ab11694b81c"
+   "sha256": "6e22c285ecdc6e8e7aa94d89aa8e6551b0059d93007821df8e0744f6da8bca91"
   },
   {
    "series_id": "nsdl/fpi/hybrid_usd",
@@ -1689,11 +1689,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/hybrid_usd.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 2152,
+   "start": "2017-11-22",
    "end": "2026-10-19",
-   "sha256": "b8b51552c797a4ec1085441eeb1e3802f102b946a7789b075ce64f750dca2439"
+   "sha256": "5c03ee0a1c1d97e6b907c7be579d22fdde83cd6c775dfa00ddbef55ed151604a"
   },
   {
    "series_id": "nsdl/fpi/total_inr",
@@ -1703,11 +1703,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/total_inr.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 3085,
+   "start": "2014-01-01",
    "end": "2026-10-19",
-   "sha256": "10f57877bfdb97065b1eeae8ca7839f29a321f21bb79dfbb22ee69e121eedc9e"
+   "sha256": "e8e9b91dc8fcb0c8fb90c5f15100408f253c6dedf28a15c8b5c586f4336eeec8"
   },
   {
    "series_id": "nsdl/fpi/total_usd",
@@ -1717,11 +1717,11 @@
    "frequency": "D",
    "file": "nsdl/fpi/total_usd.csv",
    "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
-   "fetched_at": "2026-10-19T19:21:34.325520+00:00",
-   "rows": 12,
-   "start": "2026-10-01",
+   "fetched_at": "2026-10-20T17:34:09.420149+00:00",
+   "rows": 3085,
+   "start": "2014-01-01",
    "end": "2026-10-19",
-   "sha256": "f07f504650bbda6d4b3054bb0ceb9cf51a619ce3522a4faf15cc1442f7048403"
+   "sha256": "1e39b30264027bacf9f04b94374674e059784cd5a8f5a5613caad7ff84a451dc"
   },
   {
    "series_id": "rbi/bank_rate",
@@ -1772,8 +1772,8 @@
    "units": "INR cr",
    "frequency": "D",
    "file": "rbi/hist/call_volume.csv",
-   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=53534",
-   "fetched_at": "2026-10-20T14:01:29.435982+00:00",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63819",
+   "fetched_at": "2026-10-20T17:55:56.002707+00:00",
    "rows": 569,
    "start": "2014-03-18",
    "end": "2022-04-07",
@@ -1786,8 +1786,8 @@
    "units": "INR cr",
    "frequency": "D",
    "file": "rbi/hist/crr_requirement.csv",
-   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=53534",
-   "fetched_at": "2026-10-20T14:01:29.435982+00:00",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63819",
+   "fetched_at": "2026-10-20T17:55:56.002707+00:00",
    "rows": 576,
    "start": "2014-03-18",
    "end": "2022-04-07",
@@ -1800,8 +1800,8 @@
    "units": "INR cr",
    "frequency": "D",
    "file": "rbi/hist/net_liquidity.csv",
-   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=53534",
-   "fetched_at": "2026-10-20T14:01:29.435982+00:00",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63819",
+   "fetched_at": "2026-10-20T17:55:56.002707+00:00",
    "rows": 576,
    "start": "2014-03-18",
    "end": "2022-04-07",
@@ -1814,8 +1814,8 @@
    "units": "%",
    "frequency": "D",
    "file": "rbi/hist/wacr.csv",
-   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=53534",
-   "fetched_at": "2026-10-20T14:01:29.435982+00:00",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63819",
+   "fetched_at": "2026-10-20T17:55:56.002707+00:00",
    "rows": 528,
    "start": "2014-03-18",
    "end": "2022-04-07",
@@ -2332,8 +2332,8 @@
    "units": "flag",
    "frequency": "D",
    "file": "rbi/mpc/meeting.csv",
-   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=53534",
-   "fetched_at": "2026-10-20T14:01:29.435982+00:00",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63819",
+   "fetched_at": "2026-10-20T17:55:56.002707+00:00",
    "rows": 60,
    "start": "2017-04-06",
    "end": "2027-02-05",
@@ -2346,8 +2346,8 @@
    "units": "%",
    "frequency": "D",
    "file": "rbi/mpc/repo.csv",
-   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=53534",
-   "fetched_at": "2026-10-20T14:01:29.435982+00:00",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63819",
+   "fetched_at": "2026-10-20T17:55:56.002707+00:00",
    "rows": 79,
    "start": "2014-04-01",
    "end": "2026-10-07",
@@ -2360,8 +2360,8 @@
    "units": "flag",
    "frequency": "D",
    "file": "rbi/mpc/scheduled.csv",
-   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=53534",
-   "fetched_at": "2026-10-20T14:01:29.435982+00:00",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63819",
+   "fetched_at": "2026-10-20T17:55:56.002707+00:00",
    "rows": 79,
    "start": "2014-04-01",
    "end": "2026-10-07",
@@ -2430,8 +2430,8 @@
    "units": "%",
    "frequency": "W",
    "file": "rbi/tbill91/cutoff.csv",
-   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=53534",
-   "fetched_at": "2026-10-20T14:01:29.435982+00:00",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63819",
+   "fetched_at": "2026-10-20T17:55:56.002707+00:00",
    "rows": 80,
    "start": "2014-03-26",
    "end": "2026-10-14",
@@ -2450,6 +2450,48 @@
    "start": "2026-10-19",
    "end": "2026-10-19",
    "sha256": "3e2a1077b091a473ed5fec4bdba65e70e0550836f534dfc899fd63c87256cfe1"
+  },
+  {
+   "series_id": "rbi/wss/fca",
+   "source": "rbi_policy",
+   "title": "Foreign exchange reserves, foreign currency assets (WSS)",
+   "units": "USD mn",
+   "frequency": "W",
+   "file": "rbi/wss/fca.csv",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63819",
+   "fetched_at": "2026-10-20T17:55:56.002707+00:00",
+   "rows": 668,
+   "start": "2013-12-27",
+   "end": "2026-10-09",
+   "sha256": "bfcffa0bdca4927ad5a9981e4f4055f2a3862256e52ec9abc062e9315be9217f"
+  },
+  {
+   "series_id": "rbi/wss/gold",
+   "source": "rbi_policy",
+   "title": "Foreign exchange reserves, gold (WSS)",
+   "units": "USD mn",
+   "frequency": "W",
+   "file": "rbi/wss/gold.csv",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63819",
+   "fetched_at": "2026-10-20T17:55:56.002707+00:00",
+   "rows": 668,
+   "start": "2013-12-27",
+   "end": "2026-10-09",
+   "sha256": "794bf510c80103e48291eddb8ff9c1cecaf4a867b6e5b28b738a53a12a81cd82"
+  },
+  {
+   "series_id": "rbi/wss/reserves",
+   "source": "rbi_policy",
+   "title": "Foreign exchange reserves, total (WSS)",
+   "units": "USD mn",
+   "frequency": "W",
+   "file": "rbi/wss/reserves.csv",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63819",
+   "fetched_at": "2026-10-20T17:55:56.002707+00:00",
+   "rows": 668,
+   "start": "2013-12-27",
+   "end": "2026-10-09",
+   "sha256": "278320e30a7d205206cc6203a7d59068870bb11510679a02743a873780326e5a"
   },
   {
    "series_id": "tic/all_other",

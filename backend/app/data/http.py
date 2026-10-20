@@ -209,6 +209,12 @@ class Fetcher:
         cached = self.cache.read(source, _cache_key(self.public_url(url, params)))
         return None if cached is None else replace(cached, from_cache=False)
 
+    def saved_post(self, source: str, url: str, fields: Mapping[str, str]) -> FetchedBody | None:
+        """The body an earlier live ``post`` with these key fields saved (as ``saved`` does for a
+        ``get``): the caller decides whether that copy can still be current."""
+        cached = self.cache.read(source, _cache_key("POST " + self.public_url(url, fields)))
+        return None if cached is None else replace(cached, from_cache=False)
+
     def _request(self, url: str, params: Mapping[str, str] | None) -> httpx2.Response:
         response = self.client.get(url, params=dict(params or {}))
         response.raise_for_status()

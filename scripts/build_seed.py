@@ -51,11 +51,13 @@ STARTS: dict[str, date | None] = {
     # (8 April 2022): about 1,650 releases, fetched one per second.
     "rbi": date(2022, 4, 8),
     # Every policy decision since the bi-monthly cycle began (April 2014), with the money
-    # markets and T-bills before each: about 1,100 releases, one per second.
+    # markets and T-bills before each, and the weekly forex reserves: about 1,750 releases,
+    # one per second.
     "rbi_policy": date(2014, 1, 1),
     "fbil": date(2022, 4, 1),
     "fbil_gsec": GSEC_XLSX_FROM,
-    "nsdl": None,  # the current month's report
+    # Daily FPI flows since 2014 through NSDL's archive, one month per post (about 155).
+    "nsdl": date(2014, 1, 1),
     "mospi": date(2011, 1, 1),  # CPI from January 2011, GDP from 2011-12
 }
 

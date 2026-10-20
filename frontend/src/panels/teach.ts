@@ -42,6 +42,15 @@ export const TEACH: Record<string, string> = {
     'The backtest refits each model on earlier decisions only and scores the next one, against ' +
     'repeating the last decision and always holding. Holds dominate the sample, so a high hit ' +
     'rate alone says little: macro-F1 and the Brier score reward getting the moves right.',
+  LINK:
+    'How a US shock reaches India’s money market. A Fed hike lifts the US 10-year; India’s ' +
+    '10-year follows only partly, so the yield gap narrows and foreign portfolio money leaves ' +
+    'over the following weeks. RBI sells dollars from its reserves to steady the rupee, and ' +
+    'every dollar it sells takes rupees out of the banks: liquidity tightens and WACR and ' +
+    'T-bills rise. RBI can let that happen, fund the shortfall with VRR auctions (the deficit ' +
+    'is then met at the repo rate, but the net position does not change), restore it with OMO ' +
+    'purchases or a buy/sell swap, or hike repo. Each link is a regression on public data, ' +
+    'with its 90% interval in the table.',
   UST:
     'The Treasury par curve: the yield at which a new Treasury of each maturity would price at ' +
     'par. Policy moves shift the front end most; term-premium shocks and foreign selling move the ' +
