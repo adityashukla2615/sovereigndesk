@@ -10,7 +10,7 @@ from app.commands.parser import (
 )
 from app.commands.registry import CommandResult, command
 from app.sim.events import bp, inr_cr, pct
-from app.sim.india_market import IST, IndiaMarket
+from app.sim.india_market import IST, IndiaMarket, WacrMode
 from app.sim.simulator import Simulator
 from sovereign_engine.india.auctions import AuctionKind
 
@@ -52,14 +52,29 @@ async def call(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
 
 @command(
     "WACR",
-    "WACR",
-    "WACR inside the LAF corridor: the macro map fitted on RBI history, real and simulated",
+    "WACR [POLICY|REALISTIC]",
+    "WACR and RBI's corridor: the fitted macro map, real and simulated days; set the mode",
     "IN",
     needs_market=False,
 )
 async def wacr(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     m = _india(sim)
     a = m.anchors
+    if len(args) > 1 or (args and args[0] not in ("POLICY", "REALISTIC")):
+        raise CommandError("Usage: WACR, WACR POLICY or WACR REALISTIC")
+    if args:
+        mode: WacrMode = "policy" if args[0] == "POLICY" else "realistic"
+        m.set_mode(mode)
+        x = a.excursions
+        lower, upper = m.band()
+        text = (
+            f"Policy mode: call rates stay inside RBI's corridor ({pct(m.sdf)}–{pct(m.msf)})"
+            if mode == "policy"
+            else "Realistic mode: WACR may leave the corridor as RBI's data shows it does "
+            f"({x.below_sdf} days below the SDF and {x.above_msf} above the MSF of "
+            f"{x.trading_days} since April 2022), within {pct(lower)}–{pct(upper)}"
+        )
+        sim.emit("info", "WACR", text, {"mode": mode})
     message = (
         f"WACR {pct(m.wacr())} vs repo {pct(m.repo)} ({bp(m.wacr() - m.repo)}); surplus "
         f"{inr_cr(m.projected_surplus())} = {m.surplus_pct():.2f}% of NDTL puts the map at "

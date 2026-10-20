@@ -91,3 +91,23 @@ def test_india_commands_need_the_india_market() -> None:
     assert not result.ok
     assert "India simulator is not running" in result.message
     assert only_us.status()["india"]["running"] is False
+
+
+def mode(sim: Simulator) -> str:
+    """Read afresh each time (an assert on the attribute would narrow it for the type checker)."""
+    assert sim.india is not None
+    return sim.india.mode
+
+
+def test_switching_between_policy_and_realistic_mode(sim: Simulator) -> None:
+    assert sim.india is not None
+    assert mode(sim) == "realistic"  # the default: WACR may leave the corridor
+    policy = run(sim, "WACR POLICY")
+    assert policy.ok, policy.message
+    assert mode(sim) == "policy"
+    assert sim.india.band() == (sim.india.sdf, sim.india.msf)
+    realistic = run(sim, "WACR REALISTIC")
+    assert realistic.ok
+    assert sim.india.band()[0] < sim.india.sdf
+    assert any("257 days below the SDF" in e.text for e in sim.events.recent())
+    assert not run(sim, "WACR SIDEWAYS").ok

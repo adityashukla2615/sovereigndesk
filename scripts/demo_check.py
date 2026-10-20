@@ -6,7 +6,8 @@ Boots the whole app offline against data/seed (no network) in a throwaway databa
 to /ws the way the terminal does, and walks the MVP demo: the four startup panels, a Fed hike,
 QT, a Japanese sale, then India: a reverse repo, a CRR change and a repo cut, run forward at
 a simulated day per second. Each beat must succeed with its narrative in the event log, and
-the live ticks must keep EFFR inside the Fed's range and WACR inside RBI's corridor.
+the live ticks must keep EFFR inside the Fed's range and WACR inside its band (RBI's corridor
+in policy mode; in realistic mode, the default, as far outside it as WACR has printed).
 """
 
 import io
@@ -53,9 +54,11 @@ class Session:
                 self.violations.append(f"EFFR {data['effr']} outside {c['lower']}-{c['upper']}")
         elif topic == "in.tick" and data:
             self.india = data
-            c = data["corridor"]
-            if not c["sdf"] - 1e-12 <= data["wacr"] <= c["msf"] + 1e-12:
-                self.violations.append(f"WACR {data['wacr']} outside {c['sdf']}-{c['msf']}")
+            # Realistic mode (the default) lets WACR leave RBI's corridor, but only within the
+            # band of what it has printed since April 2022; policy mode's band is the corridor.
+            b = data["band"]
+            if not b["lower"] - 1e-12 <= data["wacr"] <= b["upper"] + 1e-12:
+                self.violations.append(f"WACR {data['wacr']} outside {b['lower']}-{b['upper']}")
         elif topic == "events":
             self.events.extend(data if isinstance(data, list) else [data])
 
@@ -184,7 +187,7 @@ def main() -> int:
         "the ordered VRRR ran and was narrated": ordered,
         "CALL answers after four simulated days": bool(end["ok"]),
         "RESET restores the anchors": bool(reset["ok"]),
-        "EFFR and WACR stayed inside their corridors on every tick": not s.violations,
+        "EFFR in the Fed's range and WACR in its band on every tick": not s.violations,
     }
     for name, ok in checks.items():
         print(f"[{'ok ' if ok else 'BAD'}] {name}")

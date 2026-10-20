@@ -21,6 +21,15 @@ describe('chart options', () => {
     expect(mapSpread(CORRIDOR_DATA.map, 50)).toBeCloseTo(-0.00452, 9);
   });
 
+  it('lets the macro map leave the corridor in realistic mode, within the band', () => {
+    const corridor = { sdf: 0.0525, repo: 0.055, msf: 0.0575 };
+    const band = { lower: 0.0412, upper: 0.0715 };
+    const option = macroMapOption(CORRIDOR_DATA.map, corridor, null, palette(), band);
+    const rates = (option.series as Series)[0]?.data.map(([, rate]) => rate) ?? [];
+    expect(Math.min(...rates)).toBeLessThan(5.25); // deep surplus: below the SDF
+    expect(Math.min(...rates)).toBeGreaterThanOrEqual(4.12);
+  });
+
   it('keeps the macro map inside today’s corridor', () => {
     const corridor = { sdf: 0.0525, repo: 0.055, msf: 0.0575 };
     const option = macroMapOption(CORRIDOR_DATA.map, corridor, { surplus_pct: 0.67, wacr: 0.0528 }, palette());

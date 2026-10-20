@@ -186,16 +186,23 @@ export function mapSpread(map: CorridorPanelData['map'], surplusPct: number): nu
   return map.deficit + (map.surplus - map.deficit) / (1 + Math.exp(-z));
 }
 
-/** The macro map drawn against today's corridor, with where WACR and the system are now. */
+/**
+ * The macro map drawn against today's corridor, with where WACR and the system are now. The
+ * map is bounded by the mode's band: the corridor itself in policy mode, wider in realistic.
+ */
 export function macroMapOption(
   map: CorridorPanelData['map'],
   corridor: { sdf: number; repo: number; msf: number },
   now: { surplus_pct: number; wacr: number } | null,
   p: Palette,
+  band: { lower: number; upper: number } = { lower: corridor.sdf, upper: corridor.msf },
 ): ChartOption {
   const xs = Array.from({ length: 61 }, (_, i) => -2 + i * 0.1);
   const rate = (x: number) =>
-    Math.min(corridor.msf, Math.max(corridor.sdf, corridor.repo + mapSpread(map, x)));
+    Math.min(band.upper, Math.max(band.lower, corridor.repo + mapSpread(map, x)));
+  const values = xs.map(rate);
+  const lowest = Math.min(corridor.sdf, ...values, now?.wacr ?? corridor.sdf);
+  const highest = Math.max(corridor.msf, ...values, now?.wacr ?? corridor.msf);
   const level = (name: string, value: number, color: string) => ({
     name,
     yAxis: value * 100,
@@ -217,8 +224,8 @@ export function macroMapOption(
     yAxis: {
       type: 'value',
       name: 'rate (%)',
-      min: (corridor.sdf - 0.001) * 100,
-      max: (corridor.msf + 0.001) * 100,
+      min: Math.floor((lowest - 0.001) * 1000) / 10,
+      max: Math.ceil((highest + 0.001) * 1000) / 10,
       ...axis(p),
     },
     series: [
@@ -226,7 +233,7 @@ export function macroMapOption(
         name: 'Macro map',
         type: 'line',
         showSymbol: false,
-        data: xs.map((x): Point => [x, rate(x) * 100]),
+        data: xs.map((x, i): Point => [x, (values[i] ?? rate(x)) * 100]),
         lineStyle: { color: p.accent, width: 2 },
         itemStyle: { color: p.accent },
         markLine: {

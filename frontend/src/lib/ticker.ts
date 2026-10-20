@@ -5,6 +5,8 @@ export interface Quote {
   label: string;
   text: string;
   move: -1 | 0 | 1;
+  /** A STALE label when the quote rests on lagged data. */
+  stale?: string | null;
 }
 
 /** The tape's quotes from the latest ticks; colours compare with the tick before. */
@@ -40,7 +42,12 @@ export function tickerQuotes(
       move: direction(india.surplus_pct, indiaBefore?.surplus_pct),
     });
     quotes.push({ label: 'TREPS', text: pct(india.segments.treps), move: direction(india.segments.treps, indiaBefore?.segments.treps) });
-    quotes.push({ label: 'TB 3M', text: pct(india.tbills['3M']), move: direction(india.tbills['3M'], indiaBefore?.tbills['3M']) });
+    quotes.push({
+      label: 'TB 3M',
+      text: pct(india.tbills['3M']),
+      move: direction(india.tbills['3M'], indiaBefore?.tbills['3M']),
+      stale: india.tbills_stale,
+    });
   }
   return quotes;
 }

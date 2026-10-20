@@ -53,7 +53,8 @@ def test_the_opening_position_reproduces_the_release() -> None:
 
 
 def test_wacr_stays_in_the_corridor_through_tax_season_and_policy_moves() -> None:
-    m = market(start=datetime(2026, 12, 1, 1, 0, tzinfo=IST))
+    start = datetime(2026, 12, 1, 1, 0, tzinfo=IST)
+    m = market(start=start, params=IndiaModelParams(mode="policy"))
     # Policy moves just after midnight, so each day's prints share one corridor.
     notices = run(m, at(date(2026, 12, 11), 0, 30), step=timedelta(hours=2))
     m.set_repo(+0.0025)
@@ -132,7 +133,7 @@ def test_a_crr_change_waits_for_the_next_fortnight() -> None:
 
 
 def test_a_repo_move_shifts_the_whole_corridor() -> None:
-    m = market(params=IndiaModelParams(reaction=False))
+    m = market(params=IndiaModelParams(reaction=False, mode="policy"))
     run(m, at(TUESDAY.date(), 11, 0))
     centre = m.map_rate()
     m.set_repo(+0.0025)
@@ -177,7 +178,11 @@ def test_panels() -> None:
     corridor = m.corridor_panel()
     rates = [p["rate"] for p in corridor["curve"]]
     assert rates == sorted(rates, reverse=True)  # more surplus, lower rate
-    assert all(0.0525 <= r <= 0.0575 for r in rates)
+    band = corridor["band"]
+    assert corridor["mode"] == "realistic"
+    assert band["lower"] == pytest.approx(0.0525 - 0.0113)  # the lowest print below the SDF
+    assert all(band["lower"] <= r <= band["upper"] for r in rates)
+    assert snap["tbills_stale"] == "STALE 8d"  # FBIL's benchmarks are from 12 Oct
     banks = m.banks_panel()
     assert len(banks) == 40
     assert {"PD"} <= {b["kind"] for b in banks}
@@ -185,3 +190,20 @@ def test_panels() -> None:
     assert heat["tax_days"][0]["date"] == "2026-10-20"  # inside the GST window, 18-22 Oct
     laf = m.laf_panel()
     assert 0 < laf["reaction"]["vrrr_probability"] < 1
+
+
+def test_realistic_mode_lets_wacr_stray_as_far_as_it_has() -> None:
+    """Deep surplus pushes WACR below the SDF, a deficit above the MSF; never past the extremes."""
+    for surplus, outside in ((900_000.0, "below"), (-300_000.0, "above")):  # within history
+        m = market(params=IndiaModelParams(reaction=False), surplus=surplus, vrrr_outstanding=0.0)
+        run(m, at(date(2026, 11, 13), 23, 59), step=timedelta(hours=2))
+        days = [d for d in m.history if d.wacr is not None]
+        assert days
+        lower, upper = m.band()
+        assert all(lower - 1e-12 <= d.wacr <= upper + 1e-12 for d in days if d.wacr is not None)
+        if outside == "below":
+            assert any(d.wacr is not None and d.wacr < m.sdf for d in days)
+        else:
+            assert any(d.wacr is not None and d.wacr > m.msf for d in days)
+    m.set_mode("policy")
+    assert m.band() == (m.sdf, m.msf)

@@ -125,7 +125,8 @@ The participation check runs on every order: an order that would take the day's 
 
 | Item | Fit |
 |---|---|
-| Macro map | WACR − repo against surplus as % of NDTL, on weekdays from 8 Apr 2022 to 17 Oct 2026 (I-CRR weeks left out). Repo each day is the midpoint of the SDF and MSF rates, which sit at repo ∓ 25 bp on every day of the data. Logistic: deficit +25.3 bp, surplus −45.2 bp, midpoint 0.79%, width 0.95 point; RMSE 17.4 bp over 1,045 days. The residuals' day-to-day autocorrelation (0.29) and size drive the simulated deviation of each day's WACR from the map |
+| Macro map | WACR − repo against surplus as % of NDTL, on weekdays from 8 Apr 2022 to 17 Oct 2026 (I-CRR weeks left out). Repo each day is the midpoint of the SDF and MSF rates, which sit at repo ∓ 25 bp on every day of the data. Logistic: deficit +25.3 bp, surplus −45.2 bp, midpoint 0.79%, width 0.95 point; RMSE 17.4 bp over 1,045 days |
+| Daily deviation | Each day's WACR deviates from the map by an AR(1) (ρ = 0.29, from the fit's residuals) whose innovations are resampled from the 1,044 historical ones, downward ones scaled by 0.93 and upward ones by 1.14. The two scales are solved so that, run over the historical liquidity path, the share of weekdays below the SDF and above the MSF matches RBI's releases (see WACR modes below) |
 | Other segments | Last year's medians against WACR: TREPS −14 bp, market repo −12 bp, notice −5 bp, term +54.5 bp. Volumes as multiples of call volume: TREPS 27.7×, market repo 11.3× |
 | Tax cycle | The median fall in surplus across the 13th-17th of Mar, Jun, Sep and Dec (advance tax) is ₹1.28 lakh crore, and across the 18th-22nd of other months (GST) ₹88,000 crore, over 54 episodes. Measured: 3% of an advance-tax drain back after 10 days, 73% after 20. Simulated: each drain is spread over its five days, held for 10 days, then returned evenly over 14 |
 | Autonomous noise | A mean-reverting (OU) component of system liquidity with a daily s.d. of ₹23,900 crore: 1.4826 × the median absolute daily change away from tax dates. The 30-day half-life is an assumption |
@@ -138,14 +139,23 @@ The participation check runs on every order: an order that would take the day's 
 | Item | Choice |
 |---|---|
 | Calendar | Business days are Monday to Friday; there is no holiday calendar. Clearing rounds every 15 minutes from 09:15 to 17:00 IST, RBI's auctions at 09:30, the SDF and MSF at 17:30 every day, CRR accounting at 23:59 |
-| Call market | A uniform-price auction each round, settling at the midpoint of the marginal bid and offer. Reservation rates are the map rate plus the day's deviation, round noise (8 bp) and bank noise (5 bp), leaning up to 10 bp toward the facilities by the close. They are clamped to [SDF, MSF], so the simulated WACR cannot leave the corridor (the real one did on 337 days; see the data section). Banks offer gap × min(1, 1.5 / rounds left) each round |
+| Call market | A uniform-price auction each round, settling at the midpoint of the marginal bid and offer. Reservation rates are the map rate plus the day's deviation, round noise (8 bp) and bank noise (5 bp), leaning up to 10 bp toward the facilities by the close. They are bounded by the mode's band (below). Banks offer gap × min(1, 1.5 / rounds left) each round |
 | Banks' own positions | Zero-sum and mean-reverting: a stationary s.d. of 0.6% of each bank's NDTL and a 10-day half-life, so somebody can lend even when the system is short. With these values the median weekday call volume over 90 simulated days is ₹17,500 crore (real: ₹15,700 crore). System-wide flows are shared by NDTL |
 | CRR behaviour | Each bank aims for the balance that still meets the fortnight average, never below the daily floor. In the evening surplus goes to the SDF and deficit to the MSF, up to excess SLR plus 2% of NDTL; what the MSF cannot cover leaves the bank short (flagged) |
 | Primary dealers | Borrow 1 × net owned funds of call money each business day; the cash pays for securities and returns to banks by NDTL; the loans are repaid the next business day |
 | Opening position | Banks start at their requirement, with the release's SDF − MSF residual and its VRRR shared by NDTL plus their own positions. The release gives the VRRR total but not maturities, so it is assumed to mature in a week |
 | Not modelled | Interest on reserves and loans (balances move by principal only); currency in circulation, FX intervention and OMOs (Phase 9's linkage); bank holidays. The India market re-anchors to new RBI data on RESET only |
 
-The map's liquidity is RBI's whole net position, operations included: fitted on the overnight part alone (SDF − MSF) it does worse (RMSE 17.9 bp against 17.4). So a VRR that only replaces MSF borrowing leaves the map where it was; it moves WACR through the call market itself, by changing who still needs to borrow.
+**WACR modes.** `WACR REALISTIC` (the default) or `WACR POLICY` switches; the WACR panel has the same toggle.
+
+- *Realistic*: WACR may leave RBI's corridor, as it does in the data. Of 1,214 trading days since 8 Apr 2022, WACR printed below the SDF rate on 257 and above the MSF rate on 80. Thin Saturday sessions account for 106 and 10 of those; the simulator trades Monday to Friday, so the calibration target is the weekdays: 151 below and 70 above of 1,045 (14.4% and 6.7%). Over the historical liquidity path, the calibrated deviations give 14.3% and 6.9%. Prints are bounded by the furthest WACR has gone: 113 bp below the SDF and 140 bp above the MSF.
+- *Policy*: reservation rates are clamped to [SDF, MSF], so WACR cannot leave the corridor: the plan's original design, and RBI's operating intention.
+
+**Known limitations.**
+
+- *RBI's fine-tuning auctions barely move the map.* The map's liquidity is RBI's whole net position, operations included, because that fits better: on the overnight part alone (SDF − MSF) the RMSE is 17.9 bp against 17.4. So a VRR that only replaces MSF borrowing leaves the map where it was, and its effect on WACR comes only through the call market itself, by changing who still needs to borrow. In the simulator, repo moves, CRR changes and tax days move WACR more than VRR and VRRR auctions do.
+- *Deep deficits can silence the call market.* Banks' own positions have a stationary s.d. of 0.6% of NDTL, so when the system is short by much more than about 1.5% of NDTL every synthetic bank is short, nobody lends, and the shortfall goes to the MSF. The data's deepest deficit was 1.7%.
+- *T-bills are a week old.* FBIL's public data runs about a week behind, so the T-bill anchors are flagged STALE in the WACR panel and on the ticker whenever their own date is more than 3 days old (`stale_after_days`).
 
 Commands: `REPO ±25BP` moves repo, SDF and MSF together at once; `CRR 3.5` takes effect from the next reporting fortnight; `VRR 50000CR 7D` and `VRRR …` run at 09:30 or the next round, with banks bidding their gaps in a multiple-price auction.
 

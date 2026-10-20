@@ -46,6 +46,13 @@ export interface InTick {
   pending_crr: { from: string; crr: number } | null;
   fortnight: { start: string; end: string };
   rejected_today: number;
+  /** `realistic`: WACR may leave the corridor as RBI's data shows; `policy`: clamped inside. */
+  mode: 'realistic' | 'policy';
+  /** Where call prints may go in the current mode. */
+  band: { lower: number; upper: number };
+  tbills_as_of: string;
+  /** e.g. `STALE 8d` when FBIL's benchmarks are older than the threshold. */
+  tbills_stale: string | null;
   as_of: string;
 }
 
@@ -91,6 +98,18 @@ export interface CorridorPanelData {
   now: { surplus_pct: number; map_rate: number; wacr: number };
   real: { date: string; spread: number }[];
   simulated: { date: string; spread: number }[];
+  mode: 'realistic' | 'policy';
+  band: { lower: number; upper: number };
+  excursions: {
+    trading_days: number;
+    below_sdf: number;
+    above_msf: number;
+    weekdays: number;
+    weekday_below: number;
+    weekday_above: number;
+    simulated_below: number;
+    simulated_above: number;
+  };
 }
 
 export interface CommandReply {

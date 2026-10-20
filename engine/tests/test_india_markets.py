@@ -127,3 +127,31 @@ def test_reaction_curve_recovers_a_logistic() -> None:
     assert float(fit.probability(10)) > 0.99
     with pytest.raises(ValueError, match="both days"):
         fit_reaction(x[:20], np.zeros(20))
+
+
+def test_deviations_calibrate_to_observed_excursion_shares() -> None:
+    from sovereign_engine.india.excursions import calibrate_deviations, excursion_shares
+
+    rng = np.random.default_rng(4)
+    days = 800
+    # Skewed residuals: frequent small rises, occasional large falls (like WACR's).
+    shocks = np.where(
+        rng.uniform(size=days) < 0.15,
+        -rng.exponential(0.003, days),
+        rng.normal(0.0004, 0.0008, days),
+    )
+    resid = np.zeros(days)
+    for t in range(1, days):
+        resid[t] = 0.3 * resid[t - 1] + shocks[t]
+    centre = np.full(days, 0.0550) + rng.normal(0, 0.0015, days)
+    lower, upper = np.full(days, 0.0525), np.full(days, 0.0575)
+    model = calibrate_deviations(resid, centre, lower, upper, target_below=0.14, target_above=0.07)
+    below, above = excursion_shares(model, centre, lower, upper, np.random.default_rng(7))
+    assert below == pytest.approx(0.14, abs=0.005)
+    assert above == pytest.approx(0.07, abs=0.005)
+    assert model.rho == pytest.approx(0.3, abs=0.1)
+    assert model.paths(10, 3, np.random.default_rng(1)).shape == (3, 10)
+    step = model.step(0.001, np.random.default_rng(2))
+    assert step == model.step(0.001, np.random.default_rng(2))
+    with pytest.raises(ValueError, match="thirty"):
+        calibrate_deviations(resid[:10], centre[:10], lower[:10], upper[:10], 0.1, 0.1)

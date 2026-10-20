@@ -51,6 +51,10 @@ export const IN_TICK: InTick = {
   pending_crr: null,
   fortnight: { start: '2026-10-16', end: '2026-10-31' },
   rejected_today: 0,
+  mode: 'realistic',
+  band: { lower: 0.0412, upper: 0.0715 },
+  tbills_as_of: '2026-10-12',
+  tbills_stale: 'STALE 8d',
   as_of: '2026-10-18',
 };
 
@@ -82,4 +86,16 @@ export const CORRIDOR_DATA: CorridorPanelData = {
     { date: '2026-10-16', spread: -0.0011 },
   ],
   simulated: [{ date: '2026-10-20', spread: -0.0019 }],
+  mode: 'realistic',
+  band: { lower: 0.0412, upper: 0.0715 },
+  excursions: {
+    trading_days: 1214,
+    below_sdf: 257,
+    above_msf: 80,
+    weekdays: 1045,
+    weekday_below: 151,
+    weekday_above: 70,
+    simulated_below: 0.143,
+    simulated_above: 0.069,
+  },
 };

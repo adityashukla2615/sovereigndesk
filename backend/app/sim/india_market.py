@@ -56,6 +56,7 @@ from sovereign_engine.india.call_market import Order, clear_call
 from sovereign_engine.india.rules import MoneyMarketRules, fortnight
 
 IST = ZoneInfo("Asia/Kolkata")
+WacrMode = Literal["realistic", "policy"]
 ROUND_MINUTES = 15
 SESSION_OPEN = time(9, 0)
 SESSION_CLOSE = time(17, 0)
@@ -93,6 +94,11 @@ class IndiaModelParams:
     initial_vrrr_days: int = 7
     """The release gives only the VRRR total outstanding; it is assumed to mature in a week."""
     reaction: bool = True
+    mode: WacrMode = "realistic"
+    """``realistic``: WACR may leave the corridor as far as it has since April 2022, as often as
+    the calibrated deviations say; ``policy``: reservation rates are clamped to [SDF, MSF]."""
+    stale_after_days: int = 3
+    """Inputs older than this (calendar days) are flagged STALE, e.g. FBIL's lagged T-bills."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -233,6 +239,7 @@ class IndiaMarket:
         self.autonomous = 0.0
         """Cumulative autonomous liquidity since the anchor (₹ crore)."""
         self.noise = 0.0
+        self.mode: WacrMode = self.params.mode
         self.deviation = anchors.map_residual
         """Today's WACR deviation from the macro map: AR(1) across days, fitted."""
         self.returns: list[tuple[date, date, float]] = []
@@ -372,10 +379,22 @@ class IndiaMarket:
         reserves = sum(b.balance + b.sdf - b.msf for b in self.depositors)
         return reserves + self.outstanding("VRRR") - self.outstanding("VRR")
 
+    def band(self) -> tuple[float, float]:
+        """Where call prints may go: RBI's corridor in policy mode; in realistic mode, as far
+        outside it as WACR has printed since April 2022."""
+        if self.mode == "policy":
+            return self.sdf, self.msf
+        x = self.anchors.excursions
+        return self.sdf + x.floor_gap, self.msf + x.ceiling_gap
+
     def map_rate(self) -> float:
-        """Where the macro map puts WACR now (inside the corridor)."""
+        """Where the macro map, plus the day's deviation, puts WACR now (inside the band)."""
         rate = self.repo + float(self.anchors.liquidity_map.spread(self.surplus_pct()))
-        return min(max(rate + self.deviation, self.sdf), self.msf)
+        lower, upper = self.band()
+        return min(max(rate + self.deviation, lower), upper)
+
+    def set_mode(self, mode: WacrMode) -> None:
+        self.mode = mode
 
     # ------------------------------------------------------------------ day steps
 
@@ -638,8 +657,10 @@ class IndiaMarket:
         bids: list[Order] = []
         offers: list[Order] = []
 
+        lower, upper = self.band()
+
         def clamp(rate: float) -> float:
-            return min(max(rate, self.sdf), self.msf)
+            return min(max(rate, lower), upper)
 
         def noise() -> float:
             return p.bank_rate_sd * float(self.rng.standard_normal())
@@ -707,7 +728,7 @@ class IndiaMarket:
             book.lent += amount
             book.balance -= amount
         self._spread(dealer_cash)  # dealers pay for securities: the cash returns to banks
-        self.rounds.append(RoundPrint(at, clearing.rate, clearing.volume, self.sdf, self.msf))
+        self.rounds.append(RoundPrint(at, clearing.rate, clearing.volume, lower, upper))
         return notices
 
     def _standing(self, at: datetime) -> list[Notice]:
@@ -784,11 +805,7 @@ class IndiaMarket:
             ),
         ]
         self.last_surplus_pct = surplus / self.ndtl() * 100
-        a = self.anchors
-        rho, sigma = a.map_residual_ar1, a.map_rmse_bp * 1e-4
-        self.deviation = rho * self.deviation + sigma * math.sqrt(1 - rho**2) * float(
-            self.rng.standard_normal()
-        )
+        self.deviation = self.anchors.deviations.step(self.deviation, self.rng)
         if is_business_day(day):
             self.rounds = []
         return notices
@@ -933,7 +950,8 @@ class IndiaMarket:
         a = self.anchors
         curve = a.liquidity_map
         grid = np.linspace(-2.0, 4.0, 61)
-        rates = np.clip(self.repo + curve.spread(grid), self.sdf, self.msf)
+        lower, upper = self.band()
+        rates = np.clip(self.repo + curve.spread(grid), lower, upper)
         return {
             "map": {
                 "deficit": curve.deficit,
@@ -951,6 +969,18 @@ class IndiaMarket:
                 "surplus_pct": self.surplus_pct(),
                 "map_rate": self.map_rate(),
                 "wacr": self.wacr(),
+            },
+            "mode": self.mode,
+            "band": {"lower": lower, "upper": upper},
+            "excursions": {
+                "trading_days": a.excursions.trading_days,
+                "below_sdf": a.excursions.below_sdf,
+                "above_msf": a.excursions.above_msf,
+                "weekdays": a.excursions.weekdays,
+                "weekday_below": a.excursions.weekday_below,
+                "weekday_above": a.excursions.weekday_above,
+                "simulated_below": a.excursions.simulated_below,
+                "simulated_above": a.excursions.simulated_above,
             },
             "real": [{"date": d.isoformat(), "spread": s} for d, s in a.history[-90:]],
             "simulated": [
@@ -1091,5 +1121,14 @@ class IndiaMarket:
             "rejected_today": sum(
                 1 for r in self.rejections if r.at.astimezone(IST).date() == local.date()
             ),
+            "mode": self.mode,
+            "band": {"lower": self.band()[0], "upper": self.band()[1]},
+            "tbills_as_of": self.anchors.tbill_as_of.isoformat(),
+            "tbills_stale": self.stale_label(self.anchors.tbill_as_of),
             "as_of": self.anchors.as_of.isoformat(),
         }
+
+    def stale_label(self, as_of: date) -> str | None:
+        """``STALE 8d`` when an input's own date is older than the threshold, else None."""
+        age = (self._today() - as_of).days
+        return f"STALE {age}d" if age > self.params.stale_after_days else None

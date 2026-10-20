@@ -28,6 +28,7 @@ export function TickerTape() {
               {ARROW[q.move]}
             </span>
           </span>
+          {q.stale && <span className="text-[10px] text-term-down">{q.stale}</span>}
         </span>
       ))}
     </div>

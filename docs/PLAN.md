@@ -17,8 +17,9 @@ The folder holds only `PROJECT_BRIEF.md`. The goal is **SovereignDesk**: a live,
 | No Docker or make locally | Compose files and the Makefile still get written. The real task runner is a stdlib-only `tasks.py`, and the Makefile delegates to it. CI builds the images and runs make on Ubuntu, so both get exercised there. |
 | Toolchain pins (Phase 1) | TypeScript stays on 5.9: TS 7's native compiler drops the JS API that typescript-eslint and openapi-typescript need. `xgboost-cpu` replaces `xgboost` everywhere except macOS (5 MB instead of 54 MB plus the CUDA NCCL wheel). The backend uses `httpx2`, the pydantic-maintained successor that Starlette 1.x's TestClient expects. Dev tools are pinned in `requirements-dev.txt`. |
 | India sources (Phase 5) | CCIL needs no adapter of its own: RBI's daily Money Market Operations release carries call, TREPS and market repo ("Based on RBI / CCIL"). MOSPI CPI and RBI's MPC history move to Phase 8, FBIL G-sec par yields to Phase 7, and the Weekly Statistical Supplement and NSDL's history to Phase 9. T-bills come from FBIL's dated benchmarks, not the homepage cut-offs, which carry no auction date. RBI sets no call-money lending limits, so the brief's 25%/50% become a labelled board-limit assumption. The daily CRR minimum is 99% from 16 Oct 2026. |
-| India simulator (Phase 6) | The call market's bids are bounded by the SDF and MSF as designed, although real WACR printed outside the corridor on 337 days since April 2022 (recorded in ASSUMPTIONS). The NDTL function arrives with the simulator rather than in Phase 5, and the CCIL panel with the other panels in Phase 11. T-bills start from FBIL's benchmarks. The reporting fortnight is a half-month since 16 Dec 2025 (RBI/2025-26/148), so fortnight lengths come from RBI's calendar. |
-| Terminal MVP | Charts use tree-shaken ECharts, loaded after the shell paints; lightweight-charts arrives with the replay panels (Phase 10). Alt+1..4 focuses a panel as well as Ctrl+1..4, which browsers keep for switching tabs. A function asked for by name takes the focused slot, while an action (VRR, HIKE, …) only refreshes its panel if it is open. Screenshots come from the installed Chrome, driven headless over the DevTools protocol (`py tasks.py screenshots`). |
+| India simulator (Phase 6) | The call market's bids are bounded by the SDF and MSF as designed, although real WACR printed outside the corridor on 337 days since April 2022 (recorded in ASSUMPTIONS). The NDTL function arrives with the simulator rather than in Phase 5, and the CCIL panel with the other panels in Phase 12. T-bills start from FBIL's benchmarks. The reporting fortnight is a half-month since 16 Dec 2025 (RBI/2025-26/148), so fortnight lengths come from RBI's calendar. |
+| Terminal MVP | Charts use tree-shaken ECharts, loaded after the shell paints; lightweight-charts arrives with the replay panels (Phase 11). Alt+1..4 focuses a panel as well as Ctrl+1..4, which browsers keep for switching tabs. A function asked for by name takes the focused slot, while an action (VRR, HIKE, …) only refreshes its panel if it is open. Screenshots come from the installed Chrome, driven headless over the DevTools protocol (`py tasks.py screenshots`). |
+| Review after the MVP | WACR runs in a realistic mode by default (it may leave the corridor as often as RBI's data shows), with the plan's clamped design kept as policy mode. RBI's fine-tuning auctions barely moving the map is accepted and recorded as a known limitation. Lagged T-bills show a STALE badge. Module E (retail and business impact) is added as Phase 10, after the linkage and before the replays, which move to Phase 11. |
 | Probe findings | The FRED key works. The TIC holders table moved to `slt_table5.txt` (`mfh.txt` has been stale since Jan 2023). The RBI homepage shows current repo/SDF/MSF/CRR/SLR and T-bill cut-offs in scrapable form. The FiscalData MSPD security-level endpoint is live. Live values differ a lot from older memory, which is why nothing gets hardcoded. |
 
 ## Architecture
@@ -113,7 +114,7 @@ There is one `.venv` at the repo root, with engine and backend installed into it
   - Permanent: Δy_k = λ·Q_k/D_k, spread across tenors by the kernel e^{−|τ−τ_k|/ℓ}.
   - Temporary: η·σ_k·√(q_t/V_k), decaying with half-life h.
   - D_k = dealer balance-sheet capacity plus other absorbers.
-  - λ uses a literature default until Phase 10 calibrates it on GILT2022.
+  - λ uses a literature default until Phase 11 calibrates it on GILT2022.
 - **Foreign sell-off:** inputs are TIC holdings, amount, pace and tenor mix (SHORT/BELLY/LONG). Outputs are the yield path, term premium, USD move (flow elasticity) and debt-cost change. Optional responses: QT pause, SRF usage, buybacks (teach mode labels buybacks as a Treasury tool, not a Fed one).
 - **Debt servicing:**
   - Mechanics: the MSPD security-level maturity ladder is rolled over at simulated yields using the issuance mix (default: recent auction mix), and deficits are financed with the same mix. TIPS and FRNs are approximated.
@@ -154,7 +155,26 @@ Each node is a pure function with configurable parameters:
 
 Parameters are calibrated by regression on real data (NSDL FPI flows, DEXINUS, RBI monthly FX intervention, yields) where it exists; otherwise literature defaults apply. All of them are listed in ASSUMPTIONS.md. The UI is an animated SVG flow diagram with live numbers on each node. `LINK` shows the chain; `SHOCK FED 50BP` runs it step by step along a timeline.
 
-### 8. Module D — Historical replay
+### 8. Module E — Retail and business impact
+What the simulated shocks mean for an investor and a small business. Every pass-through coefficient is a named, configurable parameter, listed in ASSUMPTIONS.md with its source or labelled as an assumption.
+
+- **Retail investor view.** A portfolio of bonds, G-secs and bond funds (each with face value or units, coupon, maturity, and for funds a modified duration and convexity). For any simulated yield shock it shows:
+  - the mark-to-market loss, position by position and in total;
+  - modified duration, convexity and DV01;
+  - the duration-only and duration + convexity estimates next to the exact repricing;
+  - hold to maturity against sell now: cash flows and the realised yield if held, against today's price and the loss crystallised if sold.
+- **Business view.** Preset profiles, starting with a small shop and an importing electronics retailer, each with these editable parameters:
+  - working-capital loan size and tenor;
+  - floating-rate linkage: the benchmark (repo-linked EBLR or MCLR), spread, reset frequency and pass-through lag;
+  - inventory days and import share of costs (with the USD/INR exposure).
+- **Shocks.** Any shock from the other modules (a repo change, a Fed hike, a foreign sell-off, an advance-tax squeeze) flows through to:
+  - lending rates;
+  - monthly interest cost;
+  - margin (interest and, for importers, the rupee's move on imported costs);
+  - a demand-elasticity estimate of the effect on sales.
+- **Command:** `IMPACT` (with `IMPACT RETAIL` and `IMPACT BUSINESS <profile>`) shows the panel; shocks run from the module that owns them.
+
+### 9. Module D — Historical replay
 - **Dataset format:** `data/replays/<ID>/v1/{episode.yaml, series/*.csv, manifest.json}`. The yaml holds the window, drivers, targets, and annotations with source URLs.
 - **Comparison:** the model is driven by the actual exogenous inputs from the episode start, and its path is compared with what happened: RMSE, MAE, direction accuracy and peak error, plus an auto-generated "what the model got right/wrong" summary. Controls: play, pause, speed, scrub, and an annotated timeline.
 - **Episodes:**
@@ -164,7 +184,7 @@ Parameters are calibrated by regression on real data (NSDL FPI flows, DEXINUS, R
   - `HIKE2022`
   - `ADVTAX`: 2–3 quarters picked from the data (largest WACR−repo around the 15th), not from memory
 
-### 9. Frontend
+### 10. Frontend
 - **Look:** black background, amber primary text, green/red ticks, monospace fonts from `@fontsource` so it works offline. Colours are Tailwind tokens.
 - **Layout:**
   - Top: the command bar (autocomplete from the backend registry, ↑/↓ history) and a status strip (ET and IST clocks, sim speed, data-quality summary).
@@ -217,11 +237,12 @@ Then you reopen VS Code at `C:\dev\sovereigndesk` and say "continue docs/PLAN.md
 | 7 | G-sec curve | India NSS curve, pass-through, US–IN 10Y spread; GSEC and SPRD panels | Tests pass |
 | 8 | MPC predictor | Dataset build, Taylor rule, ordered logit, XGBoost, walk-forward report, MPC panel | Backtest report committed |
 | 9 | Linkage | Chain engine, calibration, LINK flow panel, `SHOCK FED` | Chain tests pass (signs, magnitudes, conservation) |
-| 10 | Replays | Five episode datasets, replay engine, metrics, GILT λ calibration, REPLAY panel | Metric tests pass; λ and its CI recorded in ASSUMPTIONS |
-| 11 | Terminal completion | Remaining panels (UST, DEBT, TIC, CORR, CALL, LAF, NDTL, TAXCAL, CCIL, HELP), saved layouts, full keyboard navigation, teach mode on every panel | vitest plus Playwright smoke test pass |
-| 12 | Polish | Scenario save/load, CSV/PNG export, README (mermaid diagram, screenshots), complete ASSUMPTIONS.md, DEMO.md (3-minute script covering all seven demo beats) | Full check green; **PAUSE (end)** |
+| 10 | Retail and business impact | Module E (§8): portfolio input and mark-to-market under any shock with duration, convexity and hold-vs-sell; business profiles (small shop, importing electronics retailer) with the rate pass-through, interest cost, margin and demand elasticity; configurable coefficients in ASSUMPTIONS; IMPACT panel | Pass-through and repricing tests pass (signs, magnitudes, exact vs approximations); every coefficient listed in ASSUMPTIONS |
+| 11 | Replays | Five episode datasets, replay engine, metrics, GILT λ calibration, REPLAY panel | Metric tests pass; λ and its CI recorded in ASSUMPTIONS |
+| 12 | Terminal completion | Remaining panels (UST, DEBT, TIC, CORR, CALL, LAF, NDTL, TAXCAL, CCIL, HELP), saved layouts, full keyboard navigation, teach mode on every panel | vitest plus Playwright smoke test pass |
+| 13 | Polish | Scenario save/load, CSV/PNG export, README (mermaid diagram, screenshots), complete ASSUMPTIONS.md, DEMO.md (3-minute script covering all seven demo beats) | Full check green; **PAUSE (end)** |
 
-Change from the brief: after the MVP, each module phase ships its own panel as a vertical slice, so Phase 11 finishes the UX instead of building every panel at once.
+Change from the brief: after the MVP, each module phase ships its own panel as a vertical slice, so Phase 12 finishes the UX instead of building every panel at once.
 
 ## Verification
 - **Every phase:** `py tasks.py check`, which runs ruff, mypy, pytest (engine and backend, offline on recorded fixtures), eslint, tsc, vitest and the vite build. Then commit, push, and confirm CI is green.

@@ -112,7 +112,12 @@ describe('App terminal', () => {
     const tape = screen.getByRole('marquee', { name: 'ticker' });
     expect(tape).toHaveTextContent('UST 10Y4.100%');
     expect(tape).toHaveTextContent('WACR5.28%');
-    expect(screen.getByRole('region', { name: 'panel 3: WACR' })).toHaveTextContent('SURPLUS₹1.86 lakh cr');
+    const wacrPanel = screen.getByRole('region', { name: 'panel 3: WACR' });
+    expect(wacrPanel).toHaveTextContent('SURPLUS₹1.86 lakh cr');
+    expect(within(wacrPanel).getByText('STALE 8d')).toBeInTheDocument(); // week-old FBIL T-bills
+    expect(tape).toHaveTextContent('TB 3M5.65% STALE 8d');
+    fireEvent.click(within(wacrPanel).getByRole('button', { name: /REALISTIC/ }));
+    expect(JSON.parse(socket.sent.at(-1) ?? '{}')).toEqual({ op: 'command', text: 'WACR POLICY' });
     const log = screen.getByRole('region', { name: 'event log' });
     expect(log).toHaveTextContent('10Y par bond at 4.10%');
     expect(log).toHaveTextContent('over 24 months reserves fall');

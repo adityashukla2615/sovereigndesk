@@ -7,7 +7,7 @@ planned(
     "CCIL",
     "How NDS-Call, TREPS and market repo clear through CCIL",
     "IN",
-    "Phase 11 (terminal completion)",
+    "Phase 12 (terminal completion)",
 )
 planned(
     "GSEC", "GSEC", "India G-sec curve (NSS) and repo pass-through", "IN", "Phase 7 (G-sec curve)"
@@ -18,12 +18,19 @@ planned(
 )
 planned("LINK", "LINK", "US → India transmission chain", "X", "Phase 9 (linkage)")
 planned(
+    "IMPACT",
+    "IMPACT [RETAIL|BUSINESS profile]",
+    "What a shock means for a bond portfolio and for a small business",
+    "X",
+    "Phase 10 (retail and business impact)",
+)
+planned(
     "REPLAY",
     "REPLAY TAPER2013",
     "Replay a real episode against the model",
     "X",
-    "Phase 10 (replays)",
+    "Phase 11 (replays)",
 )
-planned("SAVE", "SAVE name", "Save the current scenario", "SYS", "Phase 12 (polish)")
-planned("LOAD", "LOAD name", "Load a saved scenario", "SYS", "Phase 12 (polish)")
-planned("EXPORT", "EXPORT CSV|PNG", "Export the focused panel", "SYS", "Phase 12 (polish)")
+planned("SAVE", "SAVE name", "Save the current scenario", "SYS", "Phase 13 (polish)")
+planned("LOAD", "LOAD name", "Load a saved scenario", "SYS", "Phase 13 (polish)")
+planned("EXPORT", "EXPORT CSV|PNG", "Export the focused panel", "SYS", "Phase 13 (polish)")

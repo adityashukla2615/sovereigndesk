@@ -133,7 +133,10 @@ def make_india_anchors(**overrides: object) -> "INAnchors":
     """India anchors with the magnitudes fitted on the real seed (Oct 2026), no database."""
     from datetime import timedelta
 
-    from app.sim.india_anchors import INAnchors, Reaction, SegmentSpreads, TaxCycle
+    import numpy as np
+
+    from app.sim.india_anchors import Excursions, INAnchors, Reaction, SegmentSpreads, TaxCycle
+    from sovereign_engine.india.excursions import DeviationModel
     from sovereign_engine.india.liquidity_map import LiquidityMap
     from sovereign_engine.india.reaction import ReactionCurve
 
@@ -171,6 +174,16 @@ def make_india_anchors(**overrides: object) -> "INAnchors":
         "reaction": Reaction(
             ReactionCurve(-2.2, -1.05), ReactionCurve(-2.8, 0.52), 34_528.0, 33_453.0, 136, 128
         ),
+        # Skewed innovations like the fit's: mostly small, with occasional large falls.
+        "deviations": DeviationModel(
+            0.29,
+            np.array(
+                [0.0004, 0.0002, -0.0003, 0.0006, -0.0001, 0.0003, -0.0025, 0.0005, -0.0012, 0.0001]
+            ),
+            1.1,
+            1.3,
+        ),
+        "excursions": Excursions(1214, 257, 80, 1045, 151, 70, 0.143, 0.069, -0.0113, 0.014),
         "history": [(as_of - timedelta(days=k), -0.0012) for k in range(30, 0, -1)],
         "quality": {"rbi/repo": "SEED 2026-10-20"},
     }

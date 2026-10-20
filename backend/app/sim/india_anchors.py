@@ -15,6 +15,11 @@ import pandas as pd
 from app.data.service import DataService
 from app.sim.anchors import AnchorError, required_latest, required_series
 from sovereign_engine.india.banks import implied_ndtl
+from sovereign_engine.india.excursions import (
+    DeviationModel,
+    calibrate_deviations,
+    excursion_shares,
+)
 from sovereign_engine.india.liquidity_map import (
     LiquidityMap,
     LiquidityMapFit,
@@ -69,6 +74,26 @@ class Reaction:
 
 
 @dataclass(frozen=True, slots=True)
+class Excursions:
+    """How often real WACR left RBI's corridor, and how well the deviation model matches it."""
+
+    trading_days: int
+    below_sdf: int
+    above_msf: int
+    weekdays: int
+    """Weekdays in the map fit (the simulator trades Monday to Friday)."""
+    weekday_below: int
+    weekday_above: int
+    simulated_below: float
+    """Share of days below the SDF when the calibrated model runs over the historical path."""
+    simulated_above: float
+    floor_gap: float
+    """Lowest WACR − SDF printed (decimal, ≤ 0): realistic mode's floor."""
+    ceiling_gap: float
+    """Highest WACR − MSF printed (≥ 0): realistic mode's ceiling."""
+
+
+@dataclass(frozen=True, slots=True)
 class INAnchors:
     as_of: date
     """Latest Money Market Operations release."""
@@ -108,6 +133,9 @@ class INAnchors:
     ndtl_growth: float
     """NDTL growth over the last year (log, per year)."""
     reaction: Reaction
+    deviations: DeviationModel
+    """WACR's daily deviation from the map, tails calibrated to the corridor excursions."""
+    excursions: Excursions
     history: list[tuple[date, float]] = field(default_factory=list)
     """Real WACR − repo (decimal) by day over the last year, for the heatmap overlay."""
     quality: dict[str, str] = field(default_factory=dict)
@@ -171,6 +199,35 @@ def _fit_map(frame: pd.DataFrame) -> tuple[pd.DataFrame, LiquidityMapFit]:
     days = _weekdays(frame[~icrr]).dropna(subset=["wacr", "ell", "repo"])
     fit = fit_liquidity_map(days["ell"].to_numpy(), (days["wacr"] - days["repo"]).to_numpy())
     return days, fit
+
+
+def _excursions(
+    frame: pd.DataFrame, days: pd.DataFrame, curve: LiquidityMap
+) -> tuple[DeviationModel, Excursions]:
+    """Observed corridor excursions, and the deviation model calibrated to the weekday ones."""
+    prints = frame.dropna(subset=["wacr", "sdf_rate", "msf_rate"])
+    centre = (days["repo"] + curve.spread(days["ell"].to_numpy())).to_numpy()
+    resid = days["wacr"].to_numpy() - centre
+    lower, upper = days["sdf_rate"].to_numpy(), days["msf_rate"].to_numpy()
+    below = days["wacr"].to_numpy() < lower
+    above = days["wacr"].to_numpy() > upper
+    model = calibrate_deviations(
+        resid, centre, lower, upper, float(below.mean()), float(above.mean())
+    )
+    simulated = excursion_shares(model, centre, lower, upper, np.random.default_rng(11))
+    stats = Excursions(
+        trading_days=len(prints),
+        below_sdf=int((prints["wacr"] < prints["sdf_rate"]).sum()),
+        above_msf=int((prints["wacr"] > prints["msf_rate"]).sum()),
+        weekdays=len(days),
+        weekday_below=int(below.sum()),
+        weekday_above=int(above.sum()),
+        simulated_below=simulated[0],
+        simulated_above=simulated[1],
+        floor_gap=min(0.0, float((prints["wacr"] - prints["sdf_rate"]).min())),
+        ceiling_gap=max(0.0, float((prints["wacr"] - prints["msf_rate"]).max())),
+    )
+    return model, stats
 
 
 def _segment_spreads(frame: pd.DataFrame) -> SegmentSpreads:
@@ -295,6 +352,7 @@ def build_india_anchors(service: DataService) -> INAnchors:
     as_of = frame.dropna(subset=["F", "req"]).index[-1].date()
     crr = pct("rbi/crr")
     days, fit = _fit_map(frame)
+    deviations, excursions = _excursions(frame, days, fit.curve)
     curve = fit.curve
     latest_day = days.iloc[-1]
     predicted = float(curve.spread(latest_day["ell"]))
@@ -347,6 +405,8 @@ def build_india_anchors(service: DataService) -> INAnchors:
         noise_sd=noise_sd,
         ndtl_growth=growth,
         reaction=_reaction(frame),
+        deviations=deviations,
+        excursions=excursions,
         history=[
             (pd.Timestamp(d).date(), float(s))
             for d, s in zip(recent.index, recent["wacr"] - recent["repo"], strict=True)

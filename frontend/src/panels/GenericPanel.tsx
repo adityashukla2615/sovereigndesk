@@ -48,7 +48,7 @@ export function GenericPanel({ slot }: { slot: Slot }) {
           </tbody>
         </table>
       )}
-      <p className="text-[10px] text-term-muted">The full panel for {slot.panel} arrives in Phase 11.</p>
+      <p className="text-[10px] text-term-muted">The full panel for {slot.panel} arrives in Phase 12.</p>
     </div>
   );
 }
