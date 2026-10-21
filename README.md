@@ -1,6 +1,6 @@
 # SovereignDesk
 
-A live, Bloomberg-style terminal that simulates the US Treasury market and the Indian money market. It is built on real data from FRED, US Treasury, TIC, RBI and FBIL, uses a pure-Python quant engine, and streams intraday ticks from stochastic short-rate models.
+A live, Bloomberg-style terminal that simulates the US Treasury market and the Indian money market. It is built on real data from FRED, US Treasury, TIC, RBI, FBIL, NSDL, MoSPI and the Bank of England, uses a pure-Python quant engine, and streams intraday ticks from stochastic short-rate models.
 
 > Work in progress. The build plan is in [docs/PLAN.md](docs/PLAN.md) and the spec in [docs/BRIEF.md](docs/BRIEF.md).
 
@@ -32,6 +32,7 @@ Four resizable panels, a ticker, data-quality badges (LIVE, SEED, STALE) and an 
 | `MPC` | The next MPC decision: probabilities from a Taylor rule, an ordered logit and boosted trees, trained on RBI's decisions since 2014 and backtested walk-forward from 2018 against naive baselines ([report](docs/MPC_BACKTEST.md)) |
 | `SHOCK FED 50BP`, `LINK` | A Fed hike runs through to India: the US 10Y, FPI outflows, RBI's dollar sales, the rupee, rupee liquidity and WACR, each link calibrated on NSDL, RBI and FRED data; RBI can answer with VRR, OMOs, a swap or a hike |
 | `IMPACT RETAIL +100BP`, `IMPACT BUSINESS IMPORTER` | What a shock means for people: an (editable, illustrative) bond portfolio repriced exactly and by duration and convexity, held against sold; a small shop and an electronics importer with EBLR and MCLR loans, imported costs and demand |
+| `REPLAY GILT2022`, `REPLAY TAPER2013` | Real episodes replayed: the model driven by what actually moved, against what happened, with scores, an annotated timeline and play controls. The gilt crisis calibrates the fire-sale price impact λ |
 | `GSEC`, `SPRD` | India's G-sec curve (NSS) and how a repo surprise passes through it, measured on RBI's repo changes; India's 10Y against the US 10Y |
 | `TEACH`, `HELP`, `SPEED 60X` | The economics behind each panel, every function, faster time |
 
@@ -40,6 +41,8 @@ Four resizable panels, a ticker, data-quality badges (LIVE, SEED, STALE) and an 
 ![LINK: a 50 bp Fed hike run through to India, node by node, six simulated days in; MPC: the next decision's probabilities and the backtest](docs/screenshots/link-1-chain.png)
 
 ![IMPACT: an illustrative bond portfolio after a 100 bp rise in yields, each holding repriced exactly and by duration and convexity, held against sold](docs/screenshots/impact-1-retail.png)
+
+![REPLAY: the September 2022 gilt crisis, the 30-year gilt against forced selling × λ, with λ under every specification](docs/screenshots/replay-1-gilt.png)
 
 `/` focuses the command bar and Alt+1..4 a panel. `py tasks.py demo` walks this demo end to end on the real seed, and `py tasks.py screenshots` re-captures [docs/screenshots](docs/screenshots). What is real data and what is modelled is listed in [ASSUMPTIONS.md](ASSUMPTIONS.md).
 
@@ -52,3 +55,7 @@ Four resizable panels, a ticker, data-quality badges (LIVE, SEED, STALE) and an 
 | `frontend/` | React + TypeScript terminal (Vite, Tailwind, Zustand); REST types generated from OpenAPI |
 | `data/` | Real-data seed snapshots and versioned replay datasets |
 | `tasks.py` | Stdlib-only task runner; the Makefile and CI delegate to it |
+
+## Third-party notices
+
+The charts use [TradingView Lightweight Charts™](https://www.tradingview.com/lightweight-charts/) (Copyright TradingView, Inc., https://www.tradingview.com/; Apache-2.0) and [Apache ECharts](https://echarts.apache.org/) (Apache-2.0).

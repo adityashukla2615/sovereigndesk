@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Health } from '../api/client';
@@ -6,8 +6,19 @@ import type { SimStatus } from '../api/useSim';
 import type { CommandInfo } from '../market/types';
 import { useConnection } from '../store/connection';
 import { initialSlots, useMarket } from '../store/market';
+import { drawn } from '../test/fakeLightweightCharts';
 import { FakeSocket, envelope } from '../test/fakeSocket';
-import { GSEC_DATA, IMPACT_DATA, IN_TICK, LINK_DATA, MPC_DATA, PY_DATA, SPRD_DATA, US_TICK } from '../test/marketData';
+import {
+  GSEC_DATA,
+  IMPACT_DATA,
+  IN_TICK,
+  LINK_DATA,
+  MPC_DATA,
+  PY_DATA,
+  REPLAY_DATA,
+  SPRD_DATA,
+  US_TICK,
+} from '../test/marketData';
 import { App } from './App';
 
 vi.mock('../components/Chart', () => ({
@@ -241,6 +252,61 @@ describe('App terminal', () => {
     expect(panel).toHaveTextContent('EBLR LOAN, 3M RESET');
     expect(within(panel).getByRole('img', { name: /Small shop/ })).toBeInTheDocument();
     expect(within(panel).getByLabelText('LOAN ₹')).toHaveValue(1000000);
+  });
+
+  it('replays an episode: plays, scrubs, jumps to an annotation and switches episodes', async () => {
+    render(<App />);
+    await screen.findByText('KEY OK');
+    const socket = FakeSocket.latest();
+    act(() => {
+      socket.serverOpen();
+      socket.serverSend(
+        envelope('command', 1, { ok: true, code: 'REPLAY', message: 'The gilt crisis', panel: 'REPLAY', data: REPLAY_DATA }),
+      );
+    });
+    const panel = screen.getByRole('region', { name: 'panel 1: REPLAY' });
+    expect(panel).toHaveTextContent('The September 2022 gilt crisis');
+    expect(panel).toHaveTextContent('2022-09-29'); // the whole episode is shown at first
+    expect(within(panel).getByRole('table', { name: 'replay scores' })).toHaveTextContent('forced selling × λ0.420.3525%');
+    expect(within(panel).getByRole('table', { name: 'lambda specifications' })).toHaveTextContent('65.7');
+    expect(within(panel).getByRole('list', { name: 'what the model got right and wrong' })).toHaveTextContent('often wrong');
+    // The chart draws what happened and the model, with the annotations numbered as in the timeline.
+    await waitFor(() => {
+      expect(drawn).toHaveLength(2);
+    });
+    const [actual, model] = drawn;
+    const shown = (s: typeof actual) => s?.data.filter((d) => d.value !== undefined).length;
+    expect(shown(actual)).toBe(7);
+    expect(model?.options.color).not.toBe(actual?.options.color);
+    expect(actual?.markers.map((m) => [m.time, m.text])).toEqual([
+      ['2022-09-23', '1'],
+      ['2022-09-28', '2'],
+    ]);
+    expect(within(panel).getByLabelText('legend')).toHaveTextContent('Model: forced selling × λ');
+    // The timeline jumps the cursor to an annotation's day; the paths are revealed up to it.
+    fireEvent.click(within(panel).getByRole('button', { name: /2022-09-23 The growth plan/ }));
+    expect(within(panel).getByLabelText('scrub')).toHaveValue('2');
+    expect(shown(actual)).toBe(3);
+    expect(shown(model)).toBe(3);
+    expect(actual?.data).toHaveLength(7); // the axis keeps every day
+    expect(actual?.markers.map((m) => m.text)).toEqual(['1']);
+    // Playing moves the cursor on; it stops at the end.
+    vi.useFakeTimers();
+    fireEvent.click(within(panel).getByRole('button', { name: 'PLAY' }));
+    act(() => {
+      vi.advanceTimersByTime(130);
+    });
+    expect(within(panel).getByLabelText('scrub')).toHaveValue('3');
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(within(panel).getByLabelText('scrub')).toHaveValue('6');
+    expect(within(panel).getByRole('button', { name: 'PLAY' })).toBeInTheDocument();
+    vi.useRealTimers();
+    fireEvent.change(within(panel).getByLabelText('scrub'), { target: { value: '1' } });
+    expect(panel).toHaveTextContent('2022-09-22');
+    fireEvent.click(within(panel).getByRole('button', { name: 'TAPER2013' }));
+    expect(JSON.parse(socket.sent.at(-1) ?? '{}')).toEqual({ op: 'command', text: 'REPLAY TAPER2013' });
   });
 
   it('suggests functions while a code is typed and completes with Tab', async () => {

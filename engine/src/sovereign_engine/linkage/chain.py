@@ -296,3 +296,50 @@ def run_chain(
         wacr_bp=wacr,
         tbill_bp=tbill,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class ChainReplay:
+    """The chain driven by actual daily moves, day by day."""
+
+    in10y_bp: FloatArray
+    """India's 10Y change since the start, from the spillover."""
+    fpi_bn: FloatArray
+    """FPI net flow each day."""
+    rbi_bn: FloatArray
+    market_bn: FloatArray
+    inr: FloatArray
+    reserves_bn: FloatArray
+
+
+def replay_chain(
+    us10y_bp: FloatArray, vix: FloatArray, start: MarketStart, params: LinkParams
+) -> ChainReplay:
+    """Run the chain on a sequence of daily moves (the US 10Y's and the VIX's changes): each
+    day's move starts its own month of flows, and the months overlap.
+
+    Equation:
+        Fₜ = a_d·(β − 1)·ΔUS10Yₜ/100 + a_e·ΔUS10Yₜ/100 + a_v·ΔVIXₜ;   fₜ = Σ_{k≥0} F_{t−k}·w_k
+        rₜ = s·fₜ;  mₜ = fₜ − rₜ;  Xₜ = Xₜ₋₁·(1 − e·mₜ/100);  Resₜ = Resₜ₋₁ + rₜ;
+        ΔIN10Yₜ = β·Σ_{u≤t} ΔUS10Y_u
+    """
+    us = np.nan_to_num(np.asarray(us10y_bp, dtype=np.float64))
+    risk = np.nan_to_num(np.asarray(vix, dtype=np.float64))
+    if us.shape != risk.shape or us.ndim != 1:
+        raise ValueError("one US 10Y change and one VIX change per day")
+    p = params
+    impulses = (
+        p.debt_flow * (p.spillover - 1.0) * us / 100 + p.equity_flow * us / 100 + p.risk_flow * risk
+    )
+    fpi = np.convolve(impulses, p.profile())[: us.size]
+    rbi = p.intervention * fpi
+    market = fpi - rbi
+    inr = start.inr * np.cumprod(1.0 - p.inr_per_bn * market / 100)
+    return ChainReplay(
+        in10y_bp=p.spillover * np.cumsum(us),
+        fpi_bn=fpi,
+        rbi_bn=rbi,
+        market_bn=market,
+        inr=inr,
+        reserves_bn=start.reserves_bn + np.cumsum(rbi),
+    )

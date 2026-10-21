@@ -5,6 +5,7 @@ from app.commands import (  # noqa: F401 - importing registers the handlers
     india,
     linkage,
     planned,
+    replay,
     system,
     us,
 )

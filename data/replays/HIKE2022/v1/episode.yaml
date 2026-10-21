@@ -1,0 +1,70 @@
+id: HIKE2022
+title: The 2022-23 hiking cycle
+summary: Inflation drove the fastest Fed hikes in four decades and the start of QT; the curve inverted.
+  RBI hiked in parallel, by 250 bp, as surplus liquidity drained.
+model: hike
+window:
+  start: '2022-03-01'
+  end: '2023-07-31'
+drivers:
+- fed_target
+- fed_treasuries
+- fed_mbs
+- repo
+- net_liquidity
+targets:
+- us2y
+- us10y
+- wacr
+annotations:
+- date: '2022-03-17'
+  text: FOMC +25 bp to 0.50%
+  source: FRED DFEDTARU
+- date: '2022-05-04'
+  text: RBI +40 bp to 4.40%
+  source: RBI MPC resolution (rbi/mpc/repo)
+- date: '2022-05-05'
+  text: FOMC +50 bp to 1.00%
+  source: FRED DFEDTARU
+- date: '2022-06-08'
+  text: RBI +50 bp to 4.90%
+  source: RBI MPC resolution (rbi/mpc/repo)
+- date: '2022-06-16'
+  text: FOMC +75 bp to 1.75%
+  source: FRED DFEDTARU
+- date: '2022-07-28'
+  text: FOMC +75 bp to 2.50%
+  source: FRED DFEDTARU
+- date: '2022-08-05'
+  text: RBI +50 bp to 5.40%
+  source: RBI MPC resolution (rbi/mpc/repo)
+- date: '2022-09-22'
+  text: FOMC +75 bp to 3.25%
+  source: FRED DFEDTARU
+- date: '2022-09-30'
+  text: RBI +50 bp to 5.90%
+  source: RBI MPC resolution (rbi/mpc/repo)
+- date: '2022-11-03'
+  text: FOMC +75 bp to 4.00%
+  source: FRED DFEDTARU
+- date: '2022-12-07'
+  text: RBI +35 bp to 6.25%
+  source: RBI MPC resolution (rbi/mpc/repo)
+- date: '2022-12-15'
+  text: FOMC +50 bp to 4.50%
+  source: FRED DFEDTARU
+- date: '2023-02-02'
+  text: FOMC +25 bp to 4.75%
+  source: FRED DFEDTARU
+- date: '2023-02-08'
+  text: RBI +25 bp to 6.50%
+  source: RBI MPC resolution (rbi/mpc/repo)
+- date: '2023-03-23'
+  text: FOMC +25 bp to 5.00%
+  source: FRED DFEDTARU
+- date: '2023-05-04'
+  text: FOMC +25 bp to 5.25%
+  source: FRED DFEDTARU
+- date: '2023-07-27'
+  text: FOMC +25 bp to 5.50%
+  source: FRED DFEDTARU

@@ -86,8 +86,9 @@ def test_command_catalogue_endpoint(live: TestClient) -> None:
     assert commands["MPC"]["available"] is True
     assert commands["LINK"]["available"] is True
     assert commands["IMPACT"]["available"] is True
-    assert commands["REPLAY"]["available"] is False
-    assert "Phase 11" in commands["REPLAY"]["available_in"]
+    assert commands["REPLAY"]["available"] is True
+    assert commands["CCIL"]["available"] is False
+    assert "Phase 12" in commands["CCIL"]["available_in"]
 
 
 def test_india_anchors_to_the_real_seed_and_streams(live: TestClient) -> None:
@@ -205,3 +206,24 @@ def test_impact_on_the_real_seed(live: TestClient) -> None:
     rows = {b["key"]: b for b in business["data"]["business"]}
     assert rows["SHOP"]["loan_rate_bp"][0] == pytest.approx(25.0)
     assert rows["IMPORTER"]["summary"]["margin"] < 0
+
+
+def test_every_replay_runs_on_the_real_data(live: TestClient) -> None:
+    """Module D: each committed episode replays through the running app, with scores."""
+    with live.websocket_connect("/ws") as ws:
+        ws.send_text(json.dumps({"op": "command", "text": "REPLAY"}))
+        listing = _until(ws, "command", limit=200)["data"]
+        assert listing["ok"] is True, listing["message"]
+        replies = {}
+        for episode in ("TAPER2013", "DASH2020", "HIKE2022", "GILT2022", "ADVTAX"):
+            ws.send_text(json.dumps({"op": "command", "text": f"REPLAY {episode}"}))
+            replies[episode] = _until(ws, "command", limit=200)["data"]
+    for episode, reply in replies.items():
+        assert reply["ok"] is True, (episode, reply["message"])
+        for target in reply["data"]["targets"]:
+            assert target["summary"], (episode, target["key"])
+            for s in target["scores"].values():
+                assert s["n"] > 10, (episode, target["key"])
+    lam = replies["GILT2022"]["data"]["facts"]["lambda"]
+    assert lam["low_bp"] < lam["lam_bp"] < lam["high_bp"]
+    assert lam["n"] == 15  # three weeks of operations, the announcement day left out

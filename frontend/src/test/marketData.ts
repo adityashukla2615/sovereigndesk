@@ -9,6 +9,7 @@ import type {
   LinkPanelData,
   MpcPanelData,
   PriceYieldData,
+  ReplayPanelData,
   SpreadPanelData,
   UsTick,
 } from '../market/types';
@@ -416,4 +417,60 @@ export const IMPACT_DATA: ImpactPanelData = {
     mclr_as_of: '2026-09-01',
     repo_base: 0.055,
   },
+};
+
+const replayDates = ['2022-09-21', '2022-09-22', '2022-09-23', '2022-09-26', '2022-09-27', '2022-09-28', '2022-09-29'];
+
+export const REPLAY_DATA: ReplayPanelData = {
+  episode: {
+    id: 'GILT2022',
+    title: 'The September 2022 gilt crisis',
+    summary: 'Forced LDI selling, then the Bank of England’s backstop.',
+    start: '2022-09-01',
+    end: '2022-10-31',
+    segments: [],
+    sources: { gilt30y: 'https://www.bankofengland.co.uk/-/media/boe/files/statistics/yield-curves/glcnominalddata.zip' },
+  },
+  annotations: [
+    { date: '2022-09-23', text: 'The growth plan', source: 'https://www.bankofengland.co.uk/letter' },
+    { date: '2022-09-28', text: 'The Bank buys long gilts', source: 'FRED' },
+  ],
+  targets: [
+    {
+      key: 'gilt30y',
+      label: '30-year gilt',
+      unit: '%',
+      digits: 2,
+      dates: replayDates,
+      actual: [3.6, 3.8, 4.1, 4.5, 5.0, 3.9, 3.85],
+      models: [{ name: 'forced selling × λ', values: [3.6, 3.6, 3.8, 4.0, 4.2, 4.4, 4.5] }],
+      scores: {
+        'forced selling × λ': {
+          n: 7,
+          rmse: 0.42,
+          mae: 0.35,
+          direction: 0.25,
+          peak_model: 0.9,
+          peak_actual: 1.4,
+          peak_lag: 2,
+          end_model: 0.9,
+          end_actual: 0.25,
+        },
+      },
+      summary: ['30-year gilt: direction often wrong, the same way as what happened in 25% of the weeks that moved'],
+    },
+  ],
+  facts: {
+    lambda: {
+      profiles: [
+        { profile: 'even', announcement_day: false, lam: 65.7, low: -7.2, high: 330.9, r2: 0.21, n: 15 },
+        { profile: 'even', announcement_day: true, lam: 17.0, low: -222.3, high: 145.2, r2: 0.0, n: 16 },
+      ],
+    },
+  },
+  notes: ['In sample: λ is fitted on the same days it is replayed on.'],
+  available: [
+    { id: 'TAPER2013', title: 'The 2013 taper tantrum' },
+    { id: 'GILT2022', title: 'The September 2022 gilt crisis' },
+  ],
 };

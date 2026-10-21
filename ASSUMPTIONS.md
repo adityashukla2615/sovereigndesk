@@ -386,6 +386,70 @@ So a repo move, a CRR change, a Fed shock or a tax-day squeeze all show up. A hy
 - *No credit spreads or defaults.* A bond's spread over G-secs is held fixed, and a business's loan spread and its access to credit do not change with the shock.
 - *Partial equilibrium.* The businesses do not feed back into the markets. Interest is on a fully drawn working-capital limit of fixed size, with no repayment in the period followed.
 
+## Historical replays (Module D, Phase 11)
+
+`REPLAY TAPER2013 | DASH2020 | GILT2022 | HIKE2022 | ADVTAX` drives the model with what actually moved from an episode's start and sets each of its paths against what happened. The panel has play, pause, speed and scrub controls, the annotated timeline (each note links to its source) and a summary of what the model got right and wrong. The runners are in `backend/app/sim/replay.py`, the scores and the λ fit in `sovereign_engine/replay/`.
+
+**Datasets.** `data/replays/<ID>/v1/` holds three files:
+
+- `episode.yaml`: the window, drivers, targets, annotations with sources, and any cited inputs;
+- `series/*.csv`;
+- `manifest.json`: each series' source, URL, fetch time, rows and SHA-256.
+
+`py tasks.py replays` rebuilds them from the committed seed. The gilt crisis also needs the Bank of England's published daily nominal curve archive (`glcnominalddata.zip`, about 40 MB, for the 30-year and 10-year spot yields), which is fetched once into the cache, size-checked and only parsed. The Bank's interactive database did not serve our client, so it is not used. To cover the taper, the seed's NSDL and RBI crawls now start in January 2013. Policy decisions are still read from 2014, so the MPC sample is unchanged.
+
+**Scores** (`score`, `summarize`):
+
+- RMSE and mean absolute error of each model path against what happened.
+- Direction: the share of weeks (5 business days) that moved in which the model moved the same way. Days are used for the advance-tax months.
+- The largest move from the start, the model's against the actual, and how many days apart they peaked.
+- The move from start to end.
+
+The summary turns these into sentences. A direction of 60% or more counts as "mostly right", and a peak within 25% of the actual one as "about right".
+
+**The episodes, on the seed:**
+
+| Episode | Drivers → model | Result |
+|---|---|---|
+| TAPER2013, May–Sep 2013 | The US 10Y's (+98 bp) and the VIX's daily moves through the Phase 9 chain, which was calibrated on 2014–2026, so this is out of sample | FPI flows −$4.6bn by the end against −$6.7bn actual (peak −5.5 against −8.0); weekly direction 71%. The rupee and the reserves are missed by an order of magnitude. The model moves the rupee ₹0.21 a dollar at most, while the actual rupee fell from ₹53.65 to ₹68.80 (28 August). Reserves end −$2.7bn against −$20.1bn. The chain carries only the US-yield and risk channels, so most of the rupee's fall is outside it |
+| DASH2020, Feb–Apr 2020 | Net selling to the private market: foreign holdings' fall ($276.5bn in March, TIC, at market value) spread over 9–20 March, less the Fed's Treasury purchases (weekly SOMA changes, $1.52tn), priced two ways | Neither model has the rally that took the 10Y from 1.38% to 0.54% by 9 March (the emergency cut, the oil collapse). While foreigners sold, both rise only 5–6 bp against the actual 64 bp (to 18 March). The gilt λ moved over by depth ends −0.86 pp against −0.74 (RMSE 0.32 pp) through offsetting errors: it misses the rally to 9 March and keeps falling through April as the Fed kept buying, while the actual 10Y held between 0.6% and 0.8%. The US impact model ends −0.31 (RMSE 0.42 pp) and has the better weekly direction (67% against 56%) |
+| GILT2022, Sep–Oct 2022 | LDI funds' forced sales less the Bank of England's purchases, over the long-gilt market's depth, times λ (below) | In sample. The flow model rises 1.25 pp at its peak against an actual 1.69 pp, 11 days late, and cannot see the announcement's reversal |
+| HIKE2022, Mar 2022–Jul 2023 | The Fed's actual path (+525 bp) through the US simulator's policy loading, and QT's term premium (+20 bp, from the runoff in 10-year equivalents); RBI's repo and the actual liquidity through the macro map | The 2Y ends +3.38 pp against +3.57 (weekly direction 60%). The 10Y ends +1.24 pp against +2.25: the model has no inflation expectations or wider term-premium moves. India's WACR is within 21 bp RMSE (weekly direction 79%), in sample |
+| ADVTAX | WACR through the macro map on the actual liquidity of the three worst advance-tax months since April 2022, picked from the data (the highest WACR − repo between the 10th and the 25th of Mar/Jun/Sep/Dec): Dec 2022 (+25 bp), Sep 2023 (+32), Dec 2023 (+31) | In sample. RMSE 17, 24 and 22 bp; daily direction 81%, 41% and 58%. In September 2023 the reported requirement still included the incremental CRR, so NDTL is held at its last value before it (10 Aug – 20 Oct 2023) |
+
+**The fire-sale price impact λ** (GILT2022, `fit_lambda`):
+
+- *The regression.* Δy₃₀,ₜ = α + λ·xₜ + εₜ, where xₜ is the day's net forced selling (LDI sales less the Bank's purchases) over the long-gilt market's normal daily turnover. λ is the move, in bp, for net selling of one normal day's turnover.
+- *The fit.* Over the three weeks of forced selling, 23 Sep – 14 Oct 2022, with the Bank's announcement day (28 Sep) left out. The Cunliffe letter attributes that day's 100+ bp fall to the announcement itself, so no flow explains it.
+- *Inputs.*
+
+| Input | Value | Source |
+|---|---|---|
+| LDI sales | £36bn over the three weeks, daily profile assumed (below) | Pinter (2023), BoE Staff Working Paper 1019 |
+| The Bank's purchases | Weekly holdings £0 / £3.66bn / £8.76bn / £19.26bn at 28 Sep / 5 / 12 / 19 Oct, spread evenly over each week's operations | Asset Purchase Facility Quarterly Report, Q4 2022 |
+| Depth | £12bn a day of trading in the long-gilt sectors | Cunliffe's letter to the Treasury Committee, 5 Oct 2022 |
+| 30-year yield | Daily spot yield | The Bank's nominal curve archive |
+
+- *Result.* **λ = 66 bp per day's turnover**, 90% interval −7 to 331 (pairs bootstrap, 2,000 resamples), R² 0.21, 15 days. That is 5.5 bp per £bn sold in a day.
+- *Sensitivity.* LDI funds' daily sales are not published, so λ is shown under three profiles, each with and without the announcement day:
+
+| Profile | 28 Sep out | 28 Sep in |
+|---|---|---|
+| even over the three weeks (the base) | 66 (−7 to 331) | 17 (−222 to 145) |
+| half in the first week | 56 (−2 to 113) | −2 (−143 to 97) |
+| a third on 26–28 Sep | 72 (9 to 135) | −6 (−175 to 120) |
+
+  With the announcement day in, no profile identifies λ. With it out, all three agree on 56–72 bp, but the intervals are wide.
+- *Coverage.* With so few days, the 90% interval covers the true λ only about 80% of the time in simulation (engine test).
+- *Transfer to Treasuries by depth.* Coalition Greenwich put March 2020's average daily volume in Treasuries at $944bn, market-wide. On that depth, λ gives 0.070 bp per $bn, or **7.0 bp per $100bn** sold (interval −0.8 to 35). The US impact model's permanent coefficient (Beltran et al.: 20 bp per $100bn in June 2010's market) gives 5.3 bp at today's debt held by the public ($32.5tn), plus 8.0 bp temporary at a pace of $100bn a month. The two agree on the permanent effect's size, so the simulator keeps its coefficients. The gilt λ is the independent check the brief asked for, not a replacement.
+
+**Known limitations.**
+
+- *Daily flows are estimates.* LDI funds' sales were never published day by day, the 2020 foreign selling is a monthly market-value change, and the Fed's purchases are weekly. Each is spread over days by a stated assumption.
+- *In sample.* The gilt λ is replayed on the days it was fitted on, and the macro map was fitted on the WACR it replays. Only the taper is fully out of sample.
+- *Right for the wrong reason.* A close end or a low RMSE does not mean the model explains an episode: in 2020 the gilt λ ends close to the actual 10Y through offsetting errors. The panel shows the paths day by day so the timing can be judged, not only the scores.
+- *Partial models.* Each replay drives one part of the model. News the drivers do not carry (emergency cuts, budget events, inflation surprises) shows up as the model's error, and the summaries say so.
+
 ## Bond conventions (engine, Phase 2)
 
 Each convention is defined in `engine/src/sovereign_engine/bonds/conventions.py`, with its sources and the date it was checked.

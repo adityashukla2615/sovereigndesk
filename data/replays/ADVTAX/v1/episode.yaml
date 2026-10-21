@@ -1,0 +1,38 @@
+id: ADVTAX
+title: Advance-tax liquidity squeezes
+summary: 'Around the 15th of March, June, September and December companies pay advance tax: money leaves
+  the banks for the government''s account and the call rate jumps. The three quarter-months shown are
+  the ones whose WACR − repo rose highest between the 10th and the 25th since April 2022, picked from
+  RBI''s data.'
+model: advtax
+window:
+  start: '2022-12-01'
+  end: '2023-12-31'
+segments:
+- start: '2022-12-01'
+  end: '2022-12-31'
+  peak_bp: 25.0
+- start: '2023-09-01'
+  end: '2023-09-30'
+  peak_bp: 32.0
+- start: '2023-12-01'
+  end: '2023-12-31'
+  peak_bp: 31.0
+selection: the three highest peaks of WACR − repo between the 10th and the 25th of Mar/Jun/Sep/Dec, Apr
+  2022 on
+drivers:
+- net_liquidity
+- crr_requirement
+- repo
+targets:
+- wacr
+annotations:
+- date: '2022-12-15'
+  text: Advance tax due; WACR − repo peaked at +25 bp this month
+  source: Income-tax Act, s. 211 (due dates); RBI Money Market Operations
+- date: '2023-09-15'
+  text: Advance tax due; WACR − repo peaked at +32 bp this month
+  source: Income-tax Act, s. 211 (due dates); RBI Money Market Operations
+- date: '2023-12-15'
+  text: Advance tax due; WACR − repo peaked at +31 bp this month
+  source: Income-tax Act, s. 211 (due dates); RBI Money Market Operations

@@ -135,6 +135,8 @@ STEPS: list[tuple[str, list[str], float]] = [
         5.0,
     ),
     ("impact-2-business", ["IMPACT BUSINESS IMPORTER +25BP INR+5"], 5.0),
+    # Module D: the gilt crisis replayed (the panel opens on the whole episode).
+    ("replay-1-gilt", ["@1", "REPLAY GILT2022"], 6.0),
 ]
 
 

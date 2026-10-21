@@ -1,0 +1,32 @@
+{
+ "id": "GILT2022",
+ "version": "v1",
+ "series": {
+  "gilt10y": {
+   "source": "boe",
+   "series_id": "BoE nominal spot curve (GLC Nominal daily data_2016 to 2024.xlsx, sheet '4. spot curve')",
+   "units": "%",
+   "url": "https://www.bankofengland.co.uk/-/media/boe/files/statistics/yield-curves/glcnominalddata.zip",
+   "fetched_at": "2026-10-21T01:07:00.291089+00:00",
+   "title": "UK nominal spot yield, 10Y",
+   "file": "series/gilt10y.csv",
+   "rows": 42,
+   "start": "2022-09-01",
+   "end": "2022-10-31",
+   "sha256": "9037eac3e74ffdf1cb86155c806ac400b50d6b0a4b10b3d81567ed71f7d61968"
+  },
+  "gilt30y": {
+   "source": "boe",
+   "series_id": "BoE nominal spot curve (GLC Nominal daily data_2016 to 2024.xlsx, sheet '4. spot curve')",
+   "units": "%",
+   "url": "https://www.bankofengland.co.uk/-/media/boe/files/statistics/yield-curves/glcnominalddata.zip",
+   "fetched_at": "2026-10-21T01:07:00.291089+00:00",
+   "title": "UK nominal spot yield, 30Y",
+   "file": "series/gilt30y.csv",
+   "rows": 42,
+   "start": "2022-09-01",
+   "end": "2022-10-31",
+   "sha256": "382dfd61caeedadee68cdf6d855a96e0f8821d804969c01dbb8c38bce4584b29"
+  }
+ }
+}

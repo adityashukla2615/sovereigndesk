@@ -6,3 +6,4 @@ hypothesis==6.170.2
 pre-commit==4.7.0
 pandas-stubs==3.0.5.260914
 scipy-stubs==1.18.1.1
+types-PyYAML==6.0.12.20260906

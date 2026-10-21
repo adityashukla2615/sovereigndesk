@@ -1,0 +1,58 @@
+{
+ "id": "ADVTAX",
+ "version": "v1",
+ "series": {
+  "wacr": {
+   "source": "rbi",
+   "series_id": "rbi/mmo/wacr",
+   "title": "Weighted average call rate (WACR)",
+   "units": "%",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63827",
+   "fetched_at": "2026-10-19T19:21:13.419867+00:00",
+   "file": "series/wacr.csv",
+   "rows": 71,
+   "start": "2022-12-01",
+   "end": "2023-12-30",
+   "sha256": "6ee0af32775a7a739ea16c1b5be83e3e06c801fc0176209294e13432171cfabf"
+  },
+  "repo": {
+   "source": "rbi_policy",
+   "series_id": "rbi/mpc/repo",
+   "title": "Policy repo rate set at each decision",
+   "units": "%",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63702",
+   "fetched_at": "2026-10-20T18:25:56.719912+00:00",
+   "file": "series/repo.csv",
+   "rows": 79,
+   "start": "2014-04-01",
+   "end": "2026-10-07",
+   "sha256": "46bfb6197d0e8727ad7da67fe1a41b34b01f66ad81dfd15bafa5f9202f16e724"
+  },
+  "net_liquidity": {
+   "source": "rbi",
+   "series_id": "rbi/mmo/net_liquidity",
+   "title": "Net liquidity injected (+) / absorbed (-), all operations outstanding",
+   "units": "INR cr",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63827",
+   "fetched_at": "2026-10-19T19:21:13.419867+00:00",
+   "file": "series/net_liquidity.csv",
+   "rows": 1409,
+   "start": "2022-11-01",
+   "end": "2026-10-18",
+   "sha256": "03927955186d615b2341cbb4d2df94ce39efebe507080006e6eabd7e65e2ad84"
+  },
+  "crr_requirement": {
+   "source": "rbi",
+   "series_id": "rbi/mmo/crr_requirement",
+   "title": "Average daily cash reserve requirement for the fortnight",
+   "units": "INR cr",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63827",
+   "fetched_at": "2026-10-19T19:21:13.419867+00:00",
+   "file": "series/crr_requirement.csv",
+   "rows": 1406,
+   "start": "2022-11-01",
+   "end": "2026-10-18",
+   "sha256": "4a23de4066d77daa3c672b4c33d2d1c24fa25cf62a00b1cc471e40122b720e87"
+  }
+ }
+}

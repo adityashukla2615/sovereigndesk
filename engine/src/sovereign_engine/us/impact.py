@@ -7,8 +7,10 @@ a permanent component (20 bp per $100bn) plus a temporary one (30 bp at a pace o
 month) that tracks the selling pace and decays with a half-life once selling stops.
 
 Their sample ends in 2010, when the market was far smaller; impact is scaled by
-``reference_market / market`` (debt held by the public then vs now). Phase 10 recalibrates the
-permanent coefficient on the September 2022 gilt crisis.
+``reference_market / market`` (debt held by the public then vs now). The gilt-crisis replay
+(Phase 11) checks the permanent coefficient independently: its fire-sale λ, moved over to
+Treasuries by the depth ratio, gives about 7 bp per $100bn sold, against 5 bp here at today's
+market size.
 """
 
 import math

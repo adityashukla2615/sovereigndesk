@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     def cache_dir(self) -> Path:
         return self.data_dir / "cache"
 
+    @property
+    def replay_dir(self) -> Path:
+        return self.data_dir / "replays"
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -6,8 +6,8 @@ Boots the whole app offline against data/seed (no network) in a throwaway databa
 to /ws the way the terminal does, and walks the demo: the four startup panels, a Fed hike,
 QT, a Japanese sale, then India: the G-sec curve, a repo cut (which moves it), a CRR change, a
 reverse repo, the spread to Treasuries, the MPC forecast and a Fed hike run through to India's
-money market (SHOCK FED, LINK) and what it means for an investor and two businesses (IMPACT),
-run forward at a simulated day per second. Each beat
+money market (SHOCK FED, LINK), what it means for an investor and two businesses (IMPACT), and
+two replays of real episodes (REPLAY), run forward at a simulated day per second. Each beat
 must succeed with its narrative in the event log, and the live ticks must keep EFFR inside the
 Fed's range and WACR inside its band (RBI's corridor in policy mode; in realistic mode, the
 default, as far outside it as WACR has printed).
@@ -100,6 +100,8 @@ BEATS = [
     Beat("LINK", "LINK", check="the chain's calibration on NSDL, RBI and FRED data"),
     Beat("IMPACT RETAIL +100BP", "IMPACT", check="a portfolio repriced, exact and approximated"),
     Beat("IMPACT BUSINESS +25BP INR+5", "IMPACT", check="loans reset, an importer squeezed"),
+    Beat("REPLAY TAPER2013", "REPLAY", check="the 2013 taper through the chain, out of sample"),
+    Beat("REPLAY GILT2022", "REPLAY", check="the fire-sale λ with its interval and specifications"),
     Beat("SPEED 1440X", None, None, "a simulated day per second"),
 ]
 
@@ -152,6 +154,12 @@ def verify(beat: Beat, reply: dict[str, Any]) -> str:
             rows = {b["key"]: b for b in data["business"]}
             expect(rows["SHOP"]["loan_rate_bp"][0] == 25.0, rows["SHOP"]["loan_rate_bp"])
             expect(rows["IMPORTER"]["summary"]["margin"] < 0, rows["IMPORTER"]["summary"])
+        case "REPLAY":
+            expect(all(t["summary"] for t in data["targets"]), data["targets"])
+            if "GILT" in beat.command:
+                lam = data["facts"]["lambda"]
+                expect(lam["low_bp"] < lam["lam_bp"] < lam["high_bp"], lam)
+                expect(len(lam["profiles"]) == 6, lam["profiles"])
         case "LINK":
             expect(data["mode"] == "run", data["mode"])
             expect(len(data["estimates"]) == 6, data["estimates"])

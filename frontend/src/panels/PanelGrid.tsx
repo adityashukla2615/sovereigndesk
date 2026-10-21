@@ -10,6 +10,7 @@ import { ImpactPanel } from './ImpactPanel';
 import { LinkPanel } from './LinkPanel';
 import { MpcPanel } from './MpcPanel';
 import { PyPanel } from './PyPanel';
+import { ReplayPanel } from './ReplayPanel';
 import { SprdPanel } from './SprdPanel';
 import { UstPanel } from './UstPanel';
 import { WacrPanel } from './WacrPanel';
@@ -24,6 +25,7 @@ const PANELS: Record<string, ComponentType<{ slot: Slot }>> = {
   MPC: MpcPanel,
   LINK: LinkPanel,
   IMPACT: ImpactPanel,
+  REPLAY: ReplayPanel,
 };
 
 const INDIA_PANELS = new Set(['WACR', 'CALL', 'LAF', 'NDTL', 'TAXCAL', 'GSEC', 'SPRD', 'MPC', 'LINK', 'IMPACT']);

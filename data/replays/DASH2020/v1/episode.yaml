@@ -1,0 +1,43 @@
+id: DASH2020
+title: The March 2020 dash for cash
+summary: 'As the pandemic hit, investors sold even Treasuries for cash: yields rose while stocks fell,
+  until the Fed bought Treasuries at an unprecedented pace.'
+model: dash
+window:
+  start: '2020-02-24'
+  end: '2020-04-30'
+drivers:
+- foreign_sales
+- fed_purchases
+targets:
+- us10y
+- us30y
+params:
+  foreign_sales_bn: 276.5
+  foreign_sales_note: 'TIC: foreign holdings of Treasuries fell from $7,226.0bn (end-February) to $6,949.5bn
+    (end-March 2020), at market value; spread evenly over 9-20 March, the days of the selling (an assumption)'
+  selling_days:
+  - '2020-03-09'
+  - '2020-03-20'
+  depth_bn: 944.0
+  depth_note: 'Coalition Greenwich: March 2020 average daily notional volume in Treasuries, $944bn, market-wide'
+  depth_source: https://www.greenwich.com/node/144206
+  debt_public_2010_bn: 8633.7
+  debt_public_2010_note: 'debt held by the public at the end of June 2010 (Treasury, debt to the penny):
+    the market the US impact model''s coefficients come from'
+annotations:
+- date: '2020-03-03'
+  text: Emergency Fed cut of 50 bp
+  source: https://www.federalreserve.gov/newsevents/pressreleases/monetary20200303a.htm
+- date: '2020-03-09'
+  text: 10Y at a record low as oil collapses
+  source: FRED DGS10
+- date: '2020-03-15'
+  text: Fed to zero; $500bn of Treasury purchases
+  source: https://www.federalreserve.gov/newsevents/pressreleases/monetary20200315a.htm
+- date: '2020-03-18'
+  text: 'Dash for cash: yields up as everything is sold'
+  source: FRED DGS10
+- date: '2020-03-23'
+  text: 'FOMC: purchases in the amounts needed'
+  source: https://www.federalreserve.gov/newsevents/pressreleases/monetary20200323a.htm

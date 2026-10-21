@@ -53,11 +53,11 @@ STARTS: dict[str, date | None] = {
     # Every policy decision since the bi-monthly cycle began (April 2014), with the money
     # markets and T-bills before each, and the weekly forex reserves: about 1,750 releases,
     # one per second.
-    "rbi_policy": date(2014, 1, 1),
+    "rbi_policy": date(2013, 1, 1),  # decisions from 2014; 2013's reserves for the taper replay
     "fbil": date(2022, 4, 1),
     "fbil_gsec": GSEC_XLSX_FROM,
-    # Daily FPI flows since 2014 through NSDL's archive, one month per post (about 155).
-    "nsdl": date(2014, 1, 1),
+    # Daily FPI flows since 2013 through NSDL's archive, one month per post (about 165).
+    "nsdl": date(2013, 1, 1),  # 2013 for the taper replay (Phase 11)
     "mospi": date(2011, 1, 1),  # CPI from January 2011, GDP from 2011-12
 }
 

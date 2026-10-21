@@ -1,0 +1,40 @@
+id: TAPER2013
+title: The 2013 taper tantrum
+summary: The Fed signalled it would slow its bond buying; US yields jumped, foreign money left India,
+  the rupee fell to a record low and RBI tightened rupee liquidity in an emergency.
+model: taper
+window:
+  start: '2013-05-01'
+  end: '2013-09-30'
+drivers:
+- us10y
+- vix
+targets:
+- fpi
+- inr
+- reserves
+annotations:
+- date: '2013-05-22'
+  text: 'Bernanke: the Fed could slow its purchases in the next few meetings'
+  source: https://www.federalreserve.gov/newsevents/testimony/bernanke20130522a.htm
+- date: '2013-06-19'
+  text: 'FOMC: Bernanke sets out tapering later in the year'
+  source: https://www.federalreserve.gov/newsevents/pressreleases/monetary20130619a.htm
+- date: '2013-07-15'
+  text: RBI raises the MSF to 10.25% and caps LAF borrowing
+  source: https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=29086
+- date: '2013-07-23'
+  text: 'RBI tightens further: a per-bank LAF cap, a higher daily CRR'
+  source: https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=29140
+- date: '2013-08-28'
+  text: Rupee at a record low; RBI opens a dollar window for oil companies
+  source: https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=29423
+- date: '2013-09-04'
+  text: Rajan takes office; a swap window for FCNR(B) deposits
+  source: https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=29480
+- date: '2013-09-18'
+  text: 'FOMC holds its purchases: no taper yet'
+  source: https://www.federalreserve.gov/newsevents/pressreleases/monetary20130918a.htm
+- date: '2013-09-20'
+  text: RBI raises repo to 7.5% and cuts the MSF to 9.5%
+  source: https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=29590

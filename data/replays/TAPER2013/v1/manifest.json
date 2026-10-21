@@ -1,0 +1,97 @@
+{
+ "id": "TAPER2013",
+ "version": "v1",
+ "series": {
+  "us10y": {
+   "source": "fred",
+   "series_id": "fred/DGS10",
+   "title": "Treasury 10-year constant maturity yield",
+   "units": "%",
+   "url": "https://api.stlouisfed.org/fred/series/observations?file_type=json&observation_start=2005-01-01&series_id=DGS10",
+   "fetched_at": "2026-10-19T16:16:29.712650+00:00",
+   "file": "series/us10y.csv",
+   "rows": 118,
+   "start": "2013-04-15",
+   "end": "2013-09-30",
+   "sha256": "ee396e1d3aad1e22a673f118d95e97df594955881089a8ed46c235e50c980cea"
+  },
+  "vix": {
+   "source": "fred",
+   "series_id": "fred/VIXCLS",
+   "title": "CBOE VIX",
+   "units": "index",
+   "url": "https://api.stlouisfed.org/fred/series/observations?file_type=json&observation_start=2005-01-01&series_id=VIXCLS",
+   "fetched_at": "2026-10-19T16:16:55.289889+00:00",
+   "file": "series/vix.csv",
+   "rows": 118,
+   "start": "2013-04-15",
+   "end": "2013-09-30",
+   "sha256": "343174fef8b80d9a2be1123b5039c02d77c9007edc5d06427267e218c1d9e088"
+  },
+  "inr": {
+   "source": "fred",
+   "series_id": "fred/DEXINUS",
+   "title": "INR per USD, spot",
+   "units": "INR",
+   "url": "https://api.stlouisfed.org/fred/series/observations?file_type=json&observation_start=2005-01-01&series_id=DEXINUS",
+   "fetched_at": "2026-10-19T16:16:56.612933+00:00",
+   "file": "series/inr.csv",
+   "rows": 118,
+   "start": "2013-04-15",
+   "end": "2013-09-30",
+   "sha256": "6e32ce178dd3880d0c80342573d9f96257123f224c51a7942be4ab666f3e0e54"
+  },
+  "fpi_total": {
+   "source": "nsdl",
+   "series_id": "nsdl/fpi/total_usd",
+   "title": "FPI net investment, all classes",
+   "units": "USD mn",
+   "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
+   "fetched_at": "2026-10-21T00:49:12.850910+00:00",
+   "file": "series/fpi_total.csv",
+   "rows": 113,
+   "start": "2013-04-15",
+   "end": "2013-09-30",
+   "sha256": "eafe860afb1af4a67cedf8b05e79bd5c3b779de2116bd29624a3498df67bbc71"
+  },
+  "fpi_debt": {
+   "source": "nsdl",
+   "series_id": "nsdl/fpi/debt_usd",
+   "title": "FPI net investment, debt (general limit + VRR + FAR)",
+   "units": "USD mn",
+   "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
+   "fetched_at": "2026-10-21T00:49:12.850910+00:00",
+   "file": "series/fpi_debt.csv",
+   "rows": 113,
+   "start": "2013-04-15",
+   "end": "2013-09-30",
+   "sha256": "f35beff3617964f4b7384d3e9a32f62386a04c9ab4f873419c96e4d7f3913c41"
+  },
+  "fpi_equity": {
+   "source": "nsdl",
+   "series_id": "nsdl/fpi/equity_usd",
+   "title": "FPI net investment, equity",
+   "units": "USD mn",
+   "url": "https://www.fpi.nsdl.co.in/web/Reports/Monthly.aspx",
+   "fetched_at": "2026-10-21T00:49:12.850910+00:00",
+   "file": "series/fpi_equity.csv",
+   "rows": 113,
+   "start": "2013-04-15",
+   "end": "2013-09-30",
+   "sha256": "9e1dc7bb94c28ff16d7053ab2d59fba8a890151944f59e650458e40225b22e49"
+  },
+  "reserves": {
+   "source": "rbi_policy",
+   "series_id": "rbi/wss/reserves",
+   "title": "Foreign exchange reserves, total (WSS)",
+   "units": "USD mn",
+   "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63702",
+   "fetched_at": "2026-10-20T18:25:56.719912+00:00",
+   "file": "series/reserves.csv",
+   "rows": 24,
+   "start": "2013-04-19",
+   "end": "2013-09-27",
+   "sha256": "7f985b50aca3d64f50e31151804d6c9580dda5b1faeeda1dd163642ec43e4c97"
+  }
+ }
+}

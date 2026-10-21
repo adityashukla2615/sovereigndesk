@@ -1,0 +1,71 @@
+{
+ "id": "DASH2020",
+ "version": "v1",
+ "series": {
+  "us10y": {
+   "source": "fred",
+   "series_id": "fred/DGS10",
+   "title": "Treasury 10-year constant maturity yield",
+   "units": "%",
+   "url": "https://api.stlouisfed.org/fred/series/observations?file_type=json&observation_start=2005-01-01&series_id=DGS10",
+   "fetched_at": "2026-10-19T16:16:29.712650+00:00",
+   "file": "series/us10y.csv",
+   "rows": 62,
+   "start": "2020-02-03",
+   "end": "2020-04-30",
+   "sha256": "626894e18a08b81799008eb4a360f4f60c591ab18302851c63ed300fcdca3f10"
+  },
+  "us30y": {
+   "source": "fred",
+   "series_id": "fred/DGS30",
+   "title": "Treasury 30-year constant maturity yield",
+   "units": "%",
+   "url": "https://api.stlouisfed.org/fred/series/observations?file_type=json&observation_start=2005-01-01&series_id=DGS30",
+   "fetched_at": "2026-10-19T16:16:30.862762+00:00",
+   "file": "series/us30y.csv",
+   "rows": 62,
+   "start": "2020-02-03",
+   "end": "2020-04-30",
+   "sha256": "1992ba47e9742a828ef06cb856c507372066f01febcbbf358e5dbe422a5ba1c0"
+  },
+  "fed_treasuries": {
+   "source": "fred",
+   "series_id": "fred/TREAST",
+   "title": "Fed Treasury securities held outright",
+   "units": "USD mn",
+   "url": "https://api.stlouisfed.org/fred/series/observations?file_type=json&observation_start=2005-01-01&series_id=TREAST",
+   "fetched_at": "2026-10-19T16:16:44.394161+00:00",
+   "file": "series/fed_treasuries.csv",
+   "rows": 13,
+   "start": "2020-02-05",
+   "end": "2020-04-29",
+   "sha256": "6af44973b7b8518aba999ccf3b41b36d1c1ab7af5312a28596e235920aba0f40"
+  },
+  "foreign_holdings": {
+   "source": "tic",
+   "series_id": "tic/grand_total",
+   "title": "Foreign holdings of Treasuries: Grand Total",
+   "units": "USD bn",
+   "url": "https://ticdata.treasury.gov/resource-center/data-chart-center/tic/Documents/slt_table5.txt",
+   "fetched_at": "2026-10-19T14:52:14.113451+00:00",
+   "file": "series/foreign_holdings.csv",
+   "rows": 4,
+   "start": "2020-01-31",
+   "end": "2020-04-30",
+   "sha256": "8b08ea6c9e40928873568f3c7f63ea2d0258cf46a0259cb1497aac0408307d93"
+  },
+  "debt_public": {
+   "source": "fiscaldata",
+   "series_id": "fiscal/debt/public",
+   "title": "Debt held by the public",
+   "units": "USD",
+   "url": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/debt_to_penny?fields=record_date%2Ctot_pub_debt_out_amt%2Cdebt_held_public_amt%2Cintragov_hold_amt&filter=record_date%3Agte%3A2005-01-01&page%5Bnumber%5D=1&page%5Bsize%5D=10000&sort=record_date",
+   "fetched_at": "2026-10-19T14:51:51.909753+00:00",
+   "file": "series/debt_public.csv",
+   "rows": 63,
+   "start": "2020-02-03",
+   "end": "2020-04-30",
+   "sha256": "10b290daf5e1bdf91f80daf1a97eaf9ed45c5ce7211642cc6183020545ab5f3e"
+  }
+ }
+}

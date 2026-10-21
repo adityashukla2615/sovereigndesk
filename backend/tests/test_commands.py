@@ -71,7 +71,8 @@ def test_registry_lists_every_planned_function() -> None:
     assert REGISTRY["MPC"].available
     assert REGISTRY["LINK"].available
     assert REGISTRY["IMPACT"].available
-    assert not REGISTRY["REPLAY"].available
+    assert REGISTRY["REPLAY"].available
+    assert not REGISTRY["CCIL"].available
     assert REGISTRY["PY"].available
 
 
@@ -79,9 +80,9 @@ def test_unknown_and_planned_codes(sim: Simulator) -> None:
     unknown = run(sim, "UTS")
     assert not unknown.ok
     assert "Did you mean UST?" in unknown.message
-    later = run(sim, "REPLAY")
+    later = run(sim, "CCIL")
     assert not later.ok
-    assert "Phase 11" in later.message
+    assert "Phase 12" in later.message
     assert not run(sim, "").ok
 
 

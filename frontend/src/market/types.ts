@@ -449,6 +449,58 @@ export function isImpactPanel(value: unknown): value is ImpactPanelData {
   return isRecord(value) && isRecord(value.shock) && isRecord(value.retail) && Array.isArray(value.business);
 }
 
+export interface ReplayScore {
+  n: number;
+  rmse: number;
+  mae: number;
+  direction: number | null;
+  peak_model: number;
+  peak_actual: number;
+  peak_lag: number;
+  end_model: number;
+  end_actual: number;
+}
+
+export interface ReplayTarget {
+  key: string;
+  label: string;
+  unit: string;
+  digits: number;
+  dates: string[];
+  actual: (number | null)[];
+  models: { name: string; values: (number | null)[] }[];
+  scores: Record<string, ReplayScore>;
+  summary: string[];
+}
+
+export interface ReplayAnnotation {
+  date: string;
+  text: string;
+  source: string;
+}
+
+/** REPLAY: a real episode, the model against what happened (backend app.sim.replay.replay_panel). */
+export interface ReplayPanelData {
+  episode: {
+    id: string;
+    title: string;
+    summary: string;
+    start: string;
+    end: string;
+    segments: { start: string; end: string; peak_bp: number }[];
+    sources: Record<string, string | null>;
+  };
+  annotations: ReplayAnnotation[];
+  targets: ReplayTarget[];
+  facts: Record<string, unknown>;
+  notes: string[];
+  available: { id: string; title: string }[];
+}
+
+export function isReplayPanel(value: unknown): value is ReplayPanelData {
+  return isRecord(value) && isRecord(value.episode) && Array.isArray(value.targets) && Array.isArray(value.annotations);
+}
+
 export type LinkResponse = 'none' | 'vrr' | 'omo' | 'swap' | 'hike';
 
 export interface LinkNode {

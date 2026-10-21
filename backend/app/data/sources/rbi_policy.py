@@ -447,10 +447,15 @@ class RbiPolicyAdapter:
         *,
         pause_s: float = 1.0,
         mmo_before: date = date(2022, 4, 8),
+        decisions_from: date = date(2014, 1, 1),
     ) -> None:
         self.fetcher = fetcher
         self.specs = {s.remote: s for s in specs}
         self.pause_s = pause_s
+        self.decisions_from = decisions_from
+        """Policy decisions are read from this date: the predictor's sample begins with the
+        bi-monthly cycle of 2014, while the crawl reaches further back for the weekly reserves
+        (the 2013 taper replay)."""
         self.mmo_before = mmo_before
         """Money-market windows are read only where they start before this date; from it the
         daily Money Market Operations series covers them."""
@@ -499,7 +504,11 @@ class RbiPolicyAdapter:
         )
         decisions: dict[date, tuple[Decision, Listing]] = {}
         for entry in listing:
-            if entry.day in decisions or not is_decision_title(entry.title):
+            if (
+                entry.day in decisions
+                or entry.day < self.decisions_from
+                or not is_decision_title(entry.title)
+            ):
                 continue
             content = read(entry.prid, "decision")
             if content is not None and (decision := parse_decision(content)) is not None:

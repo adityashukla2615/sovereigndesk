@@ -42,6 +42,13 @@ export const TEACH: Record<string, string> = {
     'The backtest refits each model on earlier decisions only and scores the next one, against ' +
     'repeating the last decision and always holding. Holds dominate the sample, so a high hit ' +
     'rate alone says little: macro-F1 and the Brier score reward getting the moves right.',
+  REPLAY:
+    'A replay drives the model with what actually moved in a real episode (the US 10Y in 2013, ' +
+    'the Fed’s purchases in 2020, LDI funds’ forced sales in 2022) and sets each of its paths ' +
+    'against what actually happened. The scores say how close it came (typical error), whether ' +
+    'it moved the right way week by week, and how big and how late its peak was. Where the ' +
+    'inputs were never published day by day the episode says so, and shows how much the answer ' +
+    'depends on the assumption.',
   IMPACT:
     'What the simulated moves mean for people. A bond loses value when yields rise: by about ' +
     'its modified duration times the rise, a little less because of convexity, and exactly what ' +
