@@ -288,7 +288,7 @@ def features_at(
     start = pd.Timestamp(day - timedelta(days=params.window_days))
     end = pd.Timestamp(day)
     wacr = inputs.wacr[(inputs.wacr.index >= start) & (inputs.wacr.index < end)]
-    wacr = wacr[pd.DatetimeIndex(wacr.index).dayofweek < 5]
+    wacr = wacr[pd.DatetimeIndex(wacr.index).day_of_week < 5]
     spread = [(v - 100 * repo_on(inputs, t.date())) * 100 for t, v in _points(wacr)]
     surplus = inputs.surplus_pct[
         (inputs.surplus_pct.index >= start) & (inputs.surplus_pct.index < end)

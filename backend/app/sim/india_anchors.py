@@ -195,7 +195,7 @@ def _frame(service: DataService) -> pd.DataFrame:
 
 
 def _weekdays(frame: pd.DataFrame) -> pd.DataFrame:
-    return frame[pd.DatetimeIndex(frame.index).dayofweek < 5]
+    return frame[pd.DatetimeIndex(frame.index).day_of_week < 5]
 
 
 def _fit_map(frame: pd.DataFrame) -> tuple[pd.DataFrame, LiquidityMapFit]:

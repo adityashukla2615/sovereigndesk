@@ -49,7 +49,7 @@ def _inputs(n_decisions: int = 40) -> MacroInputs:
         inr=_daily("2014-01-01", "2022-12-31", np.linspace(60, 80, 3287)),
         wacr=daily_repo - 0.1,
         surplus_pct=_daily("2014-12-01", "2022-12-31", 1.0),
-        tbill=(daily_repo + 0.15)[pd.DatetimeIndex(daily_repo.index).dayofweek == 2],
+        tbill=(daily_repo + 0.15)[pd.DatetimeIndex(daily_repo.index).day_of_week == 2],
         repo=repo_series,
         weights=(),
     )

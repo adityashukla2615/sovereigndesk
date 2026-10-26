@@ -17,6 +17,7 @@ import zipfile
 from collections import defaultdict
 from collections.abc import Iterable
 from datetime import UTC, date, datetime, timedelta
+from typing import Literal
 
 import pandas as pd
 
@@ -30,6 +31,8 @@ FILE_URL = f"{BASE_URL}/gsec/downloadPublished"
 MAX_FILE_BYTES = 5_000_000
 """The legacy .xls workbooks are about 0.75 MB, the .xlsx ones about 25 kB."""
 MAX_UNZIPPED_BYTES = 50_000_000
+_OLE2 = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+"""How a legacy (BIFF) .xls workbook begins."""
 _DATE_FORMATS = ("%d-%b-%Y", "%d %b, %Y", "%d-%b-%y", "%d %b %Y")
 
 
@@ -73,7 +76,11 @@ def parse_par_yields(content: bytes) -> tuple[date | None, dict[float, float]]:
     The value read is the semi-annual column; the sheet also gives an annualised one."""
     _check_size(content)
     try:
-        book = pd.ExcelFile(io.BytesIO(content))
+        # Legacy .xls through calamine; .xlsx through openpyxl (XML via defusedxml).
+        engine: Literal["calamine", "openpyxl"] = (
+            "calamine" if content.startswith(_OLE2) else "openpyxl"
+        )
+        book = pd.ExcelFile(io.BytesIO(content), engine=engine)
     except Exception as exc:  # an HTML error page, a truncated download, a format change
         raise ValueError(f"not a readable workbook: {type(exc).__name__}: {exc}") from None
     with book:
@@ -82,7 +89,7 @@ def parse_par_yields(content: bytes) -> tuple[date | None, dict[float, float]]:
         if name is None:
             raise ValueError(f"no par-yield sheet among {names}")
         try:
-            frame = book.parse(name, header=None, dtype=object)
+            frame = pd.read_excel(book, sheet_name=name, header=None, dtype=object)
         except Exception as exc:
             raise ValueError(f"unreadable par-yield sheet: {type(exc).__name__}: {exc}") from None
     header = next(

@@ -19,10 +19,11 @@ dependencies = [
   "httpx2>=2.14",
   "tenacity>=9.0",
   # FBIL's G-sec workbooks, read through pandas: .xlsx (openpyxl, which parses XML through
-  # defusedxml when it is installed) and the legacy .xls files before 13 Feb 2023 (xlrd).
+  # defusedxml when it is installed) and the legacy .xls files before 13 Feb 2023 (calamine,
+  # pandas' engine for .xls since its xlrd engine was deprecated in pandas 3.1).
   "openpyxl>=3.1",
   "defusedxml>=0.7",
-  "xlrd>=2.0",
+  "python-calamine>=0.8",
   # The replay episodes' descriptions (data/replays/<ID>/v1/episode.yaml), read with safe_load.
   "pyyaml>=6.0",
 ]
