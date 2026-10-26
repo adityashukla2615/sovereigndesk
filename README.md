@@ -167,7 +167,7 @@ py tasks.py refresh          # fetch every source, regenerate the MPC report, ru
 py tasks.py refresh --push   # ... and push, which redeploys the live site on Render
 ```
 
-It needs `FRED_API_KEY` in `backend/.env` and takes about 10–20 minutes: pages fetched before (RBI's releases, FBIL's workbooks) are reused from `data/cache`, so only what is new is downloaded, one request a second. Nothing is committed unless every source answered and every check passed on the new data; if a run stops half-way, `git checkout -- data/seed docs/MPC_BACKTEST.md` puts the snapshot back. To run it every week on Windows (Sunday 10:00, while the PC is on):
+It needs `FRED_API_KEY` in `backend/.env` and takes about 40 minutes, half an hour of it fetching: pages fetched before (RBI's releases, FBIL's workbooks) are reused from `data/cache`, but RBI's archive is still listed month by month and the US Treasury serves one file per year, one request a second. Nothing is committed unless every source answered and every check passed on the new data; if a run stops half-way, `git checkout -- data/seed docs/MPC_BACKTEST.md` puts the snapshot back. To run it every week on Windows (Sunday 10:00, while the PC is on):
 
 ```bash
 schtasks /Create /SC WEEKLY /D SUN /ST 10:00 /TN "SovereignDesk refresh" /TR "cmd /c cd /d C:\dev\sovereigndesk && py tasks.py refresh --push >> data\cache\refresh.log 2>&1"
