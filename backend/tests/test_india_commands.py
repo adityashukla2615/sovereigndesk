@@ -54,6 +54,29 @@ def test_panels_answer(sim: Simulator) -> None:
     corridor = run(sim, "CORR")
     assert corridor.data is not None
     assert corridor.data["india"]["repo"] == pytest.approx(0.055)
+    tax = run(sim, "TAXCAL")
+    assert tax.data is not None
+    assert len(tax.data["projection"]) == 120
+    assert {"government", "surplus", "p_vrr"} <= set(tax.data["projection"][0])
+
+
+def test_ccil_shows_how_each_segment_clears(sim: Simulator) -> None:
+    result = run(sim, "CCIL")
+    assert result.ok, result.message
+    assert result.panel == "CCIL"
+    assert result.data is not None
+    segments = {s["key"]: s for s in result.data["segments"]}
+    assert list(segments) == ["call", "treps", "market_repo"]
+    assert segments["call"]["platform"] == "NDS-CALL"
+    assert segments["call"]["collateral"] is None  # unsecured, settled bank to bank
+    assert "CCIL" in segments["treps"]["counterparty"]
+    assert segments["call"]["hours"] == ["09:00", "19:00"]
+    assert segments["treps"]["hours"] == ["09:00", "16:00"]
+    sources = result.data["sources"]
+    assert all(s["url"].startswith("https://www.") for s in sources)
+    assert all(0 <= k < len(sources) for s in segments.values() for k in s["sources"])
+    assert segments["treps"]["volume"] > segments["call"]["volume"]  # TREPS is the bigger market
+    assert "central counterparty" in result.message
 
 
 def test_policy_commands(sim: Simulator) -> None:

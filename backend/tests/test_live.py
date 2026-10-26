@@ -87,8 +87,9 @@ def test_command_catalogue_endpoint(live: TestClient) -> None:
     assert commands["LINK"]["available"] is True
     assert commands["IMPACT"]["available"] is True
     assert commands["REPLAY"]["available"] is True
-    assert commands["CCIL"]["available"] is False
-    assert "Phase 12" in commands["CCIL"]["available_in"]
+    assert commands["CCIL"]["available"] is True
+    assert commands["SAVE"]["available"] is False
+    assert "Phase 13" in commands["SAVE"]["available_in"]
 
 
 def test_india_anchors_to_the_real_seed_and_streams(live: TestClient) -> None:

@@ -26,6 +26,8 @@ class CommandResult:
     narrated: bool = False
     """The handler also put this story in the event log, so the log need not repeat the reply."""
     sim_time: str | None = None
+    command: str | None = None
+    """The command as run (``PY 10Y``), so the terminal can run it again, e.g. for a layout."""
 
     def to_wire(self) -> dict[str, Any]:
         return asdict(self)
@@ -67,18 +69,19 @@ def planned(code: str, usage: str, summary: str, group: Group, phase: str) -> No
     REGISTRY[code] = CommandSpec(code, usage, summary, group, None, available_in=phase)
 
 
+def describe(s: CommandSpec) -> dict[str, Any]:
+    return {
+        "code": s.code,
+        "usage": s.usage,
+        "summary": s.summary,
+        "group": s.group,
+        "available": s.available,
+        "available_in": s.available_in,
+    }
+
+
 def catalog() -> list[dict[str, Any]]:
-    return [
-        {
-            "code": s.code,
-            "usage": s.usage,
-            "summary": s.summary,
-            "group": s.group,
-            "available": s.available,
-            "available_in": s.available_in,
-        }
-        for s in sorted(REGISTRY.values(), key=lambda s: (s.group, s.code))
-    ]
+    return [describe(s) for s in sorted(REGISTRY.values(), key=lambda s: (s.group, s.code))]
 
 
 async def execute(sim: Simulator, text: str) -> CommandResult:
@@ -102,4 +105,9 @@ async def execute(sim: Simulator, text: str) -> CommandResult:
         result = await spec.handler(sim, parsed.args)
     except (CommandError, ValueError) as exc:
         result = CommandResult(False, spec.code, str(exc))
-    return replace(result, narrated=sim.events.total > before, sim_time=sim.sim_time.isoformat())
+    return replace(
+        result,
+        narrated=sim.events.total > before,
+        sim_time=sim.sim_time.isoformat(),
+        command=" ".join((parsed.code, *parsed.args)),
+    )

@@ -9,7 +9,7 @@ plus
 where Δrepo is the repo change since FBIL's publication, β the event-study pass-through, and x
 (expectations) and u (term premium) are factors whose daily shocks have the s.d. and
 correlation measured on FBIL's history. The factors move with the call market's rounds
-(09:15-17:00 IST on business days) and revert to zero over months, so without news the curve
+(09:15-19:00 IST on business days) and revert to zero over months, so without news the curve
 drifts back to FBIL's close plus the policy moves. Every update refits NSS to the points, warm
 started from the previous fit.
 """

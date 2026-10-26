@@ -1,10 +1,12 @@
-import { LineChart, ScatterChart } from 'echarts/charts';
+import { HeatmapChart, LineChart, ScatterChart } from 'echarts/charts';
 import {
+  CalendarComponent,
   GridComponent,
   LegendComponent,
   MarkLineComponent,
   MarkPointComponent,
   TooltipComponent,
+  VisualMapComponent,
 } from 'echarts/components';
 import { type ECharts, type EChartsCoreOption, init, use as registerModules } from 'echarts/core';
 import { SVGRenderer } from 'echarts/renderers';
@@ -12,13 +14,16 @@ import { useEffect, useRef } from 'react';
 
 // Tree-shaken ECharts: only the chart types and components the panels use.
 registerModules([
+  HeatmapChart,
   LineChart,
   ScatterChart,
+  CalendarComponent,
   GridComponent,
   LegendComponent,
   MarkLineComponent,
   MarkPointComponent,
   TooltipComponent,
+  VisualMapComponent,
   SVGRenderer,
 ]);
 

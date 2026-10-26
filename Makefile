@@ -1,7 +1,7 @@
 # Thin wrapper: every task lives in tasks.py so Windows (no make) and CI run the same code.
 # Pass extra flags with ARGS, e.g. `make dev ARGS=--offline`.
 PY ?= python3
-TASKS := setup dev test lint fmt api build check seed check-secrets clean
+TASKS := setup dev test lint fmt api build check e2e seed check-secrets clean
 
 .PHONY: $(TASKS) up down logs help
 

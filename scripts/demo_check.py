@@ -7,13 +7,16 @@ to /ws the way the terminal does, and walks the demo: the four startup panels, a
 QT, a Japanese sale, then India: the G-sec curve, a repo cut (which moves it), a CRR change, a
 reverse repo, the spread to Treasuries, the MPC forecast and a Fed hike run through to India's
 money market (SHOCK FED, LINK), what it means for an investor and two businesses (IMPACT), and
-two replays of real episodes (REPLAY), run forward at a simulated day per second. Each beat
+two replays of real episodes (REPLAY), then the rest of the terminal's panels (CALL, LAF,
+NDTL, TAXCAL, CCIL, DEBT, TIC, CORR, HELP, LAYOUT), run forward at a simulated day per second.
+Each beat
 must succeed with its narrative in the event log, and the live ticks must keep EFFR inside the
 Fed's range and WACR inside its band (RBI's corridor in policy mode; in realistic mode, the
 default, as far outside it as WACR has printed).
 """
 
 import io
+import itertools
 import json
 import sys
 import tempfile
@@ -102,6 +105,16 @@ BEATS = [
     Beat("IMPACT BUSINESS +25BP INR+5", "IMPACT", check="loans reset, an importer squeezed"),
     Beat("REPLAY TAPER2013", "REPLAY", check="the 2013 taper through the chain, out of sample"),
     Beat("REPLAY GILT2022", "REPLAY", check="the fire-sale λ with its interval and specifications"),
+    Beat("CALL", "CALL", check="the call market against repo, with the CCIL segments"),
+    Beat("LAF", "LAF", check="RBI's operations and its fitted reaction"),
+    Beat("NDTL", "NDTL", check="the SYNTHETIC banks, labelled so"),
+    Beat("TAXCAL", "TAXCAL", check="the government's tax balance ahead, rupee for rupee"),
+    Beat("CCIL", "CCIL", check="three segments, each settlement path cited"),
+    Beat("DEBT", "DEBT", check="ten years of the interest bill"),
+    Beat("TIC", "TIC", check="Japan selling, the total down by as much"),
+    Beat("CORR", "CORR", check="both corridors"),
+    Beat("HELP CCIL", "HELP", check="every function, and CCIL explained"),
+    Beat("LAYOUT SAVE DEMO", None, check="checked here, kept by the browser"),
     Beat("SPEED 1440X", None, None, "a simulated day per second"),
 ]
 
@@ -170,6 +183,38 @@ def verify(beat: Beat, reply: dict[str, Any]) -> str:
             expect("fortnight beginning" in message, message)
         case "VRRR":
             expect("runs_at" in data, data)
+        case "CALL":
+            expect(set(data["segments"]) >= {"treps", "market_repo"}, data["segments"])
+        case "LAF":
+            expect(0 <= data["reaction"]["vrr_probability"] <= 1, data["reaction"])
+        case "NDTL":
+            expect(data["synthetic"] is True and len(data["banks"]) == 40, len(data["banks"]))
+        case "TAXCAL":
+            ahead = data["projection"]
+            expect(len(ahead) == 120, len(ahead))
+            moves = [
+                (b["government"] - a["government"], a["surplus"] - b["surplus"])
+                for a, b in itertools.pairwise(ahead)
+            ]
+            expect(all(abs(g - s) < 1e-6 for g, s in moves), moves[:3])
+        case "CCIL":
+            expect([s["key"] for s in data["segments"]] == ["call", "treps", "market_repo"], data)
+            expect(
+                all(s["url"].startswith("https://www.") for s in data["sources"]), data["sources"]
+            )
+        case "DEBT":
+            expect(len(data["months"]) == 120, len(data["months"]))
+        case "TIC":
+            japan = next(h for h in data["holders"] if h["country"] == "Japan")
+            sold = japan["official"] - japan["holdings"]
+            expect(japan["selling"] and sold > 0, japan)
+            expect(abs(data["official_total"] - data["total"] - sold) < 1e-6, data["total"])
+        case "CORR":
+            expect(data["india"] is not None, data)
+        case "HELP":
+            expect(data["command"]["code"] == "CCIL" and data["command"]["available"], data)
+        case "LAYOUT":
+            expect(data == {"layout": {"action": "save", "name": "DEMO"}}, data)
     return str(message)
 
 

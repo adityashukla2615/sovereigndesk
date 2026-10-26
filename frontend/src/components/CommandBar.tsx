@@ -14,8 +14,9 @@ function isEditable(target: EventTarget | null): boolean {
 }
 
 /**
- * Function-code input. `/` focuses it from anywhere; while typing a code, ↑/↓ pick a suggestion
- * and Tab completes it; otherwise ↑/↓ walk the history. Esc clears and blurs.
+ * Function-code input. `/` focuses it from anywhere, and Esc from a panel; while typing a code,
+ * ↑/↓ pick a suggestion and Tab completes it; otherwise ↑/↓ walk the history. Esc in the bar
+ * clears and blurs.
  */
 export function CommandBar({
   onSubmit,
@@ -32,9 +33,10 @@ export function CommandBar({
   const [open, setOpen] = useState(false);
   const options = open ? suggest(commands, value) : [];
 
+  // `/` from anywhere, or Esc from a panel, comes back to the command bar.
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === '/' && !isEditable(event.target)) {
+      if ((event.key === '/' || event.key === 'Escape') && !isEditable(event.target)) {
         event.preventDefault();
         inputRef.current?.focus();
       }

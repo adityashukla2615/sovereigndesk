@@ -12,7 +12,8 @@ tasks:
   fmt            ruff format + ruff check --fix
   api            regenerate frontend/src/api/{openapi.json,schema.d.ts}; --check fails on drift
   build          production build of the frontend
-  check          check-secrets, lint, api --check, test, build: everything CI runs
+  check          check-secrets, lint, api --check, test, build: everything CI's check job runs
+  e2e            Playwright smoke test: backend on the seed + Vite, in the installed Chrome
   seed           snapshot real data into data/seed; --sources picks some
   demo           walk the terminal demo end to end on the real seed (scripts/demo_check.py)
   mpc-report     write docs/MPC_BACKTEST.md: the MPC predictor's backtest on the real seed
@@ -206,6 +207,13 @@ def task_check(args: argparse.Namespace) -> None:
     print("\nAll checks passed.")
 
 
+def task_e2e(_: argparse.Namespace) -> None:
+    # The config starts the backend with this interpreter and the dev server; no browser is
+    # downloaded (Playwright drives the system's Chrome, or Edge with SD_BROWSER_CHANNEL=msedge).
+    env = {**os.environ, "SD_PYTHON": str(venv_python())}
+    run([npm(), "exec", "--no", "--", "playwright", "test"], cwd=FRONTEND, env=env)
+
+
 def task_seed(args: argparse.Namespace) -> None:
     script = ROOT / "scripts" / "build_seed.py"
     if not script.exists():
@@ -342,6 +350,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     add("build", task_build)
     add("check", task_check)
     add("demo", task_demo)
+    add("e2e", task_e2e)
     add("mpc-report", task_mpc_report)
     add("replays", task_replays).add_argument("episodes", nargs="*", help="episode ids (all)")
     add("screenshots", task_screenshots)

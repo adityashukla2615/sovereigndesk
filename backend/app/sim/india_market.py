@@ -8,13 +8,16 @@ processes the same day:
          15th of Mar/Jun/Sep/Dec and the 20th of each month, the government spending them back,
          noise, payments between banks); a new reporting fortnight resets the CRR accounts.
 * 09:30  RBI's auctions: any VRR/VRRR you ordered, else its fitted reaction function.
-* 09:15 to 17:00, every 15 minutes: a uniform-price call auction. Each bank aims for its CRR
+* 09:15 to 19:00, every 15 minutes: a uniform-price call auction. Each bank aims for its CRR
          target; borrowers bid and lenders offer around the macro-map rate, repo + s(surplus),
          with reservation rates bounded by the MSF (borrowers' outside option) and the SDF
          (lenders'), so WACR cannot leave the corridor. Participation limits trim every order,
          and each trimmed amount is logged with its reason.
-* 17:30  standing facilities: surplus goes to the SDF, deficit is borrowed at the MSF up to
-         each bank's capacity (excess SLR plus the 2% dip).
+* 19:00  standing facilities, once the call market has closed: surplus goes to the SDF,
+         deficit is borrowed at the MSF up to each bank's capacity (excess SLR plus the 2% dip).
+
+The call market's hours and the standing facilities' window are RBI's, from
+``sovereign_engine.india.rules`` (call money until 7:00 PM since 1 Jul 2025).
 * 23:59  end-of-day balances count toward the fortnight's CRR average; the daily floor is
          checked.
 
@@ -62,19 +65,30 @@ from sovereign_engine.india.banks import (
     msf_capacity,
 )
 from sovereign_engine.india.call_market import Order, clear_call
-from sovereign_engine.india.rules import MoneyMarketRules, fortnight
+from sovereign_engine.india.rules import (
+    CALL_MARKET_HOURS,
+    STANDING_FACILITY_HOURS,
+    MoneyMarketRules,
+    fortnight,
+)
 from sovereign_engine.linkage import ChainPath
 
 IST = ZoneInfo("Asia/Kolkata")
 WacrMode = Literal["realistic", "policy"]
 ROUND_MINUTES = 15
-SESSION_OPEN = time(9, 0)
-SESSION_CLOSE = time(17, 0)
+SESSION_OPEN, SESSION_CLOSE = CALL_MARKET_HOURS
 AUCTION_TIME = time(9, 30)
-STANDING_TIME = time(17, 30)
+STANDING_TIME = STANDING_FACILITY_HOURS[0]
+"""The window opens as the call market closes; it runs after the last round."""
 EOD_TIME = time(23, 59)
-ROUNDS = 32
-"""Clearing rounds 09:15, 09:30, … 17:00."""
+
+
+def _minutes(t: time) -> int:
+    return t.hour * 60 + t.minute
+
+
+ROUNDS = (_minutes(SESSION_CLOSE) - _minutes(SESSION_OPEN)) // ROUND_MINUTES
+"""Clearing rounds 09:15, 09:30, … 19:00."""
 YEAR_DAYS = 365.25
 TBILL_YEARS: dict[str, float] = {"3M": 0.25, "6M": 0.5, "12M": 1.0}
 
@@ -91,7 +105,8 @@ class IndiaModelParams:
     """How far reservation rates lean toward the facilities by the close (10 bp)."""
     idio_sd: float = 0.006
     """Stationary s.d. of a bank's own liquidity position (zero-sum across banks), as a share
-    of its NDTL: large enough that someone lends even when the system is short."""
+    of its NDTL: large enough that someone lends even when the system is short (call volume
+    then runs above RBI's; see ASSUMPTIONS.md)."""
     idio_half_life_days: float = 10.0
     noise_half_life_days: float = 30.0
     tax_hold_days: int = 10
@@ -201,6 +216,12 @@ class DayRecord:
     repo: float
     surplus: float
     surplus_pct: float
+    government: float = 0.0
+    """Tax receipts the government holds at RBI beyond the anchor day's (₹ crore, end of day)."""
+    vrr: float = 0.0
+    """VRR allotted today (₹ crore)."""
+    vrrr: float = 0.0
+    """VRRR allotted today (₹ crore)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -271,6 +292,9 @@ class IndiaMarket:
         """The last step run: steps at exactly ``now`` count as done."""
         self.autonomous = 0.0
         """Cumulative autonomous liquidity since the anchor (₹ crore)."""
+        self.government = 0.0
+        """Tax receipts held in the government's account at RBI beyond the anchor day's: what
+        has drained from the banks on tax days and not yet been spent back (₹ crore)."""
         self.noise = 0.0
         self.mode: WacrMode = self.params.mode
         self.deviation = anchors.map_residual
@@ -574,6 +598,7 @@ class IndiaMarket:
                 )
         back = sum(amount for first, last, amount in self.returns if first <= day <= last)
         self.returns = [r for r in self.returns if r[1] >= day]
+        self.government += drain - back
         phi = 2 ** (-1 / p.noise_half_life_days)
         previous = self.noise
         self.noise = phi * self.noise + a.noise_sd * float(self.rng.standard_normal())
@@ -936,6 +961,10 @@ class IndiaMarket:
         volume = sum(r.volume for r in self.rounds) if is_business_day(day) else 0.0
         wacr = self.wacr_today() if is_business_day(day) else None
         rates = [r.rate for r in self.rounds] if is_business_day(day) else []
+        allotted = {"VRR": 0.0, "VRRR": 0.0}
+        for rec in self.auctions:
+            if rec.at.astimezone(IST).date() == day:
+                allotted[rec.result.kind] += rec.result.allotted
         self.history = [
             *self.history[-399:],
             DayRecord(
@@ -947,6 +976,9 @@ class IndiaMarket:
                 self.repo,
                 surplus,
                 surplus / self.ndtl() * 100,
+                government=self.government,
+                vrr=allotted["VRR"],
+                vrrr=allotted["VRRR"],
             ),
         ]
         self.last_surplus_pct = surplus / self.ndtl() * 100
@@ -1228,22 +1260,80 @@ class IndiaMarket:
         return self.gsec.tick(self.stale_label(self.gsec.anchors.as_of))
 
     def heatmap(self, days_ahead: int = 120) -> dict[str, Any]:
-        """Real WACR − repo by day, the simulated days so far, and the tax days ahead."""
+        """Real WACR − repo by day; the simulated days so far, with the government's tax
+        balance at RBI and RBI's auctions; and the days ahead from tax flows alone.
+
+        The projection runs the expected tax drains and their spending back (no noise, no
+        auctions): the government's balance rises as the system's surplus falls, rupee for
+        rupee, and RBI's fitted reaction gives the chance of a VRR or VRRR at each surplus.
+        """
         today = self._today()
+        p, r = self.params, self.anchors.reaction
         upcoming = []
         for k in range(days_ahead):
             day = today + timedelta(days=k)
             drain = tax_drain(day, self.anchors)
             if drain > 0:
                 upcoming.append({"date": day.isoformat(), "drain": drain})
+        returns = list(self.returns)
+        government, surplus, ndtl = self.government, self.projected_surplus(), self.ndtl()
+        projection = []
+        for k in range(1, days_ahead + 1):
+            day = today + timedelta(days=k)
+            drain = tax_drain(day, self.anchors)
+            if drain > 0:
+                start = day + timedelta(days=p.tax_hold_days)
+                last_day = start + timedelta(days=p.tax_return_days - 1)
+                returns.append((start, last_day, drain / p.tax_return_days))
+            back = sum(amount for first, last, amount in returns if first <= day <= last)
+            government += drain - back
+            surplus -= drain - back
+            share = surplus / ndtl * 100
+            projection.append(
+                {
+                    "date": day.isoformat(),
+                    "government": government,
+                    "surplus": surplus,
+                    "surplus_pct": share,
+                    "p_vrr": float(r.vrr.probability(share)),
+                    "p_vrrr": float(r.vrrr.probability(share)),
+                }
+            )
+        tax = self.anchors.tax
         return {
             "real": [{"date": d.isoformat(), "spread": s} for d, s in self.anchors.history],
             "simulated": [
-                {"date": d.day.isoformat(), "spread": d.wacr - d.repo, "surplus_pct": d.surplus_pct}
+                {
+                    "date": d.day.isoformat(),
+                    "spread": None if d.wacr is None else d.wacr - d.repo,
+                    "surplus": d.surplus,
+                    "surplus_pct": d.surplus_pct,
+                    "government": d.government,
+                    "vrr": d.vrr,
+                    "vrrr": d.vrrr,
+                }
                 for d in self.history
-                if d.wacr is not None
             ],
             "tax_days": upcoming,
+            "projection": projection,
+            "now": {
+                "date": today.isoformat(),
+                "government": self.government,
+                "surplus": self.projected_surplus(),
+                "surplus_pct": self.surplus_pct(),
+            },
+            "tax": {
+                "advance_tax_drain": tax.advance_tax_drain,
+                "gst_drain": tax.gst_drain,
+                "events": tax.events,
+                "hold_days": p.tax_hold_days,
+                "return_days": p.tax_return_days,
+            },
+            "reaction": {
+                "enabled": p.reaction,
+                "vrr_size": r.vrr_size,
+                "vrrr_size": r.vrrr_size,
+            },
         }
 
     # ------------------------------------------------------------------ snapshots

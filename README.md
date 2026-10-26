@@ -13,6 +13,7 @@ py tasks.py setup                       # .venv, editable engine + backend, npm 
 cp backend/.env.example backend/.env    # then add your free FRED API key
 py tasks.py dev                         # API on :8000 (docs at /docs), terminal on :5173
 py tasks.py check                       # secrets scan, lint, types, tests, build: what CI runs
+py tasks.py e2e                         # Playwright smoke test in your installed Chrome
 ```
 
 With Docker: `docker compose up --build` (or `make up`) starts the backend, the nginx-served frontend, TimescaleDB and Redis; open http://localhost:8080.
@@ -29,12 +30,20 @@ Four resizable panels, a ticker, data-quality badges (LIVE, SEED, STALE) and an 
 | `HIKE 25BP`, `QT 95B` | The Fed moves; EFFR, reserves, the curve and the term premium respond |
 | `SHOCK JP 200B 10D LONG` | A foreign holder sells; yields, the dollar and the debt cost respond |
 | `WACR`, `REPO -25BP`, `CRR 3.5`, `VRR 50000CR 7D` | India's corridor, an MPC move and RBI's operations |
+| `CALL`, `LAF`, `NDTL` | Today's call market against repo (TREPS, market repo, T-bills, the clearing rounds, who borrowed and what limits trimmed); RBI's facilities and auctions; the SYNTHETIC banks' reserves and limits |
+| `TAXCAL`, `CCIL` | The quarterly tax cycle: a calendar of WACR − repo, the government's tax balance at RBI against the system's surplus with RBI's likely VRRs ahead; how call money, TREPS and market repo trade and settle, with sources |
+| `UST`, `DEBT`, `TIC`, `CORR` | The Treasury curve; the federal interest bill on the simulated curve; foreign holders after any sale; the Fed's corridor next to RBI's |
 | `MPC` | The next MPC decision: probabilities from a Taylor rule, an ordered logit and boosted trees, trained on RBI's decisions since 2014 and backtested walk-forward from 2018 against naive baselines ([report](docs/MPC_BACKTEST.md)) |
 | `SHOCK FED 50BP`, `LINK` | A Fed hike runs through to India: the US 10Y, FPI outflows, RBI's dollar sales, the rupee, rupee liquidity and WACR, each link calibrated on NSDL, RBI and FRED data; RBI can answer with VRR, OMOs, a swap or a hike |
 | `IMPACT RETAIL +100BP`, `IMPACT BUSINESS IMPORTER` | What a shock means for people: an (editable, illustrative) bond portfolio repriced exactly and by duration and convexity, held against sold; a small shop and an electronics importer with EBLR and MCLR loans, imported costs and demand |
 | `REPLAY GILT2022`, `REPLAY TAPER2013` | Real episodes replayed: the model driven by what actually moved, against what happened, with scores, an annotated timeline and play controls. The gilt crisis calibrates the fire-sale price impact λ |
 | `GSEC`, `SPRD` | India's G-sec curve (NSS) and how a repo surprise passes through it, measured on RBI's repo changes; India's 10Y against the US 10Y |
 | `TEACH`, `HELP`, `SPEED 60X` | The economics behind each panel, every function, faster time |
+| `LAYOUT SAVE RATES`, `LAYOUT RATES` | Keep the four panels and their split in this browser, and bring them back; the terminal reopens as it was left |
+
+![CALL, TAXCAL, CCIL and LAF: India's money market against repo, the tax cycle with the government's balance at RBI, how the overnight markets settle, and RBI's operations](docs/screenshots/terminal-1-india.png)
+
+![DEBT, TIC, CORR and HELP: the interest bill on the simulated curve, foreign holders during a sale, the two corridors, and every function](docs/screenshots/terminal-2-us.png)
 
 ![GSEC: India's G-sec curve after a 25 bp repo cut, with the event study's pass-through by maturity; SPRD: India's 10Y against the US 10Y since 2023](docs/screenshots/gsec-1-curve.png)
 
@@ -44,7 +53,7 @@ Four resizable panels, a ticker, data-quality badges (LIVE, SEED, STALE) and an 
 
 ![REPLAY: the September 2022 gilt crisis, the 30-year gilt against forced selling × λ, with λ under every specification](docs/screenshots/replay-1-gilt.png)
 
-`/` focuses the command bar and Alt+1..4 a panel. `py tasks.py demo` walks this demo end to end on the real seed, and `py tasks.py screenshots` re-captures [docs/screenshots](docs/screenshots). What is real data and what is modelled is listed in [ASSUMPTIONS.md](ASSUMPTIONS.md).
+`/` focuses the command bar and Esc comes back to it; Alt+1..4 or Alt+arrows move between panels, Alt+Enter shows one alone, F1 explains it and Alt+T toggles teach mode. `py tasks.py demo` walks this demo end to end on the real seed, and `py tasks.py screenshots` re-captures [docs/screenshots](docs/screenshots). What is real data and what is modelled is listed in [ASSUMPTIONS.md](ASSUMPTIONS.md).
 
 ## Layout
 

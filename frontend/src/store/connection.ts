@@ -15,7 +15,11 @@ interface ConnectionState {
   gaps: number;
   setStatus: (status: ConnectionStatus) => void;
   receive: (message: Envelope) => void;
+  /** A line from the terminal itself (e.g. the saved layouts), logged like a command reply. */
+  note: (code: string, message: string, ok: boolean) => void;
 }
+
+let notes = 0;
 
 export const useConnection = create<ConnectionState>()((set) => ({
   status: 'closed',
@@ -33,5 +37,11 @@ export const useConnection = create<ConnectionState>()((set) => ({
       lastSeq: message.seq,
       gaps: state.lastSeq !== null && message.seq !== state.lastSeq + 1 ? state.gaps + 1 : state.gaps,
     }));
+  },
+  // Local lines take negative sequence numbers: they never count as the server's.
+  note: (code, message, ok) => {
+    notes += 1;
+    const line: Envelope = { topic: 'command', ts: new Date().toISOString(), seq: -notes, data: { ok, code, message } };
+    set((state) => ({ log: [...state.log, line].slice(-LOG_LIMIT) }));
   },
 }));

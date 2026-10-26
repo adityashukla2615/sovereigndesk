@@ -122,8 +122,15 @@ STEPS: list[tuple[str, list[str], float]] = [
     ("mvp-2-us-shock", ["HIKE 25BP", "QT 95B", "SHOCK JP 200B 10D LONG"], 4.0),
     ("mvp-3-india", ["SPEED 30X", "REPO -25BP", "VRR 50000CR 7D", "CRR 3.5"], 12.0),
     ("mvp-4-teach", ["TEACH"], 2.0),
-    # "@N" focuses slot N: the G-sec curve after the cut above, and the spread to Treasuries.
-    ("gsec-1-curve", ["TEACH", "@1", "GSEC", "@2", "SPRD"], 6.0),
+    # "@N" focuses slot N. India's money market panels while the session is open, then the US.
+    (
+        "terminal-1-india",
+        ["TEACH", "@1", "CALL", "@2", "TAXCAL", "@3", "CCIL", "@4", "LAF"],
+        6.0,
+    ),
+    ("terminal-2-us", ["@1", "DEBT", "@2", "TIC", "@3", "CORR", "@4", "HELP"], 5.0),
+    # The G-sec curve after the cut above, and the spread to Treasuries.
+    ("gsec-1-curve", ["@1", "GSEC", "@2", "SPRD"], 6.0),
     # The predictor's first fit runs its backtest: give it time.
     ("mpc-1-forecast", ["@3", "MPC"], 25.0),
     # A Fed hike run through to India: the chain, then a few simulated days of it.

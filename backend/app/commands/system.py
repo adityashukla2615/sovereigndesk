@@ -1,7 +1,9 @@
-"""System function codes: help, simulation speed, pause/resume, reset and teach mode."""
+"""System function codes: help, simulation speed, pause/resume, reset, teach mode and layouts."""
+
+import re
 
 from app.commands.parser import CommandError, parse_speed
-from app.commands.registry import REGISTRY, CommandResult, catalog, command
+from app.commands.registry import REGISTRY, CommandResult, catalog, command, describe
 from app.sim.simulator import DEFAULT_SPEED, Simulator
 
 MAX_SPEED_MULTIPLE = 1440.0
@@ -20,7 +22,13 @@ async def help_(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     if spec is None:
         raise CommandError(f"No function {args[0]}. Type HELP for the list.")
     status = "" if spec.available else f" (arrives in {spec.available_in})"
-    return CommandResult(True, "HELP", f"{spec.usage}: {spec.summary}{status}", panel="HELP")
+    return CommandResult(
+        True,
+        "HELP",
+        f"{spec.usage}: {spec.summary}{status}",
+        panel="HELP",
+        data={"commands": catalog(), "command": describe(spec)},
+    )
 
 
 @command(
@@ -66,6 +74,43 @@ async def resume(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
 async def reset(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     sim.load(sim.us.anchors if sim.us else None, sim.india.anchors if sim.india else None)
     return CommandResult(True, "RESET", "Reset to the real anchors; all shocks cleared")
+
+
+LAYOUT_NAME = re.compile(r"^[A-Z0-9][A-Z0-9_-]{0,23}$")
+LAYOUT_WORDS = frozenset({"SAVE", "DELETE", "DEFAULT"})
+LAYOUT_USAGE = "Usage: LAYOUT, LAYOUT SAVE name, LAYOUT name, LAYOUT DELETE name or LAYOUT DEFAULT"
+
+
+@command(
+    "LAYOUT",
+    "LAYOUT [SAVE|DELETE] name | LAYOUT DEFAULT",
+    "Save the four panels as a named layout, restore one, or list them (kept in this browser)",
+    "SYS",
+    needs_market=False,
+)
+async def layout(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
+    """Layouts live in the browser: this checks the request and the terminal carries it out."""
+    name: str | None = None
+    if not args:
+        action = "list"
+    elif args == ("DEFAULT",):
+        action = "default"
+    elif len(args) == 2 and args[0] in ("SAVE", "DELETE"):
+        action, name = args[0].lower(), args[1]
+    elif len(args) == 1:
+        action, name = "load", args[0]
+    else:
+        raise CommandError(LAYOUT_USAGE)
+    if name is not None and (name in LAYOUT_WORDS or not LAYOUT_NAME.match(name)):
+        raise CommandError("A layout name is up to 24 letters, digits, - or _, e.g. RATES")
+    message = {
+        "list": "Layouts saved in this browser",
+        "default": "Default layout: PY, FED, WACR and UST",
+        "save": f"Layout {name}: the four panels saved in this browser",
+        "load": f"Layout {name}: restoring its panels",
+        "delete": f"Layout {name} deleted from this browser",
+    }[action]
+    return CommandResult(True, "LAYOUT", message, data={"layout": {"action": action, "name": name}})
 
 
 @command(

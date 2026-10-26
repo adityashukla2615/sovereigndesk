@@ -72,7 +72,9 @@ def test_registry_lists_every_planned_function() -> None:
     assert REGISTRY["LINK"].available
     assert REGISTRY["IMPACT"].available
     assert REGISTRY["REPLAY"].available
-    assert not REGISTRY["CCIL"].available
+    assert REGISTRY["CCIL"].available
+    assert REGISTRY["LAYOUT"].available
+    assert not REGISTRY["SAVE"].available
     assert REGISTRY["PY"].available
 
 
@@ -80,9 +82,9 @@ def test_unknown_and_planned_codes(sim: Simulator) -> None:
     unknown = run(sim, "UTS")
     assert not unknown.ok
     assert "Did you mean UST?" in unknown.message
-    later = run(sim, "CCIL")
+    later = run(sim, "SAVE DEMO")
     assert not later.ok
-    assert "Phase 12" in later.message
+    assert "Phase 13" in later.message
     assert not run(sim, "").ok
 
 
@@ -153,6 +155,14 @@ def test_shock_creates_an_order_and_narrative(sim: Simulator) -> None:
     assert result.data is not None
     assert result.data["long_run"]["30Y"] > 0
     assert result.data["debt"]["delta_by_year"]["1"] > 0
+    sim.tick(2 * 86_400 / sim.speed)  # two simulated days of selling
+    tic = run(sim, "TIC")
+    assert tic.data is not None
+    japan = next(h for h in tic.data["holders"] if h["country"] == "Japan")
+    assert japan["selling"]
+    sold = japan["official"] - japan["holdings"]
+    assert sold > 0
+    assert tic.data["official_total"] - tic.data["total"] == pytest.approx(sold)  # the total too
     assert not run(sim, "SHOCK JP 5000B").ok  # more than Japan holds
     assert "SHOCK FED needs both markets running" in run(sim, "SHOCK FED 50BP").message
     assert not run(sim, "SHOCK JP 10B 5Q").ok
@@ -188,3 +198,28 @@ def test_speed_pause_resume_reset(sim: Simulator) -> None:
     assert sim.us.state.orders == []
     help_one = run(sim, "HELP SHOCK")
     assert "SHOCK JP 200B" in help_one.message
+    assert help_one.data is not None
+    assert help_one.data["command"]["code"] == "SHOCK"
+    assert help_one.data["commands"]  # the list stays beside the one explained
+
+
+def test_replies_carry_the_command_as_run(sim: Simulator) -> None:
+    assert run(sim, "  py   10y ").command == "PY 10Y"
+    assert run(sim, "UTS").command is None  # unknown codes never ran
+
+
+def test_layout_requests_are_checked_for_the_terminal(sim: Simulator) -> None:
+    cases = {
+        "LAYOUT": ("list", None),
+        "LAYOUT DEFAULT": ("default", None),
+        "LAYOUT SAVE rates": ("save", "RATES"),
+        "LAYOUT RATES": ("load", "RATES"),
+        "LAYOUT DELETE RATES": ("delete", "RATES"),
+    }
+    for text, (action, name) in cases.items():
+        result = run(sim, text)
+        assert result.ok, result.message
+        assert result.panel is None  # the browser carries it out
+        assert result.data == {"layout": {"action": action, "name": name}}
+    for bad in ("LAYOUT SAVE", "LAYOUT SAVE A B", "LAYOUT SAVE DEFAULT", "LAYOUT SAVE $X"):
+        assert not run(sim, bad).ok, bad

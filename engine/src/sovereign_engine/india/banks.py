@@ -146,14 +146,19 @@ def msf_capacity(bank: Bank, rules: MoneyMarketRules) -> float:
 
 
 def borrowing_caps(bank: Bank, rules: MoneyMarketRules) -> tuple[float, float | None]:
-    """Call/notice borrowing caps: (fortnightly-average cap, single-day cap or None).
+    """Call/notice borrowing caps: (fortnightly-average cap, single-day cap or None). RBI sets
+    them for small finance banks and primary dealers; scheduled commercial banks use
+    board-approved limits, assumed at the caps RBI set for them before June 2023.
 
     Equation:
-        banks:  avg = 1.00·CF,  peak = 1.25·CF        primary dealers:  avg = 2.25·NOF, no daily cap
+        SFBs:  avg = 1.00·CF,  peak = 1.25·CF        primary dealers:  avg = 2.25·NOF, no daily cap
+        other banks (assumed):  avg = 1.00·CF,  peak = 1.25·CF
     """
     if bank.kind == "PD":
         return rules.pd_borrow_avg * bank.capital_funds, None
-    return rules.bank_borrow_avg * bank.capital_funds, rules.bank_borrow_peak * bank.capital_funds
+    if bank.kind == "SFB":
+        return rules.sfb_borrow_avg * bank.capital_funds, rules.sfb_borrow_peak * bank.capital_funds
+    return rules.scb_borrow_avg * bank.capital_funds, rules.scb_borrow_peak * bank.capital_funds
 
 
 def lending_caps(bank: Bank, rules: MoneyMarketRules) -> tuple[float, float]:

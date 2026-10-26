@@ -9,7 +9,7 @@ participants use board-approved internal limits; the values here are an assumpti
 
 import calendar
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,16 +21,19 @@ class Citation:
 
 
 _VERIFIED = date(2026, 10, 20)
+_HOURS_VERIFIED = date(2026, 10, 21)
 
 CITATIONS: tuple[Citation, ...] = (
     Citation(
-        "Call/notice money borrowing: SCBs 100% of capital funds (fortnightly daily average) and "
-        "125% on any day; primary dealers 225% of net owned funds; term money within "
-        "board-approved limits. No lending limits are prescribed.",
-        "RBI/2021-22/61, FMRD.DIRD.06/14.01.001/2021-22 (25 Jun 2021), Call, Notice and Term "
-        "Money Markets Directions, Table 1",
-        "https://www.rbi.org.in/Scripts/NotificationUser.aspx?Id=12120",
-        _VERIFIED,
+        "Call/notice money borrowing: small finance banks, payment banks and RRBs 100% of capital "
+        "funds (fortnightly daily average) and 125% on any day; primary dealers 225% of net owned "
+        "funds; scheduled commercial banks within board-approved limits inside the prudential "
+        "limits for inter-bank liabilities (since 8 Jun 2023; 100% and 125% of capital funds "
+        "before). No lending limits are prescribed.",
+        "Call, Notice and Term Money Markets (Reserve Bank) Directions, 2021, Table 1, as amended "
+        "by FMRD.DIRD.02/14.01.001/2023-24 (8 Jun 2023)",
+        "https://www.rbi.org.in/scripts/BS_ViewMasDirections.aspx?id=12061",
+        _HOURS_VERIFIED,
     ),
     Citation(
         "CRR: maintain the fortnightly average; the daily minimum rose from 90% to 99% of the "
@@ -119,7 +122,33 @@ CITATIONS: tuple[Citation, ...] = (
         "https://rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=53127",
         _VERIFIED,
     ),
+    Citation(
+        "Market hours: call, notice and term money 9:00 AM to 7:00 PM from 1 Jul 2025 (9:00 AM "
+        "to 5:00 PM before); market repo and TREPS 9:00 AM to 4:00 PM from 1 Aug 2025.",
+        "RBI Bulletin, State of the Economy (23 Jul 2025), footnote 15, on the changes announced "
+        "on 25 Jun 2025",
+        "https://www.rbi.org.in/Scripts/BS_ViewBulletin.aspx?Id=23515",
+        _HOURS_VERIFIED,
+    ),
+    Citation(
+        "SDF and MSF available from 7:00 PM to 11:59 PM from 1 Jul 2025 (5:30 PM to 11:59 PM "
+        "before), after the call market's hours were extended to 7:00 PM.",
+        "Press release 2025-2026/625 (30 Jun 2025), Standing Deposit Facility and Marginal "
+        "Standing Facility - Change in Timings",
+        "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=60740",
+        _HOURS_VERIFIED,
+    ),
 )
+
+# VERIFY: RBI Bulletin, 23 Jul 2025, footnote 15 (checked 2026-10-21)
+CALL_MARKET_HOURS: tuple[time, time] = (time(9, 0), time(19, 0))
+"""Call, notice and term money trade from 9:00 AM to 7:00 PM IST on business days."""
+# VERIFY: the same footnote (checked 2026-10-21)
+REPO_MARKET_HOURS: tuple[time, time] = (time(9, 0), time(16, 0))
+"""Market repo (CROMS) and TREPS trade from 9:00 AM to 4:00 PM IST."""
+# VERIFY: press release 2025-2026/625 (checked 2026-10-21)
+STANDING_FACILITY_HOURS: tuple[time, time] = (time(19, 0), time(23, 59))
+"""The SDF and MSF window, every day."""
 
 # VERIFY: CRR in force from each fortnight start, per the releases and circulars above (checked
 # 2026-10-20). It reaches back to Feb 2013 for the money-market history before each policy
@@ -201,13 +230,21 @@ class MoneyMarketRules:
     crr_daily_min_share: float = 0.99
     # VERIFY: RBI/2021-22/138, from 1 Jan 2022 (checked 2026-10-20)
     msf_slr_dip: float = 0.02
-    # VERIFY: RBI/2021-22/61, Table 1, for this and the next two (checked 2026-10-20)
-    bank_borrow_avg: float = 1.00
+    # VERIFY: the Directions' Table 1 as amended on 8 Jun 2023, for small finance banks (and
+    # payment banks and RRBs, which the universe has none of) and primary dealers (checked
+    # 2026-10-21)
+    sfb_borrow_avg: float = 1.00
     """× capital funds, fortnightly daily average (call + notice)."""
-    bank_borrow_peak: float = 1.25
+    sfb_borrow_peak: float = 1.25
     """× capital funds, any single day."""
     pd_borrow_avg: float = 2.25
     """× net owned funds, fortnightly daily average; RBI states no daily maximum for PDs."""
+    scb_borrow_avg: float = 1.00
+    """ASSUMPTION: scheduled commercial banks borrow within board-approved limits (inside the
+    prudential limits for inter-bank liabilities) since 8 Jun 2023; taken at the 100% of capital
+    funds RBI set before, × capital funds, fortnightly daily average."""
+    scb_borrow_peak: float = 1.25
+    """ASSUMPTION: likewise, the former 125% of capital funds on any single day."""
     lend_avg: float = 0.25
     """ASSUMPTION: board-approved internal lending limit, × capital funds (RBI sets none)."""
     lend_peak: float = 0.50

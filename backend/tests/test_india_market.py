@@ -92,8 +92,10 @@ def test_participation_limits_trim_orders_and_log_why() -> None:
     assert rejected[0].side == "borrow"
     assert "daily cap 1,250 cr would be exceeded" in rejected[0].reason
     assert small.borrowed <= 1_250 + 1e-6  # 125% of capital funds
-    run(m, at(TUESDAY.date(), 18, 0))
-    assert small.msf > 0  # the rest goes to the MSF in the evening
+    run(m, at(TUESDAY.date(), 18, 45))
+    assert small.msf == 0  # the call market is still open: no standing facility yet
+    run(m, at(TUESDAY.date(), 19, 30))
+    assert small.msf > 0  # the rest goes to the MSF once the window opens at 19:00
     panel = m.call_panel()
     assert any(r["bank"] == "SFB-04" for r in panel["rejections"])
 
@@ -161,10 +163,15 @@ def test_tax_days_drain_what_the_data_says() -> None:
     quiet = IndiaModelParams(reaction=False, idio_sd=0.0)
     m = market(start=datetime(2026, 11, 17, 1, 0, tzinfo=IST), params=quiet, noise_sd=0.0)
     run(m, at(date(2026, 11, 17), 23, 59), step=timedelta(hours=1))
-    before = m.history[-1].surplus
+    before = m.history[-1]
     run(m, at(date(2026, 11, 22), 23, 59), step=timedelta(hours=1))
-    after = m.history[-1].surplus
-    assert before - after == pytest.approx(m.anchors.tax.gst_drain, rel=1e-6)
+    after = m.history[-1]
+    gst = m.anchors.tax.gst_drain
+    assert before.surplus - after.surplus == pytest.approx(gst, rel=1e-6)
+    # The banks' loss is the government's balance at RBI, until it spends the money back.
+    assert after.government - before.government == pytest.approx(gst, rel=1e-6)
+    run(m, at(date(2026, 12, 12), 23, 59), step=timedelta(hours=2))  # before advance tax
+    assert m.history[-1].government < after.government  # spent back from ten days on
 
 
 def test_panels() -> None:
@@ -188,6 +195,19 @@ def test_panels() -> None:
     assert {"PD"} <= {b["kind"] for b in banks}
     heat = m.heatmap()
     assert heat["tax_days"][0]["date"] == "2026-10-20"  # inside the GST window, 18-22 Oct
+    ahead = heat["projection"]
+    assert len(ahead) == 120
+    assert ahead[0]["date"] == "2026-10-21"
+    by_day = {d["date"]: d for d in ahead}
+    # Advance tax (13-17 Dec) moves money from the banks to the government, rupee for rupee.
+    gained = by_day["2026-12-17"]["government"] - by_day["2026-12-12"]["government"]
+    lost = by_day["2026-12-12"]["surplus"] - by_day["2026-12-17"]["surplus"]
+    assert gained == pytest.approx(lost)
+    drained = sum(d["drain"] for d in heat["tax_days"] if "2026-12-13" <= d["date"] <= "2026-12-17")
+    assert drained == pytest.approx(m.anchors.tax.advance_tax_drain)
+    assert 0 < gained < drained  # less November's GST, being spent back by then
+    assert all(0 <= d["p_vrr"] <= 1 and 0 <= d["p_vrrr"] <= 1 for d in ahead)
+    assert by_day["2026-12-17"]["p_vrr"] > by_day["2026-12-12"]["p_vrr"]  # tighter: VRR likelier
     laf = m.laf_panel()
     assert 0 < laf["reaction"]["vrrr_probability"] < 1
 

@@ -189,9 +189,24 @@ async def tic(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     message = f"Top holders ({us.anchors.tic_as_of:%b %Y}): " + ", ".join(
         f"{k} {usd_bn(v)}" for k, v in top
     )
+    official = us.anchors.foreign_holdings
+    selling = {o.country: o for o in us.state.orders}
+    # Sales come off the selling country only: the total falls by what every holder has sold.
+    sold = sum(official.get(k, v) - v for k, v in ranked)
+    official_total = official.get("Grand Total")
     data = {
         "as_of": us.anchors.tic_as_of.isoformat(),
-        "holders": [{"country": k, "holdings": v} for k, v in ranked],
+        "holders": [
+            {
+                "country": k,
+                "holdings": v,
+                "official": official.get(k, v),
+                "selling": k in selling,
+            }
+            for k, v in ranked
+        ],
+        "total": None if official_total is None else official_total - sold,
+        "official_total": official_total,
     }
     return CommandResult(True, "TIC", message, panel="TIC", data=data)
 

@@ -256,6 +256,8 @@ export interface CommandReply {
   data: Record<string, unknown> | null;
   narrated?: boolean;
   sim_time?: string | null;
+  /** The command as run (`PY 10Y`), so the terminal can run it again for a layout. */
+  command?: string | null;
 }
 
 export interface CommandInfo {
@@ -575,4 +577,215 @@ export function curveOf(value: unknown, key: string): Curve | null {
   if (!isRecord(value)) return null;
   const curve = value[key];
   return isRecord(curve) ? (curve as Curve) : null;
+}
+
+/** CALL: today's call market (backend IndiaMarket.snapshot + call_panel). */
+export interface CallPanelData {
+  rounds: { time: string; rate: number; volume: number }[];
+  borrowers: { bank: string; amount: number }[];
+  lenders: { bank: string; amount: number }[];
+  rejections: { time: string; bank: string; side: string; amount: number; reason: string }[];
+  segments: { treps: number; market_repo: number; notice: number; term: number };
+  segment_volumes: { call: number; treps: number; market_repo: number; notice: number; term: number };
+  time: string;
+}
+
+export function isCallPanel(value: unknown): value is CallPanelData {
+  return isRecord(value) && Array.isArray(value.rounds) && Array.isArray(value.borrowers) && isRecord(value.segment_volumes);
+}
+
+export interface LafOperation {
+  kind: 'VRR' | 'VRRR';
+  amount: number;
+  rate: number;
+  start: string;
+  maturity: string;
+}
+
+export interface LafAuction {
+  time: string;
+  kind: 'VRR' | 'VRRR';
+  notified: number;
+  received: number;
+  allotted: number;
+  cut_off: number | null;
+  weighted_average: number | null;
+  tenor_days: number;
+  manual: boolean;
+}
+
+/** LAF: RBI's liquidity operations (backend IndiaMarket.laf_panel). */
+export interface LafPanelData {
+  sdf: number;
+  msf: number;
+  operations: LafOperation[];
+  auctions: LafAuction[];
+  surplus: number;
+  surplus_pct: number;
+  durable_liquidity: number;
+  durable_as_of: string;
+  reaction: {
+    enabled: boolean;
+    vrr_probability: number;
+    vrrr_probability: number;
+    vrr_size: number;
+    vrrr_size: number;
+  };
+}
+
+export function isLafPanel(value: unknown): value is LafPanelData {
+  return isRecord(value) && Array.isArray(value.operations) && Array.isArray(value.auctions) && isRecord(value.reaction);
+}
+
+export interface BankRow {
+  code: string;
+  kind: string;
+  ndtl: number;
+  capital_funds: number;
+  requirement: number;
+  balance: number;
+  target: number;
+  slr_holdings: number;
+  msf_capacity: number;
+  borrowed: number;
+  lent: number;
+  borrow_cap_avg: number;
+  borrow_cap_peak: number;
+  floor_breaches: number;
+}
+
+/** NDTL: the SYNTHETIC banks (backend IndiaMarket.banks_panel). */
+export interface NdtlPanelData {
+  banks: BankRow[];
+  synthetic: true;
+}
+
+export function isNdtlPanel(value: unknown): value is NdtlPanelData {
+  return isRecord(value) && Array.isArray(value.banks) && value.synthetic === true;
+}
+
+export interface TaxDay {
+  date: string;
+  spread: number | null;
+  surplus: number;
+  surplus_pct: number;
+  government: number;
+  vrr: number;
+  vrrr: number;
+}
+
+export interface TaxProjection {
+  date: string;
+  government: number;
+  surplus: number;
+  surplus_pct: number;
+  p_vrr: number;
+  p_vrrr: number;
+}
+
+/** TAXCAL: the tax cycle (backend IndiaMarket.heatmap). */
+export interface TaxcalPanelData {
+  real: { date: string; spread: number }[];
+  simulated: TaxDay[];
+  tax_days: { date: string; drain: number }[];
+  projection: TaxProjection[];
+  now: { date: string; government: number; surplus: number; surplus_pct: number };
+  tax: { advance_tax_drain: number; gst_drain: number; events: number; hold_days: number; return_days: number };
+  reaction: { enabled: boolean; vrr_size: number; vrrr_size: number };
+}
+
+export function isTaxcalPanel(value: unknown): value is TaxcalPanelData {
+  return isRecord(value) && Array.isArray(value.real) && Array.isArray(value.projection) && Array.isArray(value.tax_days);
+}
+
+export interface CcilSegment {
+  key: 'call' | 'treps' | 'market_repo';
+  name: string;
+  platform: string;
+  dealing: string;
+  collateral: string | null;
+  counterparty: string;
+  settlement: string;
+  hours: string[];
+  sources: number[];
+  rate: number;
+  volume: number;
+}
+
+/** CCIL: how the overnight segments clear and settle (backend app.sim.ccil.ccil_panel). */
+export interface CcilPanelData {
+  segments: CcilSegment[];
+  also_on_nds_call: { notice: { rate: number; volume: number }; term: { rate: number; volume: number } };
+  repo: number;
+  time: string;
+  session_open: boolean;
+  model: string;
+  sources: { claim: string; document: string; url: string }[];
+}
+
+export function isCcilPanel(value: unknown): value is CcilPanelData {
+  return isRecord(value) && Array.isArray(value.segments) && Array.isArray(value.sources);
+}
+
+/** DEBT: federal interest cost on today's curve against the simulated one (backend DebtComparison). */
+export interface DebtPanelData {
+  start: string;
+  months: string[];
+  baseline_interest: number[];
+  shocked_interest: number[];
+  baseline_to_gdp: number[];
+  shocked_to_gdp: number[];
+  baseline_to_receipts: number[];
+  shocked_to_receipts: number[];
+  delta_by_year: Record<string, number>;
+}
+
+export function isDebtPanel(value: unknown): value is DebtPanelData {
+  return isRecord(value) && Array.isArray(value.months) && isNumberArray(value.baseline_interest) && isNumberArray(value.shocked_interest);
+}
+
+/** TIC: foreign holders of Treasuries, live against TIC's own figures. */
+export interface TicPanelData {
+  as_of: string;
+  holders: { country: string; holdings: number; official: number; selling: boolean }[];
+  total: number | null;
+  official_total: number | null;
+}
+
+export function isTicPanel(value: unknown): value is TicPanelData {
+  return isRecord(value) && Array.isArray(value.holders) && typeof value.as_of === 'string';
+}
+
+/** CORR: the Fed's corridor next to RBI's. */
+export interface CorrPanelData {
+  us: { lower: number; upper: number; iorb: number; on_rrp: number; effr: number };
+  india: { sdf: number; repo: number; msf: number; wacr: number } | null;
+}
+
+export function isCorrPanel(value: unknown): value is CorrPanelData {
+  return isRecord(value) && isRecord(value.us) && 'india' in value;
+}
+
+/** HELP: every function, and one explained (`HELP SHOCK`). */
+export interface HelpPanelData {
+  commands: CommandInfo[];
+  command?: CommandInfo;
+}
+
+export function isHelpPanel(value: unknown): value is HelpPanelData {
+  return isRecord(value) && Array.isArray(value.commands);
+}
+
+/** What a LAYOUT reply asks the terminal to do (backend app.commands.system.layout). */
+export interface LayoutRequest {
+  action: 'list' | 'default' | 'save' | 'load' | 'delete';
+  name: string | null;
+}
+
+export function layoutRequestOf(value: unknown): LayoutRequest | null {
+  if (!isRecord(value) || !isRecord(value.layout)) return null;
+  const { action, name } = value.layout;
+  const actions = ['list', 'default', 'save', 'load', 'delete'];
+  if (typeof action !== 'string' || !actions.includes(action)) return null;
+  return { action: action as LayoutRequest['action'], name: typeof name === 'string' ? name : null };
 }

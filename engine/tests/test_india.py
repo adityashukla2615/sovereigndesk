@@ -133,7 +133,7 @@ def test_liquidity_from_reserve_changes() -> None:
 
 
 def test_every_rule_is_cited() -> None:
-    assert len(CITATIONS) == 13
+    assert len(CITATIONS) == 15
     assert all(c.url.startswith("https://") for c in CITATIONS)
     with pytest.raises(ValueError, match="fractions"):
         MoneyMarketRules(crr=3.0, slr=0.18)

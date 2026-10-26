@@ -9,6 +9,7 @@ import {
   type ISeriesMarkersPluginApi,
   type LineData,
   type Time,
+  type UTCTimestamp,
   type WhitespaceData,
 } from 'lightweight-charts';
 import { useEffect, useRef } from 'react';
@@ -28,7 +29,8 @@ export interface TimeMarker {
   text: string;
 }
 
-/** What a time chart draws: lines over shared business days, with markers on the first. */
+/** What a time chart draws: lines over shared dates, with markers on the first. A date is a day
+ * (`2026-10-21`) or a wall-clock time (`2026-10-21T09:15`), shown as it reads. */
 export interface TimeChartData {
   dates: string[];
   lines: TimeLine[];
@@ -36,9 +38,17 @@ export interface TimeChartData {
   digits: number;
 }
 
+/** A day stays a business day; a wall-clock time is read as UTC so the axis shows it unshifted
+ * (the chart would otherwise move it into the viewer's own zone). */
+function timeOf(date: string): Time {
+  if (date.length <= 10) return date;
+  return (Date.parse(`${date.slice(0, 16)}:00Z`) / 1000) as UTCTimestamp;
+}
+
 function points(dates: string[], values: (number | null)[]): (LineData | WhitespaceData)[] {
-  return dates.map((time, i) => {
+  return dates.map((date, i) => {
     const value = values[i];
+    const time = timeOf(date);
     return value === null || value === undefined || !Number.isFinite(value) ? { time } : { time, value };
   });
 }
@@ -71,7 +81,7 @@ export function TimeChart({ data, label }: { data: TimeChartData; label: string 
       },
       grid: { vertLines: { color: p.line }, horzLines: { color: p.line } },
       rightPriceScale: { borderColor: p.line },
-      timeScale: { borderColor: p.line, fixLeftEdge: true, fixRightEdge: true },
+      timeScale: { borderColor: p.line, fixLeftEdge: true, fixRightEdge: true, timeVisible: true },
       handleScroll: false,
       handleScale: false,
     });
@@ -116,7 +126,7 @@ export function TimeChart({ data, label }: { data: TimeChartData; label: string 
       markersRef.current ??= createSeriesMarkers(first, []);
       markersRef.current.setMarkers(
         data.markers.map((m) => ({
-          time: m.date,
+          time: timeOf(m.date),
           position: 'aboveBar' as const,
           shape: 'arrowDown' as const,
           color: p.amber,

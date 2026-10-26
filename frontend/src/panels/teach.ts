@@ -67,6 +67,69 @@ export const TEACH: Record<string, string> = {
     'is then met at the repo rate, but the net position does not change), restore it with OMO ' +
     'purchases or a buy/sell swap, or hike repo. Each link is a regression on public data, ' +
     'with its 90% interval in the table.',
+  CALL:
+    'Banks lend each other overnight in the call market, unsecured. Every quarter hour the ' +
+    'orders clear at one rate: no lender takes less than the SDF pays, and no borrower pays more ' +
+    'than the MSF charges while it has SLR securities to pledge. WACR, the volume-weighted ' +
+    'average of the day, is RBI’s operating target. TREPS and market repo are secured by ' +
+    'government securities, so they trade a little below call; T-bills sit near repo. Each rate ' +
+    'above repo signals tight liquidity, below it surplus. Small finance banks may borrow at most ' +
+    '100% of capital funds on average over the fortnight (125% on any day); other banks borrow ' +
+    'within limits their boards set (assumed the same here): the trimmed orders show where a ' +
+    'limit binds.',
+  LAF:
+    'The liquidity adjustment facility is how RBI keeps the call rate near repo. Banks with ' +
+    'surplus cash park it overnight at the SDF (repo − 25 bp), and banks short of it borrow at ' +
+    'the MSF (repo + 25 bp) against their SLR securities; both windows open as the call market ' +
+    'closes at 7 PM. Between them RBI fine-tunes with auctions: a VRR lends to the banks ' +
+    '(injects), a VRRR borrows from them (absorbs), at the rates the bids set. The net position ' +
+    'as a share of NDTL is the surplus that moves WACR along the macro map, and RBI’s fitted ' +
+    'reaction makes a VRR likelier the tighter it gets.',
+  NDTL:
+    'A bank’s net demand and time liabilities (its deposits, less what it owes other banks) ' +
+    'set its reserve requirements. It must hold the CRR in cash with RBI, on average over each ' +
+    'reporting fortnight and above a daily floor, and the SLR in government securities. A CRR ' +
+    'cut frees cash and adds system liquidity; a hike drains it. Securities above the SLR can ' +
+    'be pledged at the MSF, plus a 2% dip below it. The 40 banks here are SYNTHETIC: generated, ' +
+    'with India’s real total NDTL split between them.',
+  TAXCAL:
+    'Around the 15th of March, June, September and December companies pay advance tax, and GST ' +
+    'falls due around the 20th of each month. The money leaves bank deposits for the ' +
+    'government’s account at RBI, so the banks’ reserves fall rupee for rupee and the call rate ' +
+    'rises toward or above repo. The government spends it back over the following weeks. RBI ' +
+    'answers the squeeze with VRR auctions, more likely the tighter liquidity gets. The calendar ' +
+    'shows the cycle in RBI’s own data; the chart runs it ahead from tax flows alone.',
+  CCIL:
+    'Three overnight markets, three kinds of plumbing. Call money is dealt on NDS-CALL, RBI’s ' +
+    'platform run by Clearcorp, and settles bank to bank in RBI’s RTGS: unsecured, so each ' +
+    'lender carries its borrower’s credit risk, and only banks and primary dealers may take ' +
+    'part. TREPS (tri-party repo) and market repo (CROMS) are secured by government securities ' +
+    'and cleared by CCIL as central counterparty: each trade is novated to CCIL, which nets ' +
+    'every member’s funds and securities and guarantees settlement, so a default hits CCIL’s ' +
+    'margins and default fund, not the other side of the trade.',
+  DEBT:
+    'The federal interest bill reprices as Treasuries mature and are refinanced, and as new ' +
+    'deficits are funded, at the yields of the day. A higher curve costs little in the first ' +
+    'months, because most debt was issued earlier at fixed coupons, and more each year as it ' +
+    'rolls over: bills within months, ten-year notes over a decade. The comparison holds each ' +
+    'curve flat, on the real maturity profile (MSPD), deficit and issuance mix.',
+  TIC:
+    'The Treasury’s TIC data count foreign holdings by country. Japan and China are among the ' +
+    'largest holders; the UK, Luxembourg, Belgium and the Cayman Islands rank high as custody ' +
+    'and fund centres, because TIC counts securities where they are held, not always by who ' +
+    'owns them. A holder’s sale raises yields while it lasts and leaves a smaller permanent ' +
+    'effect, scaled to the size of the market.',
+  CORR:
+    'Both central banks steer an overnight rate inside a corridor. The Fed pays interest on ' +
+    'reserves (IORB) and takes cash at the ON RRP near the bottom of its target range, so the ' +
+    'fed funds rate trades a little below IORB while reserves are abundant. RBI’s corridor sits ' +
+    'around a single repo rate, the SDF 25 bp below and the MSF 25 bp above, so it is twice as ' +
+    'wide as the Fed’s range. The gap between the two policy rates is one reason money moves ' +
+    'between the markets.',
+  HELP:
+    'Every function has a code, as on a Bloomberg terminal: type it in the command bar, or ' +
+    'click one here to see what it does. US codes drive the Treasury simulator, IN codes the ' +
+    'Indian money market, X codes link the two; SYS codes run the terminal itself.',
   UST:
     'The Treasury par curve: the yield at which a new Treasury of each maturity would price at ' +
     'par. Policy moves shift the front end most; term-premium shocks and foreign selling move the ' +

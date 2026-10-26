@@ -92,7 +92,8 @@ MoSPI's CPI and GDP and RBI's policy record arrived with the MPC predictor (Phas
 
 | Rule | Value | Source |
 |---|---|---|
-| Call/notice borrowing, scheduled commercial banks (incl. foreign banks and SFBs) | 100% of capital funds as a fortnightly daily average; 125% on any day | RBI/2021-22/61, Call, Notice and Term Money Markets Directions (25 Jun 2021), Table 1 |
+| Call/notice borrowing, small finance banks | 100% of capital funds as a fortnightly daily average; 125% on any day | Call, Notice and Term Money Markets Directions, 2021, Table 1, as amended on 8 Jun 2023 (FMRD.DIRD.02/14.01.001/2023-24) |
+| Call/notice borrowing, other scheduled commercial banks (incl. foreign banks) | Since 8 Jun 2023, board-approved limits inside the prudential limits for inter-bank liabilities. The model keeps the 100% and 125% of capital funds RBI set before as those board limits: an **assumption** | same |
 | Call/notice borrowing, primary dealers | 225% of net owned funds, fortnightly average | same |
 | Term money | within board-approved limits | same |
 | Lending | RBI sets **no** limit; banks lend within board-approved internal limits. The model's 25% (fortnightly average) and 50% (any day) of capital funds are an **assumption**, the brief's figures | same |
@@ -140,9 +141,9 @@ The participation check runs on every order: an order that would take the day's 
 
 | Item | Choice |
 |---|---|
-| Calendar | Business days are Monday to Friday; there is no holiday calendar. Clearing rounds every 15 minutes from 09:15 to 17:00 IST, RBI's auctions at 09:30, the SDF and MSF at 17:30 every day, CRR accounting at 23:59 |
+| Calendar | Business days are Monday to Friday; there is no holiday calendar. Clearing rounds every 15 minutes from 09:15 to 19:00 IST, RBI's auctions at 09:30, the SDF and MSF at 19:00 every day, CRR accounting at 23:59. The hours are RBI's, in `sovereign_engine.india.rules` with VERIFY: call money trades 9:00 AM to 7:00 PM from 1 Jul 2025 (RBI Bulletin, 23 Jul 2025, footnote 15; 5:00 PM before), and the SDF and MSF open at 7:00 PM (press release 2025-2026/625, 30 Jun 2025; 5:30 PM before). Phase 12 moved the simulator from the old hours |
 | Call market | A uniform-price auction each round, settling at the midpoint of the marginal bid and offer. Reservation rates are the map rate plus the day's deviation, round noise (8 bp) and bank noise (5 bp), leaning up to 10 bp toward the facilities by the close. They are bounded by the mode's band (below). Banks offer gap × min(1, 1.5 / rounds left) each round |
-| Banks' own positions | Zero-sum and mean-reverting: a stationary s.d. of 0.6% of each bank's NDTL and a 10-day half-life, so somebody can lend even when the system is short. With these values the median weekday call volume over 90 simulated days is ₹17,500 crore (real: ₹15,700 crore). System-wide flows are shared by NDTL |
+| Banks' own positions | Zero-sum and mean-reverting: a stationary s.d. of 0.6% of each bank's NDTL and a 10-day half-life, so somebody can lend even when the system is short. Call volume runs high: over ten runs of 90 simulated days from the October 2026 anchors the median weekday volume is ₹22,000 crore, against ₹16,100 crore in RBI's releases over the year to 18 Oct 2026 (re-checked in Phase 12; it was ₹17,500 crore on the Phase 6 seed). An s.d. of 0.52% would match the volume, but then the call market falls silent once the system is short by about 1.3% of NDTL, a deficit the data has seen. System-wide flows are shared by NDTL |
 | CRR behaviour | Each bank aims for the balance that still meets the fortnight average, never below the daily floor. In the evening surplus goes to the SDF and deficit to the MSF, up to excess SLR plus 2% of NDTL; what the MSF cannot cover leaves the bank short (flagged) |
 | Primary dealers | Borrow 1 × net owned funds of call money each business day; the cash pays for securities and returns to banks by NDTL; the loans are repaid the next business day |
 | Opening position | Banks start at their requirement, with the release's SDF − MSF residual and its VRRR shared by NDTL plus their own positions. The release gives the VRRR total but not maturities, so it is assumed to mature in a week |
@@ -449,6 +450,41 @@ The summary turns these into sentences. A direction of 60% or more counts as "mo
 - *In sample.* The gilt λ is replayed on the days it was fitted on, and the macro map was fitted on the WACR it replays. Only the taper is fully out of sample.
 - *Right for the wrong reason.* A close end or a low RMSE does not mean the model explains an episode: in 2020 the gilt λ ends close to the actual 10Y through offsetting errors. The panel shows the paths day by day so the timing can be judged, not only the scores.
 - *Partial models.* Each replay drives one part of the model. News the drivers do not carry (emergency cuts, budget events, inflation surprises) shows up as the model's error, and the summaries say so.
+
+## Terminal completion (Phase 12)
+
+**Market hours, corrected.** RBI extended call money to 7:00 PM from 1 Jul 2025 (RBI Bulletin, 23 Jul 2025, footnote 15) and opened the SDF and MSF at 7:00 PM instead of 5:30 PM (press release 2025-2026/625). Until Phase 12 the simulator still cleared rounds to 17:00 and ran the standing facilities at 17:30. The hours now live in `sovereign_engine.india.rules` with VERIFY and citations, and the simulator reads them. Market repo and TREPS trade from 9:00 AM to 4:00 PM from 1 Aug 2025 (the same footnote); the CCIL panel shows these hours, but the simulator gives those segments no session of their own, so their rates follow WACR all day.
+
+**Call borrowing limits, re-read.** The Phase 5 citation predated an amendment. Since 8 Jun 2023 (FMRD.DIRD.02/14.01.001/2023-24), scheduled commercial banks borrow within board-approved limits inside the prudential limits for inter-bank liabilities, and RBI's 100% and 125% of capital funds apply only to small finance banks, payment banks and RRBs. The model's numbers are unchanged, but for the other banks they are now labelled an assumption (see the rules table above).
+
+**The government's tax balance (TAXCAL).** The simulator tracks the tax receipts the government holds at RBI beyond the anchor day. Each tax day's drain (advance tax and GST, fitted above) adds to it, and the spending back takes it down again, so it mirrors the banks' loss rupee for rupee. RBI's releases give no daily level of the government's balance at RBI: the Money Market Operations release's "surplus cash balance reckoned for auction" is almost always zero. So the panel shows the change since the anchor, not a level.
+
+The projection runs the expected tax flows alone, with no noise and no auctions. At each day's surplus it reads RBI's fitted reaction, and marks a day "VRR?" when a VRR is likelier than not ("VRRR?" likewise). The calendar heatmap shows WACR − repo for the year to the simulated day: RBI's releases, then simulated days.
+
+**How the overnight markets settle (CCIL).** The panel's claims are each tied to a page checked on 21 Oct 2026:
+
+- NDS-CALL is an electronic request-for-quote platform owned by RBI and managed by Clearcorp, a wholly owned subsidiary of CCIL. CROMS (market repo) and TREPS (tri-party repo) are Clearcorp's anonymous order-matching systems for dealing against G-secs ([CCIL](https://www.ccilindia.com/clearcorp-dealing-systems)).
+- Call money is settled bilaterally through RTGS, throughout the day. Market repo and TREPS are settled through CCIL as central counterparty, with multilateral netting of funds and securities ([RBI working group on trading and settlement timings](https://www.rbi.org.in/scripts/PublicationReportDetails.aspx?ID=935)).
+- TREPS trades are novated to CCIL as tri-party agent and netted with outright and market repo trades. The borrower's securities move through CCIL's settlement GILT account to the lender's once funds have settled at RBI ([CCIL, triparty repo settlement](https://www.ccilindia.com/web/ccil/tripartyclearingsettlement)).
+- Deals done over the counter are reported on NDS-CALL within 15 minutes, and only banks and primary dealers may take part ([Call, Notice and Term Money Directions, 2021](https://www.rbi.org.in/Scripts/NotificationUser.aspx?Id=12120)).
+
+The rates and volumes on the diagram are the simulated day's (TREPS and market repo from the medians in the fit table above).
+
+**Other panels.**
+
+- `DEBT` holds each curve flat on the real maturity profile, deficit and issuance mix, and shows dollars a year or a share of GDP or receipts.
+- `TIC` sets the live holdings after any simulated sale against TIC's own figures. Those are at market value and counted by the country where the securities are held in custody, not always the owner's.
+- `CORR` draws both corridors live.
+- `NDTL` repeats that the 40 banks are SYNTHETIC.
+
+**Layouts and keys.** `LAYOUT SAVE name` keeps the four slots' functions, the commands that filled them and the grid's split in this browser (localStorage). `LAYOUT name` restores one, `LAYOUT DEFAULT` the opening one, and the last layout reopens on start. The backend checks the request; the browser carries it out, and a blocked storage only means nothing is remembered. Keys:
+
+- Alt+1…4 focus a panel, and Alt+arrows move between panels;
+- Alt+Enter shows the focused panel alone;
+- F1 explains the focused panel, Alt+T toggles teach mode;
+- Esc returns to the command bar.
+
+**Charts.** Time series use TradingView Lightweight Charts™: the replays, the call rounds, DEBT and TAXCAL's projection. Curves and heatmaps use ECharts, as the brief has it.
 
 ## Bond conventions (engine, Phase 2)
 

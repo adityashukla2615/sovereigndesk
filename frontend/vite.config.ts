@@ -20,6 +20,8 @@ export default defineConfig({
     },
   },
   test: {
+    // Unit and component tests; e2e/ is Playwright's (`py tasks.py e2e`).
+    include: ['src/**/*.test.{ts,tsx}'],
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     restoreMocks: true,

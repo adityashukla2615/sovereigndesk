@@ -206,7 +206,7 @@ function ReplayView({ panel }: { panel: ReplayPanelData }) {
           className="min-w-0 flex-1 accent-term-amber"
         />
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-[3fr_2fr] gap-2">
+      <div className="grid min-h-0 flex-1 grid-cols-[3fr_2fr] grid-rows-[minmax(0,1fr)] gap-2">
         <div className="flex min-h-40 min-w-0 flex-col gap-0.5">
           <div className="flex flex-wrap gap-x-2 text-[10px] text-term-muted" aria-label="legend">
             {chart?.lines.map((l) => (

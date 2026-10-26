@@ -10,6 +10,7 @@ from app.commands.parser import (
     parse_percent,
 )
 from app.commands.registry import CommandResult, command
+from app.sim.ccil import ccil_panel
 from app.sim.events import bp, inr_cr, pct
 from app.sim.india_market import IST, IndiaMarket, WacrMode
 from app.sim.mpc import mpc_panel, repo_on
@@ -241,6 +242,25 @@ async def taxcal(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
         f"{tax.events} episodes); next tax day {nxt}"
     )
     return CommandResult(True, "TAXCAL", message, panel="TAXCAL", data=data)
+
+
+@command(
+    "CCIL",
+    "CCIL",
+    "How call money trades on NDS-CALL and TREPS and market repo settle through CCIL",
+    "IN",
+    needs_market=False,
+)
+async def ccil(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
+    panel = ccil_panel(_india(sim))
+    seg = {s["key"]: s for s in panel["segments"]}
+    message = (
+        f"Call {pct(seg['call']['rate'])} on NDS-CALL, settled bank to bank through RTGS; "
+        f"TREPS {pct(seg['treps']['rate'])} and market repo {pct(seg['market_repo']['rate'])} "
+        f"through CCIL as central counterparty (today {inr_cr(seg['call']['volume'])} call, "
+        f"{inr_cr(seg['treps']['volume'])} TREPS, {inr_cr(seg['market_repo']['volume'])} repo)"
+    )
+    return CommandResult(True, "CCIL", message, panel="CCIL", data=panel)
 
 
 @command(

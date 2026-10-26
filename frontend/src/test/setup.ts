@@ -11,6 +11,7 @@ vi.mock('lightweight-charts', () => import('./fakeLightweightCharts'));
 afterEach(() => {
   cleanup();
   drawn.length = 0;
+  localStorage.clear(); // saved layouts must not leak from one test into the next
 });
 
 // jsdom has no layout, so no ResizeObserver; the resizable panels construct one.

@@ -25,6 +25,12 @@ export function inrCr(amount: number | null | undefined): string {
   return `${sign}₹${crore.format(size)} cr`;
 }
 
+/** Crore for a table whose header carries the unit, in Indian grouping: 123456.7 → '1,23,457'. */
+export function croreCount(amount: number | null | undefined): string {
+  if (amount === null || amount === undefined || !Number.isFinite(amount)) return '—';
+  return `${amount < 0 ? '−' : ''}${crore.format(Math.abs(amount))}`;
+}
+
 /** US dollars in billions: 2980 → '$2.98tn', 95 → '$95bn'. */
 export function usdBn(amount: number | null | undefined): string {
   if (amount === null || amount === undefined || !Number.isFinite(amount)) return '—';
