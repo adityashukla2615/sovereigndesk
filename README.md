@@ -158,6 +158,23 @@ With Docker, either:
 
 Live data comes first. If a request fails, the last good response is used; failing that, the committed snapshot in `data/seed`. Every series carries its source URL and fetch time (`data/seed/manifest.json`), and the badges say which tier each panel runs on. Policy values are never hard-coded: they are fetched, or kept with a source and a date where only a document gives them. [ASSUMPTIONS.md](ASSUMPTIONS.md) lists every source, fit and assumption.
 
+### Keeping the snapshot current
+
+The live site and the web demo run on the snapshot (`MODE OFFLINE · SEED`); a local `py tasks.py dev` without `--offline` fetches every day instead. None of the sources is real-time: they publish end-of-day figures (FBIL's about a week late), and moves within a day are simulated. To bring the snapshot up to date:
+
+```bash
+py tasks.py refresh          # fetch every source, regenerate the MPC report, run check and e2e, commit
+py tasks.py refresh --push   # ... and push, which redeploys the live site on Render
+```
+
+It needs `FRED_API_KEY` in `backend/.env` and takes about 10–20 minutes: pages fetched before (RBI's releases, FBIL's workbooks) are reused from `data/cache`, so only what is new is downloaded, one request a second. Nothing is committed unless every source answered and every check passed on the new data; if a run stops half-way, `git checkout -- data/seed docs/MPC_BACKTEST.md` puts the snapshot back. To run it every week on Windows (Sunday 10:00, while the PC is on):
+
+```bash
+schtasks /Create /SC WEEKLY /D SUN /ST 10:00 /TN "SovereignDesk refresh" /TR "cmd /c cd /d C:\dev\sovereigndesk && py tasks.py refresh --push >> data\cache\refresh.log 2>&1"
+```
+
+The web demo is a recording; `py tasks.py record-demo` re-records it on the new snapshot. Figures quoted in this README and in ASSUMPTIONS.md are those of the snapshot they were written on.
+
 ## How it fits together
 
 ```mermaid

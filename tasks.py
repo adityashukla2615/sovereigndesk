@@ -15,6 +15,7 @@ tasks:
   check          check-secrets, lint, api --check, test, build: everything CI's check job runs
   e2e            Playwright smoke test: backend on the seed + Vite, in the installed Chrome
   seed           snapshot real data into data/seed; --sources picks some
+  refresh        seed + mpc-report + check + e2e, then commit the new snapshot; --push deploys it
   demo           walk the terminal demo end to end on the real seed (scripts/demo_check.py)
   mpc-report     write docs/MPC_BACKTEST.md: the MPC predictor's backtest on the real seed
   replays        build data/replays: the episodes' series from the seed and the Bank of England
@@ -242,6 +243,31 @@ def task_record_demo(_: argparse.Namespace) -> None:
     run([venv_python(), ROOT / "scripts" / "record_demo.py"])
 
 
+SNAPSHOT = ["data/seed", "docs/MPC_BACKTEST.md"]
+"""What a refresh rewrites: the real-data seed and the backtest report generated from it."""
+
+
+def task_refresh(args: argparse.Namespace) -> None:
+    # The live site runs on data/seed: refresh it, regenerate what is derived from it, prove
+    # nothing broke on the new data, and commit only then (--push redeploys the live site).
+    if git("status", "--porcelain", "--", *SNAPSHOT).strip():
+        raise TaskError("data/seed or the MPC report has uncommitted changes: commit or discard")
+    task_seed(argparse.Namespace(sources=None))
+    task_mpc_report(args)
+    if not git("status", "--porcelain", "--", *SNAPSHOT).strip():
+        print("\nThe snapshot is already current: nothing to commit.")
+        return
+    task_check(args)
+    task_e2e(args)
+    manifest = (ROOT / "data" / "seed" / "manifest.json").read_text(encoding="utf-8")
+    stamp = re.search(r'"generated_at": "(\d{4}-\d{2}-\d{2})', manifest)
+    day = stamp.group(1) if stamp else time.strftime("%Y-%m-%d")
+    run(["git", "add", "--", *SNAPSHOT])
+    run(["git", "commit", "-m", f"data: refresh the real-data snapshot to {day}"])
+    if args.push:
+        run(["git", "push"])
+
+
 def task_clean(_: argparse.Namespace) -> None:
     junk = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".hypothesis"}
     for dirpath, dirnames, _files in os.walk(ROOT):
@@ -360,6 +386,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     add("replays", task_replays).add_argument("episodes", nargs="*", help="episode ids (all)")
     add("screenshots", task_screenshots)
     add("record-demo", task_record_demo)
+    add("refresh", task_refresh).add_argument(
+        "--push", action="store_true", help="push the commit, which redeploys the live site"
+    )
     add("seed", task_seed).add_argument(
         "--sources", help="comma-separated subset of fred,treasury,fiscaldata,tic"
     )

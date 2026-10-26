@@ -66,6 +66,9 @@ test('every function answers on the real seed', async ({ page }) => {
 
 test('enter on a suggestion that needs an amount fills it in rather than running it', async ({ page }) => {
   const bar = page.getByRole('combobox', { name: 'command' });
+  // Today's range, whatever the seed holds: RESET must bring it back.
+  const range = /Target range (\S+%–\S+%),/.exec((await slot(page, 2, 'FED').textContent()) ?? '')?.[1];
+  expect(range).toBeDefined();
   await bar.fill('HIK');
   await bar.press('ArrowDown');
   await bar.press('Enter');
@@ -75,7 +78,7 @@ test('enter on a suggestion that needs an amount fills it in rather than running
   const log = page.getByRole('region', { name: 'event log' });
   await expect(log).toContainText('FOMC hike +25 bp');
   await run(page, 'RESET'); // the server is shared: leave no hike in the next test's run
-  await expect(slot(page, 2, 'FED')).toContainText('Target range 3.75%–4.00%,');
+  await expect(slot(page, 2, 'FED')).toContainText(`Target range ${range ?? ''},`);
 });
 
 test('keys move between panels, maximise one and teach', async ({ page }) => {
