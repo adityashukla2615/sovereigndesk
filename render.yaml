@@ -1,0 +1,16 @@
+# Render Blueprint: the live terminal as one free web service (the root Dockerfile).
+# In Render: New > Blueprint > this repository. It runs on the committed data snapshot,
+# offline, so no API key is needed; the free instance sleeps after 15 idle minutes.
+services:
+  - type: web
+    name: sovereigndesk
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: SD_OFFLINE
+        value: "true"
+      - key: SD_SCHEDULER_ENABLED
+        value: "false"

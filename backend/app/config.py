@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     """Run the live tick loop (the markets are still built when disabled, for commands)."""
     sim_seed: int | None = None
     """Fix the random seed to make a session reproducible."""
+    static_dir: Path | None = None
+    """Serve the built terminal from here, on the API's own origin (the one-service image)."""
 
     @property
     def seed_dir(self) -> Path:

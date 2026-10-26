@@ -6,6 +6,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 
 import app as app_pkg
@@ -79,6 +80,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     application.include_router(api.router)
     application.include_router(endpoint.router)
+    if settings.static_dir is not None:
+        # The one-service image (Render): the terminal itself, after /api and /ws.
+        application.mount(
+            "/", StaticFiles(directory=settings.static_dir, html=True), name="terminal"
+        )
     return application
 
 

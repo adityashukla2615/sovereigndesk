@@ -7,7 +7,11 @@ A live, Bloomberg-style terminal that simulates the **US Treasury market** and *
 
 **[Open the web demo →](https://adityashukla2615.github.io/sovereigndesk/)**
 
-The web demo runs entirely in your browser. Every reply and price tick in it was recorded from the real simulator on the committed data, and is played back. To run the live simulator, which computes everything as you type, clone the repo and start it (two commands, below).
+The web demo runs entirely in your browser. Every reply and price tick in it was recorded from the real simulator on the committed data, and is played back. To run the live simulator, which computes everything as you type, clone the repo and start it (two commands, below), or deploy your own free copy:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/adityashukla2615/sovereigndesk)
+
+Render's free plan runs it on the committed data (no API key needed). It sleeps after 15 idle minutes, and the first visit after that takes a minute or two to wake it.
 
 ![The terminal: price–yield, Fed corridor with a QT plan, India's call money corridor and the Treasury curve after a foreign sale](docs/screenshots/mvp-3-india.png)
 
@@ -40,7 +44,10 @@ Open **http://localhost:5173**. Keep that window running while you use the termi
 
 For live data, get a free [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html), copy `backend/.env.example` to `backend/.env`, put the key in it, and run `py tasks.py dev`. The key stays in `backend/.env`, which git ignores. It is never committed, logged or shown.
 
-With Docker: `docker compose up --build` (or `make up`) starts the backend, the nginx-served terminal, TimescaleDB and Redis. Then open http://localhost:8080.
+With Docker, either:
+
+- `docker compose up --build` (or `make up`) starts the backend, the nginx-served terminal, TimescaleDB and Redis. Then open http://localhost:8080.
+- `docker build -t sovereigndesk . && docker run -p 10000:10000 sovereigndesk` runs everything in one container on the committed data. Then open http://localhost:10000. This is the image `render.yaml` deploys.
 
 [DEMO.md](DEMO.md) is a three-minute walk-through in seven beats, with what to type and what to say.
 

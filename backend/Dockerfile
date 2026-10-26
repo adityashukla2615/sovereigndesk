@@ -16,6 +16,7 @@ COPY engine/ engine/
 COPY backend/ backend/
 RUN pip install ./engine "./backend[postgres,redis]"
 COPY data/seed/ data/seed/
+COPY data/replays/ data/replays/
 RUN mkdir -p data/cache && chown sovereign data/cache
 
 WORKDIR /srv/backend

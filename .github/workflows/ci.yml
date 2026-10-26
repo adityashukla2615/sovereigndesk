@@ -106,6 +106,30 @@ jobs:
       - if: always()
         run: docker compose down --volumes
 
+  render-image:
+    name: one-service image (Render)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -t sovereigndesk .
+      - run: docker run --detach --name desk -p 10000:10000 -e PORT=10000 sovereigndesk
+      - name: Probe the terminal, the API and the WebSocket on one port
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do curl -fsS http://localhost:10000/api/health && break; sleep 3; done
+          curl -fsS http://localhost:10000/api/health | grep -q '"status":"ok"'
+          curl -fsS http://localhost:10000/ | grep -q '<title>SovereignDesk</title>'
+          curl -fsS http://localhost:10000/api/commands | grep -q '"REPLAY"'
+          nonce=$(head -c 16 /dev/urandom | base64)
+          handshake=$(curl -si --max-time 3 http://localhost:10000/ws \
+            -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+            -H 'Sec-WebSocket-Version: 13' -H "Sec-WebSocket-Key: ${nonce}" || true)
+          echo "$handshake" | head -1 | grep -q ' 101 '
+      - if: failure()
+        run: docker logs desk
+      - if: always()
+        run: docker rm -f desk
+
   gitleaks:
     name: gitleaks
     runs-on: ubuntu-latest
