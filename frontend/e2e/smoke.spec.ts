@@ -64,6 +64,20 @@ test('every function answers on the real seed', async ({ page }) => {
   await expect(slot(page, 1, 'IMPACT')).toContainText('ILLUSTRATIVE');
 });
 
+test('enter on a suggestion that needs an amount fills it in rather than running it', async ({ page }) => {
+  const bar = page.getByRole('combobox', { name: 'command' });
+  await bar.fill('HIK');
+  await bar.press('ArrowDown');
+  await bar.press('Enter');
+  await expect(bar).toHaveValue('HIKE ');
+  await bar.pressSequentially('25BP');
+  await bar.press('Enter');
+  const log = page.getByRole('region', { name: 'event log' });
+  await expect(log).toContainText('FOMC hike +25 bp');
+  await run(page, 'RESET'); // the server is shared: leave no hike in the next test's run
+  await expect(slot(page, 2, 'FED')).toContainText('Target range 3.75%–4.00%,');
+});
+
 test('keys move between panels, maximise one and teach', async ({ page }) => {
   await page.keyboard.press('Alt+2');
   await expect(slot(page, 2, 'FED')).toBeFocused();

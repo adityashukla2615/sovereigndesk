@@ -1,8 +1,12 @@
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
+from app.config import Settings
+from app.data.catalog import SeriesSpec
+from app.data.service import DataService
+from app.db.session import make_engine, make_session_factory, upgrade_database
 from app.sim.simulator import DEFAULT_SPEED, Simulator
-from tests.support import make_us_anchors
+from tests.support import frame, make_us_anchors, write_seed
 
 START = datetime(2026, 10, 19, 13, 30, tzinfo=UTC)
 
@@ -68,3 +72,31 @@ def test_slow_subscribers_lose_old_messages_not_the_simulator() -> None:
         sim.tick(0.25)
     assert sub.queue.qsize() == 256
     assert sub.dropped == 44
+
+
+def test_a_new_run_keeps_the_fitted_models_until_the_data_changes(settings: Settings) -> None:
+    first = SeriesSpec("fred/A", "fred", "A", "First", "%", "D")
+    second = SeriesSpec("fred/B", "fred", "B", "Second", "%", "D")
+    write_seed(settings.seed_dir, [frame(first, [(date(2026, 10, 15), 4.1)])])
+    engine = make_engine(settings.database_url)
+    upgrade_database(engine)
+    service = DataService(settings, make_session_factory(engine), {})
+    service.bootstrap()
+    sim = Simulator(service, seed=3, clock=lambda: START)
+    sim.load(make_us_anchors())
+
+    def fitted() -> tuple[str | None, ...]:
+        return sim.mpc_error, sim.link_error, sim.impact_error
+
+    sim.mpc_error = sim.link_error = sim.impact_error = "fitted"  # stand-ins for fitted models
+    sim.load(make_us_anchors())  # RESET on the same data: nothing to fit again
+    assert fitted() == ("fitted", "fitted", "fitted")
+
+    write_seed(
+        settings.seed_dir,
+        [frame(first, [(date(2026, 10, 15), 4.1)]), frame(second, [(date(2026, 10, 15), 1.0)])],
+    )
+    assert service.bootstrap() == 1  # new data arrives
+    sim.load(make_us_anchors())
+    assert fitted() == (None, None, None)
+    engine.dispose()

@@ -20,6 +20,7 @@ import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -31,6 +32,7 @@ from app.sim.impact import ImpactModel, build_impact
 from app.sim.india_anchors import INAnchors, build_india_anchors
 from app.sim.india_market import IST, IndiaMarket
 from app.sim.linkage import LinkModel, LinkRun, build_link
+from app.sim.model_cache import cached
 from app.sim.mpc import MpcModel, build_mpc
 from app.sim.pubsub import PubSub
 from app.sim.us_market import USMarket
@@ -62,8 +64,13 @@ class Simulator:
         tick_seconds: float = 0.25,
         seed: int | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        model_cache: Path | None = None,
     ) -> None:
         self.data = data
+        self.model_cache = model_cache
+        """Where slow-to-fit models are kept between runs (SD_MODEL_CACHE_DIR), if anywhere."""
+        self._fitted_on: str | None = None
+        """The data revision the fitted models belong to: a RESET on the same data keeps them."""
         self.speed = speed
         self.tick_seconds = tick_seconds
         self.fixed_seed = seed
@@ -130,10 +137,15 @@ class Simulator:
         self._us_steps = 0
         self.events.clear()
         self.spreads = []
-        self.mpc, self.mpc_error = None, None
-        self.link, self.link_error = None, None
+        # The fitted models depend on the stored data, not on the run: a new run keeps them
+        # unless the data has changed since (the MPC predictor takes seconds to fit).
+        revision = self.data.revision() if self.data is not None else None
+        if revision is None or revision != self._fitted_on:
+            self.mpc, self.mpc_error = None, None
+            self.link, self.link_error = None, None
+            self.impact, self.impact_error = None, None
+            self._fitted_on = revision
         self.link_runs = []
-        self.impact, self.impact_error = None, None
         self._rng = np.random.default_rng(self.seed)
         try:
             anchors = anchors or build_us_anchors(self._require_data())
@@ -270,11 +282,15 @@ class Simulator:
                     self.mpc_error = "no data service"
                 else:
                     try:
-                        self.mpc = await asyncio.to_thread(build_mpc, self.data)
+                        self.mpc = await asyncio.to_thread(self._fit_mpc, self.data)
                     except Exception as exc:  # surfaced to the user rather than raised
                         self.mpc_error = f"{type(exc).__name__}: {exc}"
                         log.warning("MPC predictor unavailable: %s", self.mpc_error)
             return self.mpc
+
+    def _fit_mpc(self, data: DataService) -> MpcModel:
+        """The MPC predictor for the stored data, from the model cache when it holds one."""
+        return cached(self.model_cache, "mpc", data.revision(), lambda: build_mpc(data))
 
     async def link_model(self) -> LinkModel | None:
         """The calibrated linkage, built from the data on first use; None (with the reason in

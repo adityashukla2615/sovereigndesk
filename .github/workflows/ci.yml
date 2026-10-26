@@ -120,6 +120,7 @@ jobs:
           curl -fsS http://localhost:10000/api/health | grep -q '"status":"ok"'
           curl -fsS http://localhost:10000/ | grep -q '<title>SovereignDesk</title>'
           curl -fsS http://localhost:10000/api/commands | grep -q '"REPLAY"'
+          docker exec desk sh -c 'ls /srv/backend/var/models/mpc-*.pkl'
           nonce=$(head -c 16 /dev/urandom | base64)
           handshake=$(curl -si --max-time 3 http://localhost:10000/ws \
             -H 'Connection: Upgrade' -H 'Upgrade: websocket' \

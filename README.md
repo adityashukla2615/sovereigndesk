@@ -203,6 +203,7 @@ Settings are read from `backend/.env` or the environment.
 | `FRED_API_KEY` | none | Your FRED key; without it, US data comes from the seed |
 | `SD_OFFLINE` | `false` | Use the committed seed only, never the network (`py tasks.py dev --offline` sets it) |
 | `SD_SIM_SEED` | random | Fix the simulator's random seed, so a session repeats (DEMO.md uses 7) |
+| `SD_MODEL_CACHE_DIR` | none | Keep the fitted MPC predictor here for the stored data, so it is fitted once, not on every start (the one-service image fits it at build time) |
 | `SD_DATABASE_URL` | SQLite in `backend/var` | Any SQLAlchemy URL; Docker uses TimescaleDB |
 | `SD_FAIL_SOURCES` | `[]` | Treat sources as down, to see the CACHED and STALE badges: `["fred"]` |
 | `SD_SCHEDULER_ENABLED` | `true` | Refresh data in the background |

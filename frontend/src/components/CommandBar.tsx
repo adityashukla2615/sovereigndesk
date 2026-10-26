@@ -1,6 +1,6 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
-import { suggest } from '../lib/suggest';
+import { needsArguments, suggest } from '../lib/suggest';
 import type { CommandInfo } from '../market/types';
 
 const HISTORY_LIMIT = 50;
@@ -15,8 +15,9 @@ function isEditable(target: EventTarget | null): boolean {
 
 /**
  * Function-code input. `/` focuses it from anywhere, and Esc from a panel; while typing a code,
- * ↑/↓ pick a suggestion and Tab completes it; otherwise ↑/↓ walk the history. Esc in the bar
- * clears and blurs.
+ * ↑/↓ pick a suggestion and Tab completes it; Enter runs it, or completes it when the function
+ * needs an argument (HIKE → "HIKE "); otherwise ↑/↓ walk the history. Esc in the bar clears and
+ * blurs.
  */
 export function CommandBar({
   onSubmit,
@@ -71,6 +72,12 @@ export function CommandBar({
     switch (event.key) {
       case 'Enter': {
         const chosen = pick === null ? undefined : options[pick];
+        if (chosen && needsArguments(chosen)) {
+          // HIKE alone would only earn its usage: fill the code in and wait for the amount.
+          event.preventDefault();
+          complete(chosen);
+          break;
+        }
         submit(chosen ? chosen.code : value.trim());
         break;
       }

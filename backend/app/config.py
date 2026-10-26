@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     """Fix the random seed to make a session reproducible."""
     static_dir: Path | None = None
     """Serve the built terminal from here, on the API's own origin (the one-service image)."""
+    model_cache_dir: Path | None = None
+    """Keep slow-to-fit models here, per data revision (the one-service image fits at build)."""
 
     @property
     def seed_dir(self) -> Path:

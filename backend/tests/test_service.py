@@ -109,6 +109,20 @@ def test_live_refresh_then_ageing_to_cached(online: Settings, make_service: Serv
     assert _info(service) == (Quality.CACHED, "CACHED 2d")
 
 
+def test_revision_moves_when_data_is_stored_not_when_reloaded(
+    online: Settings, make_service: ServiceFactory
+) -> None:
+    write_seed(online.seed_dir, [frame(SPEC, [(date(2026, 10, 15), 4.1)])])
+    adapter = FakeAdapter()
+    service = make_service(online, adapter, Clock(NOW))
+    before = service.revision()
+    assert service.bootstrap() == 0
+    assert service.revision() == before
+    adapter.frames = [frame(SPEC, [(date(2026, 10, 15), 4.1)], when=NOW)]  # same value, new fetch
+    service.refresh("fred")
+    assert service.revision() != before
+
+
 def test_failed_refresh_keeps_data_and_flags_cached(
     online: Settings, make_service: ServiceFactory
 ) -> None:

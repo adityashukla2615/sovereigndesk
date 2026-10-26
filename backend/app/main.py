@@ -42,7 +42,7 @@ def _lifespan(settings: Settings) -> Callable[[FastAPI], AbstractAsyncContextMan
         )
         await run_in_threadpool(service.bootstrap)
         application.state.data = service
-        sim = Simulator(service, seed=settings.sim_seed)
+        sim = Simulator(service, seed=settings.sim_seed, model_cache=settings.model_cache_dir)
         await run_in_threadpool(sim.load)
         application.state.sim = sim
         if settings.sim_enabled:

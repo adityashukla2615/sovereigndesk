@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { suggest } from './suggest';
+import { needsArguments, suggest } from './suggest';
 import { bp, direction, inrCr, pct, usdBn } from './format';
 import { tickerQuotes } from './ticker';
 import { IN_TICK, US_TICK } from '../test/marketData';
@@ -49,6 +49,16 @@ describe('suggest', () => {
     expect(suggest(commands, 'q').map((c) => c.code)).toEqual(['QT', 'QUIT']);
     expect(suggest(commands, 'QT 95B')).toEqual([]);
     expect(suggest(commands, '')).toEqual([]);
+  });
+
+  it('knows which functions need an argument after their code', () => {
+    const usage = (u: string) => ({ code: '', usage: u, summary: '', group: 'US', available: true, available_in: null });
+    for (const u of ['HIKE 25BP', 'QT 95B | QT OFF', 'SHOCK JP 200B [10D] | SHOCK FED 50BP', 'SAVE name', 'EXPORT CSV|PNG']) {
+      expect(needsArguments(usage(u))).toBe(true);
+    }
+    for (const u of ['UST', 'PY [tenor]', 'HELP [code]', 'LAYOUT [SAVE|DELETE] name | LAYOUT DEFAULT', 'IMPACT [RETAIL] [+100BP]']) {
+      expect(needsArguments(usage(u))).toBe(false);
+    }
   });
 });
 

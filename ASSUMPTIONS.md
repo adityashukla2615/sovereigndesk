@@ -260,7 +260,7 @@ The Taylor rule also reads the output gap: real GDP over four quarters (which re
 | Penalty and start | L2 λ = 1; the first 24 decisions train the first forecast |
 | Output gap | HP λ = 1600 (quarterly), one-sided |
 
-**In the terminal.** `MPC` uses the model fitted on the stored data (refitted when the data changes) and today's features. The simulation replaces four of them: WACR − repo and liquidity from the simulated money market, the 91-day bill from the simulated 3-month T-bill (FBIL's benchmark, not an auction cut-off), and the Fed funds rate from the US simulation. The previous decision is the simulation's own repo move if there has been one.
+**In the terminal.** `MPC` uses the model fitted on the stored data (refitted when the data changes) and today's features. Fitting takes about 7 CPU-seconds, so the fitted model survives `RESET` and `LOAD` while the stored data is unchanged (the data's revision is its row count and latest fetch time), and with `SD_MODEL_CACHE_DIR` it is kept on disk for that revision. The one-service image fits it at build time: on Render's free plan (a tenth of a CPU) a first fit would stall every command for over a minute. The simulation replaces four of them: WACR − repo and liquidity from the simulated money market, the 91-day bill from the simulated 3-month T-bill (FBIL's benchmark, not an auction cut-off), and the Fed funds rate from the US simulation. The previous decision is the simulation's own repo move if there has been one.
 
 **Known limitations.**
 

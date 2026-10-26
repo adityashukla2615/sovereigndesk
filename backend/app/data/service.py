@@ -334,6 +334,15 @@ class DataService:
             points = session.execute(query.order_by(Observation.date)).all()
         return SeriesView(infos[0], [d for d, _ in points], [float(v) for _, v in points])
 
+    def revision(self) -> str:
+        """A fingerprint of the stored observations: it changes whenever rows are added or
+        fetched again, so models fitted on the data know when they are out of date."""
+        with self.sessions() as session:
+            rows, latest = session.execute(
+                select(func.count(), func.max(Observation.fetched_at))
+            ).one()
+        return f"{rows}@{as_utc(latest).isoformat() if latest is not None else '-'}"
+
     def latest_values(self, series_ids: Iterable[str]) -> dict[str, tuple[date, float]]:
         """Latest (date, value) of each requested series that has data."""
         with self.sessions() as session:
