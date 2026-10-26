@@ -8,8 +8,8 @@ QT, a Japanese sale, then India: the G-sec curve, a repo cut (which moves it), a
 reverse repo, the spread to Treasuries, the MPC forecast and a Fed hike run through to India's
 money market (SHOCK FED, LINK), what it means for an investor and two businesses (IMPACT), and
 two replays of real episodes (REPLAY), then the rest of the terminal's panels (CALL, LAF,
-NDTL, TAXCAL, CCIL, DEBT, TIC, CORR, HELP, LAYOUT), run forward at a simulated day per second.
-Each beat
+NDTL, TAXCAL, CCIL, DEBT, TIC, CORR, HELP, LAYOUT), run forward at a simulated day per second;
+after a RESET, every command DEMO.md types, and its saved scenario loaded again. Each beat
 must succeed with its narrative in the event log, and the live ticks must keep EFFR inside the
 Fed's range and WACR inside its band (RBI's corridor in policy mode; in realistic mode, the
 default, as far outside it as WACR has printed).
@@ -18,6 +18,7 @@ default, as far outside it as WACR has printed).
 import io
 import itertools
 import json
+import re
 import sys
 import tempfile
 import time
@@ -117,6 +118,18 @@ BEATS = [
     Beat("LAYOUT SAVE DEMO", None, check="checked here, kept by the browser"),
     Beat("SPEED 1440X", None, None, "a simulated day per second"),
 ]
+
+
+DEMO_MD = REPO_ROOT / "DEMO.md"
+
+
+def demo_script() -> list[str]:
+    """Every command DEMO.md tells the presenter to type, in order."""
+    commands: list[str] = []
+    for line in DEMO_MD.read_text("utf-8").splitlines():
+        if line.startswith("Type:"):
+            commands += re.findall(r"`([^`]+)`", line)
+    return commands
 
 
 class DemoError(Exception):
@@ -267,6 +280,10 @@ def main() -> int:
                 )
                 end = s.command("CALL")
                 reset = s.command("RESET")
+                # Then DEMO.md as written, from the anchors: every typed command must answer,
+                # and the scenario it saves at the end must load again.
+                script = [(text, s.command(text)) for text in demo_script()]
+                loaded = s.command("LOAD DEMO")
     width = max(len(b.command) for b in BEATS)
     for beat in BEATS:
         mark = "ok " if beat.passed else "BAD"
@@ -276,11 +293,18 @@ def main() -> int:
         "CALL answers after four simulated days": bool(end["ok"]),
         "RESET restores the anchors": bool(reset["ok"]),
         "EFFR in the Fed's range and WACR in its band on every tick": not s.violations,
+        f"DEMO.md: all {len(script)} typed commands answer": bool(script)
+        and all(reply["ok"] for _, reply in script),
+        "DEMO.md's saved scenario loads again": bool(loaded["ok"])
+        and "replayed" in loaded["message"],
     }
     for name, ok in checks.items():
         print(f"[{'ok ' if ok else 'BAD'}] {name}")
     for violation in s.violations[:5]:
         print(f"      {violation}")
+    for text, reply in script:
+        if not reply["ok"]:
+            print(f"      DEMO.md {text}: {reply['message']}")
     passed = all(b.passed for b in BEATS) and all(checks.values())
     print("demo check passed" if passed else "demo check FAILED")
     return 0 if passed else 1

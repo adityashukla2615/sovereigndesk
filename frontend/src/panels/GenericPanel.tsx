@@ -11,7 +11,7 @@ function isCommandList(value: unknown): value is CommandInfo[] {
   return Array.isArray(value) && value.every((c) => typeof c === 'object' && c !== null && 'code' in c);
 }
 
-/** Any other function: its message and the simple values in its data, until it gets a panel. */
+/** A function without a panel of its own: its message and the simple values in its data. */
 export function GenericPanel({ slot }: { slot: Slot }) {
   const reply = Object.values(slot.replies).at(-1);
   if (!reply) return <p className="p-2 text-xs text-term-muted">Type {slot.panel} to load it.</p>;
@@ -48,7 +48,7 @@ export function GenericPanel({ slot }: { slot: Slot }) {
           </tbody>
         </table>
       )}
-      <p className="text-[10px] text-term-muted">The full panel for {slot.panel} arrives in Phase 12.</p>
+      <p className="text-[10px] text-term-muted">{slot.panel} has no chart of its own: its reply is shown as it came.</p>
     </div>
   );
 }

@@ -189,6 +189,39 @@ describe('Terminal panels, layouts and keys (Phase 12)', () => {
     expect(region(4, 'CALL')).toBeInTheDocument();
   });
 
+  it('exports the focused panel, and asks every panel again after a new run', async () => {
+    await openTerminal();
+    const files: { name: string; blob: Blob }[] = [];
+    let pending: Blob | null = null;
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: (blob: Blob) => {
+        pending = blob;
+        return 'blob:test';
+      },
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: () => undefined });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      if (pending) files.push({ name: this.download, blob: pending });
+    });
+    reply('TAXCAL', TAXCAL_DATA);
+    reply('EXPORT', { export: { format: 'csv' } }, { panel: null });
+    await waitFor(() => {
+      expect(files).toHaveLength(1);
+    });
+    expect(files[0]?.name).toBe('sovereigndesk-taxcal-projection-202610200500.csv');
+    expect(await files[0]?.blob.text()).toMatch(/^date,government,surplus,surplus_pct,p_vrr,p_vrrr\r\n2026-10-21,/);
+    const log = screen.getByRole('region', { name: 'event log' });
+    expect(log).toHaveTextContent('Saved sovereigndesk-taxcal-projection-202610200500.csv: 2 rows × 6 columns');
+    reply('EXPORT', { export: { format: 'png' } }, { panel: null });
+    await waitFor(() => {
+      expect(log).toHaveTextContent('TAXCAL shows no chart to export'); // jsdom lays nothing out
+    });
+    const before = sentCommands().length;
+    reply('LOAD', { refresh: true }, { panel: null });
+    expect(sentCommands().slice(before)).toEqual(['TAXCAL', 'FED', 'WACR', 'UST']);
+  });
+
   it('moves between panels with Alt+arrows, maximises one, and comes back to the command bar', async () => {
     await openTerminal();
     altKey('ArrowRight');

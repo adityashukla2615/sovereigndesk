@@ -9,7 +9,7 @@ from app.commands.parser import (
     parse_inr_cr,
     parse_percent,
 )
-from app.commands.registry import CommandResult, command
+from app.commands.registry import CommandResult, always, command
 from app.sim.ccil import ccil_panel
 from app.sim.events import bp, inr_cr, pct
 from app.sim.india_market import IST, IndiaMarket, WacrMode
@@ -59,6 +59,7 @@ async def call(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     "WACR and RBI's corridor: the fitted macro map, real and simulated days; set the mode",
     "IN",
     needs_market=False,
+    records=bool,  # WACR POLICY / REALISTIC switch the mode; bare WACR only shows it
 )
 async def wacr(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     m = _india(sim)
@@ -132,6 +133,7 @@ async def ndtl(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     "Change the cash reserve ratio from the next fortnight and see the liquidity drain",
     "IN",
     needs_market=False,
+    records=always,
 )
 async def crr(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     if len(args) != 1:
@@ -160,6 +162,7 @@ async def crr(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     "Change the policy repo rate; the SDF and MSF move with it at once",
     "IN",
     needs_market=False,
+    records=always,
 )
 async def repo(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     if len(args) != 1:
@@ -208,6 +211,7 @@ async def _operation(sim: Simulator, args: tuple[str, ...], kind: AuctionKind) -
     "Variable rate repo auction: RBI lends (injection)",
     "IN",
     needs_market=False,
+    records=always,
 )
 async def vrr(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     return await _operation(sim, args, "VRR")
@@ -219,6 +223,7 @@ async def vrr(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     "Variable rate reverse repo auction: RBI borrows (absorption)",
     "IN",
     needs_market=False,
+    records=always,
 )
 async def vrrr(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     return await _operation(sim, args, "VRRR")

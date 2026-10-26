@@ -1,7 +1,7 @@
 """The command registry: every function code, its usage and handler, in one place.
 
-The frontend's autocomplete and HELP both read this registry, so it lists functions that later
-phases will implement too, flagged as not yet available.
+The frontend's autocomplete and HELP both read this registry. A function still being built can
+be registered as planned, so HELP lists it, flagged as not yet available.
 """
 
 import difflib
@@ -34,6 +34,15 @@ class CommandResult:
 
 
 Handler = Callable[[Simulator, tuple[str, ...]], Awaitable[CommandResult]]
+Records = Callable[[tuple[str, ...]], bool]
+
+
+def never(_: tuple[str, ...]) -> bool:
+    return False
+
+
+def always(_: tuple[str, ...]) -> bool:
+    return True
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +55,8 @@ class CommandSpec:
     needs_market: bool = True
     available_in: str | None = None
     """For planned functions: the phase that delivers them."""
+    records: Records = never
+    """Whether a run with these arguments changes the markets, and so joins the scenario."""
 
     @property
     def available(self) -> bool:
@@ -56,10 +67,18 @@ REGISTRY: dict[str, CommandSpec] = {}
 
 
 def command(
-    code: str, usage: str, summary: str, group: Group, *, needs_market: bool = True
+    code: str,
+    usage: str,
+    summary: str,
+    group: Group,
+    *,
+    needs_market: bool = True,
+    records: Records = never,
 ) -> Callable[[Handler], Handler]:
     def register(handler: Handler) -> Handler:
-        REGISTRY[code] = CommandSpec(code, usage, summary, group, handler, needs_market)
+        REGISTRY[code] = CommandSpec(
+            code, usage, summary, group, handler, needs_market, records=records
+        )
         return handler
 
     return register
@@ -84,7 +103,8 @@ def catalog() -> list[dict[str, Any]]:
     return [describe(s) for s in sorted(REGISTRY.values(), key=lambda s: (s.group, s.code))]
 
 
-async def execute(sim: Simulator, text: str) -> CommandResult:
+async def execute(sim: Simulator, text: str, *, replaying: bool = False) -> CommandResult:
+    """Run one command line. While a scenario loads only its own commands run (``replaying``)."""
     try:
         parsed = tokenize(text)
     except CommandError as exc:
@@ -98,16 +118,23 @@ async def execute(sim: Simulator, text: str) -> CommandResult:
         )
     if spec.handler is None:
         return CommandResult(False, spec.code, f"{spec.code} arrives in {spec.available_in}.")
+    if sim.loading is not None and not replaying:
+        return CommandResult(
+            False, spec.code, f"Scenario {sim.loading} is loading: try again in a moment"
+        )
     if spec.needs_market and sim.us is None:
         return CommandResult(False, spec.code, f"Simulator is not running: {sim.error}")
     before = sim.events.total
+    text = " ".join((parsed.code, *parsed.args))
     try:
         result = await spec.handler(sim, parsed.args)
     except (CommandError, ValueError) as exc:
         result = CommandResult(False, spec.code, str(exc))
+    if result.ok and spec.records(parsed.args):
+        sim.record(text)
     return replace(
         result,
         narrated=sim.events.total > before,
         sim_time=sim.sim_time.isoformat(),
-        command=" ".join((parsed.code, *parsed.args)),
+        command=text,
     )

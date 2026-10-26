@@ -73,7 +73,12 @@ async def resume(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
 )
 async def reset(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     sim.load(sim.us.anchors if sim.us else None, sim.india.anchors if sim.india else None)
-    return CommandResult(True, "RESET", "Reset to the real anchors; all shocks cleared")
+    return CommandResult(
+        True,
+        "RESET",
+        f"Reset to the real anchors; all shocks cleared (a new run, seed {sim.seed})",
+        data={"refresh": True},
+    )
 
 
 LAYOUT_NAME = re.compile(r"^[A-Z0-9][A-Z0-9_-]{0,23}$")

@@ -14,6 +14,7 @@ import {
 } from 'lightweight-charts';
 import { useEffect, useRef } from 'react';
 
+import { registerChart, unregisterChart } from '../lib/exporting';
 import { palette } from '../lib/palette';
 
 export interface TimeLine {
@@ -86,7 +87,9 @@ export function TimeChart({ data, label }: { data: TimeChartData; label: string 
       handleScale: false,
     });
     chartRef.current = chart;
+    registerChart(box, () => Promise.resolve(chart.takeScreenshot()));
     return () => {
+      unregisterChart(box);
       chart.remove();
       chartRef.current = null;
       linesRef.current = [];
@@ -137,5 +140,5 @@ export function TimeChart({ data, label }: { data: TimeChartData; label: string 
     chart.timeScale().fitContent();
   }, [data]);
 
-  return <div ref={boxRef} role="img" aria-label={label} className="h-full min-h-0 w-full min-w-0" />;
+  return <div ref={boxRef} role="img" aria-label={label} data-chart className="h-full min-h-0 w-full min-w-0" />;
 }

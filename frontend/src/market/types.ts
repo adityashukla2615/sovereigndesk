@@ -789,3 +789,10 @@ export function layoutRequestOf(value: unknown): LayoutRequest | null {
   if (typeof action !== 'string' || !actions.includes(action)) return null;
   return { action: action as LayoutRequest['action'], name: typeof name === 'string' ? name : null };
 }
+
+/** What an EXPORT reply asks the terminal to save (backend app.commands.scenario.export). */
+export function exportRequestOf(value: unknown): 'csv' | 'png' | null {
+  if (!isRecord(value) || !isRecord(value.export)) return null;
+  const format = value.export.format;
+  return format === 'csv' || format === 'png' ? format : null;
+}

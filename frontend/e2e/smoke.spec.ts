@@ -1,5 +1,7 @@
 /** Smoke test: the terminal on the real seed, every function's panel, the keys and layouts. */
 
+import { readFile, stat } from 'node:fs/promises';
+
 import { type Page, expect, test } from '@playwright/test';
 
 /** Each function, and something its panel shows once its reply has arrived. */
@@ -77,6 +79,34 @@ test('keys move between panels, maximise one and teach', async ({ page }) => {
   await expect(slot(page, 4, 'HELP').getByRole('region', { name: 'help for UST' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('combobox', { name: 'command' })).toBeFocused();
+});
+
+test('a scenario saves and loads again, and a panel exports as CSV and PNG', async ({ page }) => {
+  const log = page.getByRole('region', { name: 'event log' });
+  await run(page, 'HIKE 25BP');
+  await expect(log).toContainText('FOMC hike +25 bp');
+  const hiked = /target range (\S+%–\S+%);/.exec((await log.textContent()) ?? '')?.[1];
+  expect(hiked).toBeDefined();
+  await run(page, 'SAVE E2E');
+  await expect(log).toContainText('Scenario E2E saved');
+  await run(page, 'CUT 50BP');
+  await run(page, 'LOAD E2E');
+  await expect(log).toContainText('Scenario E2E loaded: seed 7, 1 command(s) replayed');
+  // The panels ask again: FED shows the run as saved, hike and all, not the later cut.
+  await expect(slot(page, 2, 'FED')).toContainText(`Target range ${hiked ?? ''},`);
+
+  const csv = page.waitForEvent('download');
+  await run(page, 'EXPORT CSV');
+  const table = await csv;
+  expect(table.suggestedFilename()).toMatch(/^sovereigndesk-py-\d{12}\.csv$/);
+  const text = await readFile(await table.path(), 'utf-8');
+  expect(text.split('\r\n')[0]).toBe('shifts_bp,exact,duration_only,duration_convexity');
+  const png = page.waitForEvent('download');
+  await run(page, 'EXPORT PNG');
+  const picture = await png;
+  expect(picture.suggestedFilename()).toMatch(/^sovereigndesk-py-\d{12}\.png$/);
+  expect((await stat(await picture.path())).size).toBeGreaterThan(10_000);
+  await picture.saveAs(test.info().outputPath('panel.png')); // kept with the run, to look at
 });
 
 test('a saved layout comes back, and the terminal reopens as it was left', async ({ page }) => {

@@ -12,7 +12,7 @@ from app.commands.parser import (
     parse_usd_bn,
     resolve_country,
 )
-from app.commands.registry import CommandResult, command
+from app.commands.registry import CommandResult, always, command
 from app.sim.events import bp, pct, usd_bn
 from app.sim.simulator import Simulator
 from app.sim.us_market import COUPON_TENORS, DISPLAY_TENORS, USMarket
@@ -114,18 +114,28 @@ async def _policy(sim: Simulator, args: tuple[str, ...], sign: int, code: str) -
 
 
 @command(
-    "HIKE", "HIKE 25BP", "Raise the fed funds target range (IORB and ON RRP move with it)", "US"
+    "HIKE",
+    "HIKE 25BP",
+    "Raise the fed funds target range (IORB and ON RRP move with it)",
+    "US",
+    records=always,
 )
 async def hike(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     return await _policy(sim, args, +1, "HIKE")
 
 
-@command("CUT", "CUT 25BP", "Lower the fed funds target range", "US")
+@command("CUT", "CUT 25BP", "Lower the fed funds target range", "US", records=always)
 async def cut(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     return await _policy(sim, args, -1, "CUT")
 
 
-@command("QT", "QT 95B | QT OFF", "Set the monthly balance-sheet runoff, or stop it", "US")
+@command(
+    "QT",
+    "QT 95B | QT OFF",
+    "Set the monthly balance-sheet runoff, or stop it",
+    "US",
+    records=always,
+)
 async def qt(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     if len(args) != 1:
         raise CommandError("Usage: QT 95B or QT OFF")
@@ -216,6 +226,7 @@ async def tic(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     "SHOCK JP 200B [10D] [SHORT|BELLY|LONG] | SHOCK FED 50BP [VRR|OMO|SWAP|HIKE] [VIX+10]",
     "A foreign holder sells Treasuries; or a Fed move runs through to India's money market",
     "US",
+    records=always,
 )
 async def shock(sim: Simulator, args: tuple[str, ...]) -> CommandResult:
     if args and args[0] == "FED":

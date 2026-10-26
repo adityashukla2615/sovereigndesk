@@ -1,6 +1,6 @@
 # Assumptions
 
-Every modelling assumption in SovereignDesk, and what is real data versus simulated. Sections are added as each phase lands; the plan is in [docs/PLAN.md](docs/PLAN.md).
+Every modelling assumption in SovereignDesk, and what is real data versus simulated, in the order the phases built them. The plan and the decisions taken along the way are in [docs/PLAN.md](docs/PLAN.md); the walk-through is [DEMO.md](DEMO.md).
 
 ## Data honesty
 
@@ -60,7 +60,7 @@ The runoff pace QT starts with is the one observed in the last 13 weeks of H.4.1
 | Sell-off impact | Calibrated to Beltran et al.: $100bn in a month moves the bucket centre +20 bp permanently and +30 bp temporarily. The impact is scaled by debt held by the public in June 2010 relative to today, and the temporary part follows a square-root law in pace with a 5-day half-life. It spreads along the curve with kernel e^(−\|τ − τ_k\|/5y). Buckets are centred on SHORT 2y, BELLY 5y and LONG 20y. Defaults: pace 1 day, mix BELLY. |
 | Dollar | −0.25% per $100bn sold by foreign holders. **Uncalibrated**, and labelled so in the event text. |
 | Debt projection | Like-for-like rollover. Deficits (last 12 months) are financed at the stock/term mix. Both yield paths are held flat: today's curve against the simulated one. TIPS earn the real coupon plus 2.5% inflation and are reissued as nominal debt; FRNs pay the 3-month yield plus 10 bp. GDP and receipts grow 4% a year in nominal terms. |
-| Clock | One wall-clock second is one simulated minute (SPEED changes this). Ticks run at 4 Hz, and each tick message carries the full US state. The markets re-anchor when newer real data arrives and keep their shocks. |
+| Clock | One wall-clock second is one simulated minute (SPEED changes this). Ticks run at 4 Hz, and each tick message carries the full US state. The US market itself steps once per simulated minute, on a fixed grid from the run's start (since Phase 13), so its path depends on simulated time and not on how the ticks happen to fall. The markets re-anchor when newer real data arrives and keep their shocks. |
 
 ## India data sources (backend, Phase 5)
 
@@ -184,7 +184,7 @@ Commands: `REPO ±25BP` moves repo, SDF and MSF together at once; `CRR 3.5` take
 
 **Day-to-day moves.** Two factors with the pass-through's own loadings, expectations A(τ; κ) and term premium T(τ), move the coupon tenors. Their daily shocks come from regressing each day's par-yield changes (2Y to 30Y) on the two loadings over 880 days of FBIL's daily coverage, repo-change days left out: an s.d. of 5.3 bp a day for the expectations factor (whose loading is 0.57 at 2 years and 0.16 at 10) and 1.8 bp for the term premium (one at 10 years), correlation +0.27. What the two loadings leave unexplained, 1.5 bp RMS per tenor and day, is not simulated. The factors step with every clearing round (09:15–17:00 IST on business days) as OU processes with a half-life of 125 business days, about six months: an **assumption** (`GsecParams.factor_half_life_days`). Without news the curve so drifts back to FBIL's close plus the policy moves. The bills move with the money market only (repo and liquidity).
 
-**SPRD.** FBIL's 10-year par yield against Treasury's 10-year par yield (both semi-annual), on the dates both published: 853 days from 7 Feb 2023 to 13 Oct 2026 on the seed, during which the spread fell from 361 bp to 218 bp. In the simulation each business day's G-sec close (23:59 IST) is paired with the US 10-year at that moment, and the panel adds the live spread. The two markets do not move each other yet: US → India transmission is Phase 9 (LINK).
+**SPRD.** FBIL's 10-year par yield against Treasury's 10-year par yield (both semi-annual), on the dates both published: 853 days from 7 Feb 2023 to 13 Oct 2026 on the seed, during which the spread fell from 361 bp to 218 bp. In the simulation each business day's G-sec close (23:59 IST) is paired with the US 10-year at that moment, and the panel adds the live spread. The two markets move each other only through the US → India chain (`SHOCK FED`, `LINK`; Phase 9).
 
 **Invariants** (every tick): every point is finite and between −5% and 50%, and the NSS refit stays within 25 bp RMSE of the points.
 
@@ -485,6 +485,44 @@ The rates and volumes on the diagram are the simulated day's (TREPS and market r
 - Esc returns to the command bar.
 
 **Charts.** Time series use TradingView Lightweight Charts™: the replays, the call rounds, DEBT and TAXCAL's projection. Curves and heatmaps use ECharts, as the brief has it.
+
+## Scenarios and exports (Phase 13)
+
+**A scenario is a run's seed, its start and its journal.** The journal lists the commands that changed the markets, each with the simulated time it ran:
+
+- `HIKE`, `CUT` and `QT`;
+- `SHOCK` (a foreign sale or a Fed shock through the linkage);
+- `REPO`, `CRR`, `VRR` and `VRRR`;
+- `WACR POLICY` and `WACR REALISTIC`.
+
+Commands that only show something are left out, and so are `SPEED` and `PAUSE`, since the paths depend on simulated time alone: India's market runs a fixed daily schedule, and the US market steps on its one-minute grid. Each run draws a fresh seed unless `SD_SIM_SEED` fixes one, and `RESET` starts a new run.
+
+**SAVE and LOAD.**
+
+- `SAVE name` stores the scenario in the database (`scenarios` table, migration 0002).
+- `LOAD name` rebuilds the markets from the current anchors with the saved seed and start, runs to each command's time and runs it again, and stops where the run was saved. The clock stands still while it loads, and other commands are turned away until it is done.
+- The replay is exact: a backend test saves a run whose clock ticked unevenly, changes it, loads it, and compares every price, rate, balance and auction. `py tasks.py demo` saves and loads the DEMO.md run on the seed.
+- It is exact only from the same anchors. If newer data has arrived since the save, LOAD says so and replays from the newer anchors. A live run that re-anchored part-way (new US data on a new simulated day) is not journaled either: its replay uses the newer anchors from the start.
+- The SPRD chart's simulated points pair each G-sec close with the US 10-year at the tick that saw it, so they can differ by a minute's move after a LOAD. The markets themselves do not.
+- Module E's edited portfolio and businesses are inputs to a view, not part of the scenario.
+
+**EXPORT CSV** saves the focused panel's main table:
+
+| Panel | Table |
+|---|---|
+| PY | price change by yield shift: exact, duration, duration + convexity |
+| UST | the live curve and the official close, by tenor |
+| GSEC | FBIL's close and the live curve, by tenor |
+| FED | the QT projection if one is set, else the panel's fields |
+| WACR, SPRD | RBI's (Treasury's) history |
+| CALL, LAF, NDTL, TIC, CCIL | the rounds, the auctions, the banks, the holders, the segments |
+| TAXCAL, LINK, DEBT | the projection ahead, the chain's daily path, the interest bill by month |
+| MPC, IMPACT | the backtest's recent decisions, the portfolio's holdings |
+| REPLAY | every target's path, actual and modelled, by date |
+
+Other panels give their largest table, or their fields as name/value pairs. Nested fields are dotted (`hold.coupons`).
+
+**EXPORT PNG** stacks the panel's charts under its title and each chart's label, as drawn: ECharts' SVG and Lightweight Charts' canvas. Diagrams and tables are not drawn; their data is in the CSV. Files are named `sovereigndesk-<panel>[-<table>]-<simulated time>`.
 
 ## Bond conventions (engine, Phase 2)
 

@@ -1,5 +1,6 @@
+import { runExport } from '../app/exportPanel';
 import { runLayout } from '../app/layoutCommand';
-import { isCommandReply, isInTick, isUsTick, layoutRequestOf } from '../market/types';
+import { exportRequestOf, isCommandReply, isInTick, isUsTick, layoutRequestOf } from '../market/types';
 import { useConnection } from '../store/connection';
 import { useMarket } from '../store/market';
 import { WsClient, type WsClientOptions, defaultWsUrl } from './client';
@@ -15,10 +16,15 @@ export function route(message: Envelope): void {
   else if (topic === 'in.tick' && isInTick(data)) market.setIndia(data);
   else if (topic === 'command' && isCommandReply(data)) market.applyReply(data);
   useConnection.getState().receive(message);
-  // LAYOUT runs here in the browser, once the backend has checked the request.
-  if (topic === 'command' && isCommandReply(data) && data.ok && data.code === 'LAYOUT') {
-    const request = layoutRequestOf(data.data);
-    if (request) runLayout(request, send);
+  if (topic !== 'command' || !isCommandReply(data) || !data.ok) return;
+  // LAYOUT and EXPORT run here in the browser, once the backend has checked the request.
+  const layout = data.code === 'LAYOUT' ? layoutRequestOf(data.data) : null;
+  if (layout) runLayout(layout, send);
+  const format = data.code === 'EXPORT' ? exportRequestOf(data.data) : null;
+  if (format) void runExport(format);
+  // A new run (RESET, LOAD): every panel asks again for what it shows.
+  if (data.data?.refresh === true) {
+    for (const text of new Set(useMarket.getState().slots.map((s) => s.command))) send({ op: 'command', text });
   }
 }
 

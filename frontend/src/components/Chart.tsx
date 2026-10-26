@@ -12,6 +12,9 @@ import { type ECharts, type EChartsCoreOption, init, use as registerModules } fr
 import { SVGRenderer } from 'echarts/renderers';
 import { useEffect, useRef } from 'react';
 
+import { registerChart, svgImage, unregisterChart } from '../lib/exporting';
+import { palette } from '../lib/palette';
+
 // Tree-shaken ECharts: only the chart types and components the panels use.
 registerModules([
   HeatmapChart,
@@ -39,6 +42,7 @@ export function Chart({ option, label }: { option: ChartOption; label: string })
     if (!box) return;
     const chart = init(box, undefined, { renderer: 'svg' });
     chartRef.current = chart;
+    registerChart(box, () => svgImage(chart.getDataURL({ type: 'svg', backgroundColor: palette().bg })));
     const observer =
       typeof ResizeObserver === 'undefined'
         ? null
@@ -48,6 +52,7 @@ export function Chart({ option, label }: { option: ChartOption; label: string })
     observer?.observe(box);
     return () => {
       observer?.disconnect();
+      unregisterChart(box);
       chart.dispose();
       chartRef.current = null;
     };
@@ -57,5 +62,5 @@ export function Chart({ option, label }: { option: ChartOption; label: string })
     chartRef.current?.setOption(option, { notMerge: true, lazyUpdate: true });
   }, [option]);
 
-  return <div ref={boxRef} role="img" aria-label={label} className="h-full min-h-0 w-full min-w-0" />;
+  return <div ref={boxRef} role="img" aria-label={label} data-chart className="h-full min-h-0 w-full min-w-0" />;
 }

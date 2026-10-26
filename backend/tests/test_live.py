@@ -88,8 +88,7 @@ def test_command_catalogue_endpoint(live: TestClient) -> None:
     assert commands["IMPACT"]["available"] is True
     assert commands["REPLAY"]["available"] is True
     assert commands["CCIL"]["available"] is True
-    assert commands["SAVE"]["available"] is False
-    assert "Phase 13" in commands["SAVE"]["available_in"]
+    assert all(c["available"] for c in commands.values())  # every function is built
 
 
 def test_india_anchors_to_the_real_seed_and_streams(live: TestClient) -> None:

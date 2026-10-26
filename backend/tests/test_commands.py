@@ -14,6 +14,7 @@ from app.commands.parser import (
     resolve_country,
     tokenize,
 )
+from app.commands.registry import CommandSpec
 from app.sim.simulator import DEFAULT_SPEED, Simulator
 from tests.support import make_us_anchors
 
@@ -74,17 +75,19 @@ def test_registry_lists_every_planned_function() -> None:
     assert REGISTRY["REPLAY"].available
     assert REGISTRY["CCIL"].available
     assert REGISTRY["LAYOUT"].available
-    assert not REGISTRY["SAVE"].available
+    assert REGISTRY["SAVE"].available
     assert REGISTRY["PY"].available
 
 
-def test_unknown_and_planned_codes(sim: Simulator) -> None:
+def test_unknown_and_planned_codes(sim: Simulator, monkeypatch: pytest.MonkeyPatch) -> None:
     unknown = run(sim, "UTS")
     assert not unknown.ok
     assert "Did you mean UST?" in unknown.message
-    later = run(sim, "SAVE DEMO")
+    later_spec = CommandSpec("LATER", "LATER", "Later", "SYS", None, available_in="Phase 99")
+    monkeypatch.setitem(REGISTRY, "LATER", later_spec)  # every real function is built now
+    later = run(sim, "LATER")
     assert not later.ok
-    assert "Phase 13" in later.message
+    assert "Phase 99" in later.message
     assert not run(sim, "").ok
 
 

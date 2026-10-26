@@ -47,6 +47,25 @@ class SourceStatusRow(Base):
     rows: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class ScenarioRow(Base):
+    """A saved scenario (SAVE name): a run's seed and start, and the commands that changed it."""
+
+    __tablename__ = "scenarios"
+
+    name: Mapped[str] = mapped_column(String(24), primary_key=True)
+    seed: Mapped[int] = mapped_column(Integer)
+    started: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    """Simulated time at which the run began."""
+    saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    """Simulated time when it was saved: LOAD runs the scenario up to here."""
+    us_as_of: Mapped[date | None] = mapped_column(Date, nullable=True)
+    india_as_of: Mapped[date | None] = mapped_column(Date, nullable=True)
+    commands: Mapped[str] = mapped_column(Text)
+    """JSON: ``[{"at": ISO time, "text": "HIKE 25BP"}, …]`` in the order they ran."""
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    """Wall-clock time of the save."""
+
+
 class MspdSecurity(Base):
     """Monthly Statement of the Public Debt, table 3: one row per marketable security issue."""
 

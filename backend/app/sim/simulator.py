@@ -2,15 +2,21 @@
 
 By default one wall-clock second is one simulated minute (``speed`` = 60 sim seconds per wall
 second). Each tick advances the US and Indian markets, asserts their invariants, and publishes
-``us.tick`` and ``in.tick``. The two markets are built independently: if one cannot anchor to
-real data, the other still runs. When the simulated date rolls over and newer US data has
+``us.tick`` and ``in.tick``. The two markets are built independently: if one cannot anchor
+to real data, the other still runs. When the simulated date rolls over and newer US data has
 arrived, the US market re-anchors to it while keeping every shock. Each simulated business
 day's G-sec close is paired with the US 10-year at that moment for the SPRD chart.
+
+The markets' paths depend on simulated time only, never on how the wall clock happened to tick:
+India's market runs a fixed daily schedule, and the US market steps on a fixed grid of
+``US_STEP`` from the run's start. With the run's seed and the journal of the commands that
+changed the markets (and when), a scenario replays exactly (SAVE, LOAD).
 """
 
 import asyncio
 import contextlib
 import logging
+import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -33,6 +39,9 @@ log = logging.getLogger(__name__)
 
 DEFAULT_SPEED = 60.0
 YEAR_SECONDS = 365.25 * 86400
+US_STEP = timedelta(seconds=60)
+"""The US market moves once per simulated minute, on a grid from the run's start."""
+FAST_FORWARD_STEP = timedelta(minutes=15)
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,12 +66,23 @@ class Simulator:
         self.data = data
         self.speed = speed
         self.tick_seconds = tick_seconds
-        self.seed = seed
+        self.fixed_seed = seed
+        """The configured seed (SD_SIM_SEED), if any: every run then starts from it."""
+        self.seed = seed if seed is not None else secrets.randbelow(2**31)
+        """This run's seed: drawn afresh for each run unless one is configured."""
         self.clock = clock
         self.bus = PubSub()
         self.events = EventLog()
         self.paused = False
         self.sim_time = clock()
+        self.started = self.sim_time
+        """Simulated time at which this run began (its markets were built)."""
+        self.journal: list[tuple[datetime, str]] = []
+        """The commands that changed the markets since the run began, with when: a scenario."""
+        self._us_steps = 0
+        self._quiet = False
+        self.loading: str | None = None
+        """The scenario being replayed (LOAD), during which the clock stands still."""
         self.us: USMarket | None = None
         self.error: str | None = None
         self.india: IndiaMarket | None = None
@@ -88,10 +108,26 @@ class Simulator:
     # ------------------------------------------------------------------ lifecycle
 
     def load(
-        self, anchors: USAnchors | None = None, india_anchors: INAnchors | None = None
+        self,
+        anchors: USAnchors | None = None,
+        india_anchors: INAnchors | None = None,
+        *,
+        seed: int | None = None,
+        start: datetime | None = None,
     ) -> None:
-        """Build the markets from real anchors (or the given ones); records why if one cannot."""
-        self.sim_time = self.clock()
+        """Build the markets from real anchors (or the given ones) and begin a new run: at
+        ``start`` (else now) with ``seed`` (else the configured seed, else a fresh one).
+        Records why a market cannot be built rather than raising."""
+        if seed is not None:
+            self.seed = seed
+        elif self.fixed_seed is not None:
+            self.seed = self.fixed_seed
+        else:
+            self.seed = secrets.randbelow(2**31)
+        self.sim_time = start or self.clock()
+        self.started = self.sim_time
+        self.journal = []
+        self._us_steps = 0
         self.events.clear()
         self.spreads = []
         self.mpc, self.mpc_error = None, None
@@ -124,7 +160,7 @@ class Simulator:
             log.warning("India simulator unavailable: %s", self.india_error)
         else:
             # A stream of its own, so India's draws never shift the US path for a given seed.
-            rng = np.random.default_rng(None if self.seed is None else self.seed + 1)
+            rng = np.random.default_rng(self.seed + 1)
             self.india = IndiaMarket(india_anchors, rng, self.sim_time)
             self.india_error = None
             a = india_anchors
@@ -167,7 +203,7 @@ class Simulator:
     async def _run(self) -> None:
         while True:
             await asyncio.sleep(self.tick_seconds)
-            if self.paused or (self.us is None and self.india is None):
+            if self.paused or self.loading or (self.us is None and self.india is None):
                 continue
             previous_day = self.sim_time.date()
             try:
@@ -183,21 +219,47 @@ class Simulator:
     # ------------------------------------------------------------------ ticking
 
     def tick(self, wall_seconds: float) -> None:
+        self.advance(timedelta(seconds=wall_seconds * self.speed))
+
+    def advance(self, span: timedelta, *, publish: bool = True) -> None:
+        """Run both markets ``span`` of simulated time on, asserting their invariants.
+
+        The US market takes every step of its grid that the span crosses, so its path is the
+        same however the span is cut up (timedelta arithmetic is exact).
+        """
         if self.us is None and self.india is None:
             return
-        sim_seconds = wall_seconds * self.speed
-        self.sim_time += timedelta(seconds=sim_seconds)
+        self.sim_time += span
         if self.us is not None:
-            for notice in self.us.step(sim_seconds / YEAR_SECONDS):
-                self.emit("info", "US", notice)
+            due = (self.sim_time - self.started) // US_STEP
+            for _ in range(due - self._us_steps):
+                for notice in self.us.step(US_STEP / timedelta(seconds=YEAR_SECONDS)):
+                    self.emit("info", "US", notice)
+            self._us_steps = max(due, self._us_steps)
             self.us.check_invariants()
-            self.bus.publish("us.tick", self.us_payload())
+            if publish:
+                self.bus.publish("us.tick", self.us_payload())
         if self.india is not None:
             for n in self.india.advance(self.sim_time):
                 self.emit(n.kind, n.code, n.text, n.data)
             self.india.check_invariants()
             self._record_spreads()
-            self.bus.publish("in.tick", self.india_payload())
+            if publish:
+                self.bus.publish("in.tick", self.india_payload())
+
+    def fast_forward(self, until: datetime) -> None:
+        """Run to ``until`` as fast as the markets compute, publishing nothing (the events
+        still reach the log): how a saved scenario is replayed."""
+        self._quiet = True
+        try:
+            while self.sim_time < until:
+                self.advance(min(FAST_FORWARD_STEP, until - self.sim_time), publish=False)
+        finally:
+            self._quiet = False
+
+    def record(self, command: str) -> None:
+        """Note a command that changed the markets, at the simulated time it ran."""
+        self.journal.append((self.sim_time, command))
 
     async def mpc_model(self) -> MpcModel | None:
         """The fitted MPC predictor, built from the data on first use; None (with the reason in
@@ -299,7 +361,8 @@ class Simulator:
         self, kind: EventKind, code: str, text: str, data: dict[str, Any] | None = None
     ) -> Event:
         event = self.events.add(Event(self.sim_time, kind, code, text, data or {}))
-        self.bus.publish("events", event.to_wire())
+        if not self._quiet:
+            self.bus.publish("events", event.to_wire())
         return event
 
     def us_payload(self) -> dict[str, Any]:

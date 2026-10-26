@@ -40,6 +40,7 @@ export function createChart() {
     },
     removeSeries: (): undefined => undefined,
     timeScale: () => ({ fitContent: (): undefined => undefined }),
+    takeScreenshot: () => document.createElement('canvas'),
     remove: (): undefined => undefined,
   };
 }
