@@ -5,13 +5,14 @@
 
 A live, Bloomberg-style terminal that simulates the **US Treasury market** and **India's money market**, each anchored to real data, and shows how a shock in one reaches the other.
 
-**[Open the web demo →](https://adityashukla2615.github.io/sovereigndesk/)**
+**[Open the live terminal →](https://sovereigndesk.onrender.com/)**  ·  **[Open the web demo →](https://adityashukla2615.github.io/sovereigndesk/)**
 
-The web demo runs entirely in your browser. Every reply and price tick in it was recorded from the real simulator on the committed data, and is played back. To run the live simulator, which computes everything as you type, clone the repo and start it (two commands, below), or deploy your own free copy:
+- **Live terminal**: the real simulator on Render's free plan, computing everything as you type on the committed data (no API key needed). It sleeps after 15 idle minutes, so the first visit after that takes a minute or two to wake it. Everyone connected shares one market: a shock you send moves it for all, and `RESET` puts it back.
+- **Web demo**: runs entirely in your browser and is always up. Every reply and price tick in it was recorded from the real simulator on the committed data, and is played back.
+
+To run your own copy, clone the repo and start it (two commands, below), or deploy it to Render free:
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/adityashukla2615/sovereigndesk)
-
-Render's free plan runs it on the committed data (no API key needed). It sleeps after 15 idle minutes, and the first visit after that takes a minute or two to wake it.
 
 ![The terminal: price–yield, Fed corridor with a QT plan, India's call money corridor and the Treasury curve after a foreign sale](docs/screenshots/mvp-3-india.png)
 
