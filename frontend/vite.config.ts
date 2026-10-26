@@ -6,11 +6,15 @@ import { defineConfig } from 'vitest/config';
 // origin (`/api`, `/ws`) exactly as it does behind nginx in Docker.
 const backend = process.env.SD_BACKEND_URL ?? 'http://127.0.0.1:8000';
 
-export default defineConfig({
+// `vite build --mode demo` is the static web demo for GitHub Pages: served under the repository's
+// path, with the recorded session (`py tasks.py record-demo`) in place of a backend.
+export default defineConfig(({ mode }) => ({
   plugins: [react(), tailwindcss()],
-  // The chart chunk (tree-shaken ECharts, loaded lazily after the shell paints) is ~550 kB;
-  // the shell itself stays near 300 kB.
-  build: { chunkSizeWarningLimit: 600 },
+  base: mode === 'demo' ? (process.env.SD_DEMO_BASE ?? '/sovereigndesk/') : '/',
+  publicDir: mode === 'demo' ? 'demo/public' : 'public',
+  // The chart chunk (tree-shaken ECharts, loaded lazily after the shell paints) is ~600 kB with
+  // TAXCAL's calendar heatmap; the shell itself stays near 400 kB.
+  build: { chunkSizeWarningLimit: 650, outDir: mode === 'demo' ? 'dist-demo' : 'dist' },
   server: {
     port: 5173,
     strictPort: true,
@@ -27,4 +31,4 @@ export default defineConfig({
     restoreMocks: true,
     unstubGlobals: true,
   },
-});
+}));

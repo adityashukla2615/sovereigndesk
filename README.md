@@ -1,50 +1,127 @@
 # SovereignDesk
 
-A live, Bloomberg-style terminal that simulates the US Treasury market and the Indian money market. It is built on real data from FRED, US Treasury, TIC, RBI, FBIL, NSDL, MoSPI and the Bank of England, uses a pure-Python quant engine, and streams intraday ticks from stochastic short-rate models.
+[![CI](https://github.com/adityashukla2615/sovereigndesk/actions/workflows/ci.yml/badge.svg)](https://github.com/adityashukla2615/sovereigndesk/actions/workflows/ci.yml)
+[![Pages](https://github.com/adityashukla2615/sovereigndesk/actions/workflows/pages.yml/badge.svg)](https://adityashukla2615.github.io/sovereigndesk/)
 
-- **[DEMO.md](DEMO.md)**: a three-minute walk-through in seven beats, from a bond's price to RBI's next decision.
-- **[ASSUMPTIONS.md](ASSUMPTIONS.md)**: what is real data (with its source and date) and what is modelled, fit by fit.
-- **[docs/PLAN.md](docs/PLAN.md)**: the build plan and every decision taken along the way; the spec is [docs/BRIEF.md](docs/BRIEF.md).
+A live, Bloomberg-style terminal that simulates the **US Treasury market** and **India's money market**, each anchored to real data, and shows how a shock in one reaches the other.
 
-## Quick start
+**[Open the web demo →](https://adityashukla2615.github.io/sovereigndesk/)**
 
-Needs Python 3.12+ and Node 22.12+. On Linux/macOS use `python3` instead of `py`, or `make <task>`.
-
-```sh
-py tasks.py setup                       # .venv, editable engine + backend, npm ci, git hooks
-cp backend/.env.example backend/.env    # then add your free FRED API key
-py tasks.py dev                         # API on :8000 (docs at /docs), terminal on :5173
-py tasks.py dev --offline               # the same from the committed seed alone, no network
-py tasks.py check                       # secrets scan, lint, types, tests, build: what CI runs
-py tasks.py e2e                         # Playwright smoke test in your installed Chrome
-```
-
-With Docker: `docker compose up --build` (or `make up`) starts the backend, the nginx-served frontend, TimescaleDB and Redis; open http://localhost:8080.
-
-## The terminal
+The web demo runs entirely in your browser. Every reply and price tick in it was recorded from the real simulator on the committed data, and is played back. To run the live simulator, which computes everything as you type, clone the repo and start it (two commands, below).
 
 ![The terminal: price–yield, Fed corridor with a QT plan, India's call money corridor and the Treasury curve after a foreign sale](docs/screenshots/mvp-3-india.png)
 
-Four resizable panels, a ticker, data-quality badges (LIVE, SEED, STALE) and an event log that narrates every shock. Both markets run live on real anchors: the Treasury curve and the Fed's corridor, and India's call money market, where 40 SYNTHETIC banks trade inside RBI's corridor. Things to try:
+## What it shows
 
-| Command | What happens |
+The terminal tells one economic story, from a single bond to a central bank's next decision:
+
+1. **Price and yield.** Why a bond's price falls as yields rise, and how duration and convexity approximate it.
+2. **The Fed and its balance sheet.** The fed funds corridor, reserves, and what quantitative tightening (QT) does to them, to the curve and to the term premium.
+3. **A foreign holder sells.** Japan, China or the UK sells Treasuries; yields rise, part of the move stays, and the US interest bill grows.
+4. **From the Fed to India.** A Fed hike moves the US 10-year, foreign money leaves India, RBI sells dollars, the rupee and rupee liquidity move, and India's call rate responds.
+5. **India's money market.** 40 synthetic banks trade call money inside RBI's corridor every quarter hour, with RBI's auctions, reserve rules and the quarterly advance-tax squeeze.
+6. **History.** Five real episodes (the 2013 taper tantrum, the 2020 dash for cash, the 2022 gilt crisis, the 2022–23 hiking cycle, and advance-tax squeezes) replayed against what actually happened.
+7. **What comes next.** A forecast of RBI's next policy decision, backtested honestly against naive baselines.
+
+Every number is either real data, shown with its source and date, or the output of a model that is documented in [ASSUMPTIONS.md](ASSUMPTIONS.md). The banks are labelled SYNTHETIC, and the example portfolios ILLUSTRATIVE.
+
+## Quick start
+
+Needs Python 3.12+ and Node 22.12+. On Linux or macOS use `python3` instead of `py`, or `make <task>`.
+
+```sh
+git clone https://github.com/adityashukla2615/sovereigndesk.git
+cd sovereigndesk
+py tasks.py setup                       # .venv, the engine and backend, npm packages, git hooks
+py tasks.py dev --offline               # from the committed data alone: no key, no network
+```
+
+Open **http://localhost:5173**. Keep that window running while you use the terminal; Ctrl+C stops it.
+
+For live data, get a free [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html), copy `backend/.env.example` to `backend/.env`, put the key in it, and run `py tasks.py dev`. The key stays in `backend/.env`, which git ignores. It is never committed, logged or shown.
+
+With Docker: `docker compose up --build` (or `make up`) starts the backend, the nginx-served terminal, TimescaleDB and Redis. Then open http://localhost:8080.
+
+[DEMO.md](DEMO.md) is a three-minute walk-through in seven beats, with what to type and what to say.
+
+## Using the terminal
+
+- **Command bar** (top). Type a function code, then its arguments, then Enter: for example `QT 95B` or `SHOCK FED 50BP`. Upper or lower case both work. Suggestions appear as you type: arrow keys pick one, Tab completes it, and with an empty bar the arrows walk your history. `/` jumps to the bar from anywhere; don't type it into the command itself.
+- **Four panels.** Each function opens in the focused panel (amber border), or refreshes the panel already showing it. Drag the borders to resize.
+- **Ticker and status strip.** These show live prices that blink as they move, the simulated time in Mumbai and New York, and data-quality badges:
+  - **LIVE**: fetched within 36 hours.
+  - **CACHED**: an older fetch, or the source is down.
+  - **SEED**: the committed snapshot.
+  - **STALE**: an input whose own date is old.
+- **Event log** (bottom). Every shock and policy move is narrated with its computed numbers. For example: "Japan sells $200bn … 10Y +3 bp … interest cost +$0.4bn/yr".
+
+| Key | Does |
 |---|---|
-| `PY 10Y` | Price–yield: duration, convexity and how good each approximation is |
-| `HIKE 25BP`, `QT 95B` | The Fed moves; EFFR, reserves, the curve and the term premium respond |
-| `SHOCK JP 200B 10D LONG` | A foreign holder sells; yields, the dollar and the debt cost respond |
-| `WACR`, `REPO -25BP`, `CRR 3.5`, `VRR 50000CR 7D` | India's corridor, an MPC move and RBI's operations |
-| `CALL`, `LAF`, `NDTL` | Today's call market against repo (TREPS, market repo, T-bills, the clearing rounds, who borrowed and what limits trimmed); RBI's facilities and auctions; the SYNTHETIC banks' reserves and limits |
-| `TAXCAL`, `CCIL` | The quarterly tax cycle: a calendar of WACR − repo, the government's tax balance at RBI against the system's surplus with RBI's likely VRRs ahead; how call money, TREPS and market repo trade and settle, with sources |
-| `UST`, `DEBT`, `TIC`, `CORR` | The Treasury curve; the federal interest bill on the simulated curve; foreign holders after any sale; the Fed's corridor next to RBI's |
-| `MPC` | The next MPC decision: probabilities from a Taylor rule, an ordered logit and boosted trees, trained on RBI's decisions since 2014 and backtested walk-forward from 2018 against naive baselines ([report](docs/MPC_BACKTEST.md)) |
-| `SHOCK FED 50BP`, `LINK` | A Fed hike runs through to India: the US 10Y, FPI outflows, RBI's dollar sales, the rupee, rupee liquidity and WACR, each link calibrated on NSDL, RBI and FRED data; RBI can answer with VRR, OMOs, a swap or a hike |
-| `IMPACT RETAIL +100BP`, `IMPACT BUSINESS IMPORTER` | What a shock means for people: an (editable, illustrative) bond portfolio repriced exactly and by duration and convexity, held against sold; a small shop and an electronics importer with EBLR and MCLR loans, imported costs and demand |
-| `REPLAY GILT2022`, `REPLAY TAPER2013` | Real episodes replayed: the model driven by what actually moved, against what happened, with scores, an annotated timeline and play controls. The gilt crisis calibrates the fire-sale price impact λ |
-| `GSEC`, `SPRD` | India's G-sec curve (NSS) and how a repo surprise passes through it, measured on RBI's repo changes; India's 10Y against the US 10Y |
-| `TEACH`, `HELP`, `SPEED 60X` | The economics behind each panel, every function, faster time |
-| `LAYOUT SAVE RATES`, `LAYOUT RATES` | Keep the four panels and their split in this browser, and bring them back; the terminal reopens as it was left |
-| `SAVE TAPER`, `LOAD TAPER` | Save this run (its seed and every command that changed the markets, with when) and replay it exactly |
-| `EXPORT CSV`, `EXPORT PNG` | The focused panel's main table as CSV, or its charts as one PNG |
+| `/` | Focus the command bar (Esc from a panel does too) |
+| Alt+1 … Alt+4 | Focus panel 1–4; the next function opens there |
+| Alt+← → ↑ ↓ | Move to the neighbouring panel |
+| Alt+Enter | Show the focused panel full screen, and back |
+| F1 | Explain the focused panel's function |
+| Alt+T | Teach mode: every panel explains its own economics |
+
+## Features and commands
+
+`HELP` lists every function; `HELP SHOCK` explains one.
+
+### US Treasuries and the Fed
+
+| Command | What it does |
+|---|---|
+| `PY 10Y` (or `2Y`, `5Y`, `30Y`) | Price–yield curve of a par Treasury: modified duration, convexity and DV01. Plots the exact price change against the duration-only and duration + convexity approximations |
+| `UST` | The live Treasury par curve against today's official close |
+| `FED` | The fed funds target range, IORB, ON RRP and EFFR; reserves against a reserve-demand curve fitted on weekly data since 2017 |
+| `HIKE 25BP`, `CUT 50BP` | Move the target range. IORB and ON RRP move with it; the curve reprices, most at the front end |
+| `QT 95B`, `QT OFF` | Set the monthly balance-sheet runoff. Projects reserves, EFFR − IORB and the 10-year term premium over 24 months |
+| `SHOCK JP 200B 10D LONG` | A foreign holder sells: country code (JP, CN, UK…), amount, pace in days, and where on the curve (SHORT, BELLY, LONG). Shows a temporary and a permanent price impact, then the interest bill |
+| `DEBT` | The federal interest bill over ten years, on today's curve against the simulated one, in dollars, % of GDP or % of receipts |
+| `TIC` | Major foreign holders from Treasury's TIC data, with live holdings after any sale |
+
+### India's money market
+
+| Command | What it does |
+|---|---|
+| `WACR` | The weighted average call rate in RBI's corridor (SDF floor, repo, MSF ceiling), on a macro map fitted to RBI's daily releases since April 2022, with real and simulated history |
+| `WACR POLICY`, `WACR REALISTIC` | Keep call rates inside the corridor, or let them stray as often as RBI's data shows they do (the default) |
+| `CALL` | Today's call market, round by round (09:15–19:00 IST). Shows WACR, the high and low, the CCIL segments (TREPS, market repo) and the T-bills against repo; who borrowed and lent; and orders that participation limits trimmed |
+| `LAF` | RBI's liquidity facilities: last night's SDF and MSF, VRR and VRRR outstanding, the auctions run, and how likely RBI's fitted reaction makes the next one |
+| `REPO +25BP`, `CRR 3.5` | An MPC move (the corridor and the G-sec curve move at once), or a cash reserve ratio change from the next fortnight, with the liquidity it drains |
+| `VRR 50000CR 7D`, `VRRR 50000CR 7D` | Order an RBI auction to inject or absorb liquidity. It runs at 09:30 IST with the banks bidding their own gaps |
+| `NDTL` | The 40 SYNTHETIC banks: NDTL, the CRR they must hold, their balances, SLR securities, MSF capacity and borrowing limits |
+| `TAXCAL` | The quarterly liquidity cycle. A calendar of WACR − repo by day, and the government's tax balance at RBI against the system's surplus, simulated and then projected. Marks the days RBI's VRRs become likely |
+| `CCIL` | How call money trades on NDS-CALL and settles bank to bank, and how TREPS and market repo settle through CCIL as central counterparty. Every claim is cited |
+| `GSEC` | India's G-sec curve (Nelson–Siegel–Svensson on FBIL's par yields), and how a repo surprise passes through it, measured on RBI's repo changes |
+| `SPRD` | India's 10-year against the US 10-year: real history and simulated days |
+| `MPC` | The next MPC decision as probabilities from a Taylor rule, an ordered logit and boosted trees, with a walk-forward backtest since 2018 against "repeat the last decision" and "always hold" ([report](docs/MPC_BACKTEST.md)) |
+
+### Across the two markets
+
+| Command | What it does |
+|---|---|
+| `SHOCK FED 50BP` | The Fed moves and the chain runs into India: US 10Y → India 10Y → foreign portfolio flows → RBI's dollar sales → rupee → liquidity → WACR. Each link is calibrated on public data. Add `VRR`, `OMO`, `SWAP` or `HIKE` to choose RBI's answer, and `VIX+10` for a risk-off shock |
+| `LINK` | The chain node by node, with each link's estimate and 90% interval; `LINK VRR` previews an answer |
+| `CORR` | The Fed's corridor next to RBI's, live |
+| `IMPACT RETAIL +100BP` | What a rise in yields does to an editable, illustrative bond portfolio: each holding repriced exactly and by duration and convexity, held against sold |
+| `IMPACT BUSINESS IMPORTER +25BP INR+5` | A small shop and an electronics importer with repo-linked (EBLR) and MCLR loans: interest cost, margin and sales after a repo move and a weaker rupee |
+
+### History
+
+`REPLAY TAPER2013`, `REPLAY DASH2020`, `REPLAY GILT2022`, `REPLAY HIKE2022` and `REPLAY ADVTAX` each drive the model with what actually moved in a real episode, and set its path against what happened. The panel has play, pause, speed and scrub controls, an annotated timeline with sources, scores (typical error, direction week by week, peak and lag), and a plain summary of what the model got right and wrong. The 2022 gilt crisis also calibrates the fire-sale price impact, λ, with its confidence interval.
+
+### The terminal itself
+
+| Command | What it does |
+|---|---|
+| `TEACH` | Teach mode on or off |
+| `SPEED 60X`, `PAUSE`, `RESUME` | Simulation speed (1× is one simulated minute per second; up to a simulated day per second) |
+| `RESET` | Clear every shock: back to the real anchors |
+| `LAYOUT SAVE RATES`, `LAYOUT RATES`, `LAYOUT DEFAULT` | Save the four panels and their split in this browser, and bring them back; the terminal reopens as you left it |
+| `SAVE TAPER`, `LOAD TAPER`, `LOAD` | Save this run (its random seed and every command that changed the markets, with when) and replay it exactly; `LOAD` alone lists them |
+| `EXPORT CSV`, `EXPORT PNG` | Save the focused panel's main table as CSV, or its charts as one PNG |
 
 ![CALL, TAXCAL, CCIL and LAF: India's money market against repo, the tax cycle with the government's balance at RBI, how the overnight markets settle, and RBI's operations](docs/screenshots/terminal-1-india.png)
 
@@ -58,7 +135,20 @@ Four resizable panels, a ticker, data-quality badges (LIVE, SEED, STALE) and an 
 
 ![REPLAY: the September 2022 gilt crisis, the 30-year gilt against forced selling × λ, with λ under every specification](docs/screenshots/replay-1-gilt.png)
 
-`/` focuses the command bar and Esc comes back to it; Alt+1..4 or Alt+arrows move between panels, Alt+Enter shows one alone, F1 explains it and Alt+T toggles teach mode.
+## Data
+
+| Source | What |
+|---|---|
+| FRED (St. Louis Fed) | Treasury yields, policy rates, the Fed's balance sheet, prices, GDP, receipts and outlays, VIX, the dollar, the term premium, USD/INR |
+| US Treasury, FiscalData | The daily par yield curve; debt to the penny, average interest rates and the security-level debt ladder (MSPD) |
+| Treasury TIC | Foreign holders of Treasuries by country |
+| RBI | Policy rates, CRR and SLR; the daily Money Market Operations release (call, TREPS, repo, the LAF, liquidity); reserves; MPC decisions since 2014 |
+| FBIL | T-bill benchmarks and the daily G-sec par-yield curve |
+| NSDL | Foreign portfolio investment flows |
+| MoSPI | CPI and GDP (through MoSPI's official MCP server) |
+| Bank of England | The gilt yield curve, for the 2022 replay |
+
+Live data comes first. If a request fails, the last good response is used; failing that, the committed snapshot in `data/seed`. Every series carries its source URL and fetch time (`data/seed/manifest.json`), and the badges say which tier each panel runs on. Policy values are never hard-coded: they are fetched, or kept with a source and a date where only a document gives them. [ASSUMPTIONS.md](ASSUMPTIONS.md) lists every source, fit and assumption.
 
 ## How it fits together
 
@@ -92,30 +182,46 @@ flowchart LR
   ws <--> ui
 ```
 
-Every source has a fallback: live data, then the last good raw response, then the committed seed. The quality badges say which one a panel is on, and a STALE badge flags inputs whose own date is old. The simulator's paths depend on simulated time only, so a saved run replays exactly.
+- **Engine** (`engine/`): pure, typed Python for bond maths, curve fitting (bootstrapping, Nelson–Siegel–Svensson), Vasicek, CIR and Hull–White short rates, the price-impact and debt-rollover models, the bank rules, the call auction, the US → India chain and the replay scores. Every formula is documented and tested against published examples.
+- **Backend** (`backend/`): FastAPI with REST under `/api` and a WebSocket at `/ws`. Holds the data adapters, the two market simulators (stepped on simulated time, so a saved run replays exactly), the command registry and the database (SQLite, or TimescaleDB in Docker).
+- **Terminal** (`frontend/`): React and TypeScript with Vite, Tailwind and Zustand. Time series are drawn with TradingView Lightweight Charts and curves and heatmaps with ECharts. REST types are generated from the backend's OpenAPI schema.
+
+## Configuration
+
+Settings are read from `backend/.env` or the environment.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `FRED_API_KEY` | none | Your FRED key; without it, US data comes from the seed |
+| `SD_OFFLINE` | `false` | Use the committed seed only, never the network (`py tasks.py dev --offline` sets it) |
+| `SD_SIM_SEED` | random | Fix the simulator's random seed, so a session repeats (DEMO.md uses 7) |
+| `SD_DATABASE_URL` | SQLite in `backend/var` | Any SQLAlchemy URL; Docker uses TimescaleDB |
+| `SD_FAIL_SOURCES` | `[]` | Treat sources as down, to see the CACHED and STALE badges: `["fred"]` |
+| `SD_SCHEDULER_ENABLED` | `true` | Refresh data in the background |
 
 ## Checks
 
 | Command | What it runs |
 |---|---|
-| `py tasks.py check` | Secrets scan, ruff, mypy (strict), eslint, tsc, the OpenAPI types' drift, pytest (engine and backend), vitest and the production build: CI's main job, on Python 3.12 and 3.14 |
-| `py tasks.py demo` | Boots the app offline on the seed and walks the demo over the WebSocket: every beat must answer and narrate, the corridors must hold on every tick, and every command DEMO.md types must work |
-| `py tasks.py e2e` | Playwright smoke test in the installed Chrome: every function's panel on the seed, the keys, layouts, a saved scenario loaded again, and CSV and PNG exports, with no console errors |
+| `py tasks.py check` | Secrets scan, ruff, mypy (strict), eslint, tsc, the OpenAPI types, pytest (engine and backend), vitest and the production build. This is CI's main job, on Python 3.12 and 3.14 |
+| `py tasks.py demo` | Boots the app offline and walks the demo over the WebSocket: every step must answer and narrate, the corridors must hold on every tick, and every command DEMO.md types must work |
+| `py tasks.py e2e` | Playwright smoke test in your installed Chrome: every panel, the keys, layouts, a saved scenario loaded again, and both exports, with no console errors |
 | `py tasks.py screenshots` | Re-captures [docs/screenshots](docs/screenshots) in headless Chrome |
+| `py tasks.py record-demo` | Re-records the web demo from the simulator; the Pages workflow publishes it |
 
-CI also builds and probes the Docker stack and runs gitleaks.
+CI also builds and probes the Docker stack and runs gitleaks over the whole history.
 
-## Layout
+## Repository layout
 
 | Path | Contents |
 |---|---|
-| `engine/` | `sovereign_engine`: pure, typed quant maths with no I/O; every formula is documented and tested |
-| `backend/` | FastAPI app: REST under `/api`, WebSocket at `/ws`, data adapters, simulator |
-| `frontend/` | React + TypeScript terminal (Vite, Tailwind, Zustand); REST types generated from OpenAPI |
-| `data/` | Real-data seed snapshots and versioned replay datasets |
-| `scripts/` | Seed and replay builders, the demo check, the MPC report, the screenshots |
-| `docs/` | The brief, the plan, the MPC backtest report, screenshots |
-| `tasks.py` | Stdlib-only task runner; the Makefile and CI delegate to it |
+| `engine/` | `sovereign_engine`: pure quant maths, no I/O |
+| `backend/` | The FastAPI app: data adapters, simulators, commands, REST and WebSocket |
+| `frontend/` | The terminal; `frontend/demo/` is the recorded web demo |
+| `data/` | The committed real-data seed and the replay episode datasets |
+| `scripts/` | Seed and replay builders, the demo check and recorder, the MPC report, screenshots |
+| `docs/` | The original brief, the build plan with every decision taken, the MPC backtest report, screenshots |
+| `tasks.py` | The task runner (standard library only); the Makefile and CI call it |
 
 ## Third-party notices
 

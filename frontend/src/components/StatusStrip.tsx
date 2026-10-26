@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { HealthState } from '../api/useHealth';
 import type { SimStatus } from '../api/useSim';
 import { simClock } from '../lib/corridor';
+import { STATIC_DEMO } from '../lib/staticDemo';
 import { MARKET_ZONES, formatClock } from '../lib/time';
 import { useNow } from '../lib/useNow';
 import { useConnection } from '../store/connection';
@@ -39,6 +40,16 @@ function ApiFields({ health }: { health: HealthState }) {
       );
     case 'ok': {
       const { version, engine_version, offline, fred_key_configured } = health.health;
+      if (STATIC_DEMO) {
+        return (
+          <>
+            <Field label="ENGINE">v{engine_version}</Field>
+            <Field label="MODE">
+              <span className="text-term-amber">STATIC DEMO · RECORDED ON THE SEED</span>
+            </Field>
+          </>
+        );
+      }
       return (
         <>
           <Field label="API">v{version}</Field>
@@ -92,7 +103,8 @@ export function StatusStrip({ health, sim = null }: { health: HealthState; sim?:
   const status = useConnection((s) => s.status);
   const gaps = useConnection((s) => s.gaps);
   const now = useNow();
-  const ws = WS_STATUS[status];
+  const ws =
+    STATIC_DEMO && status === 'open' ? { text: 'PLAYBACK', className: 'text-term-amber' } : WS_STATUS[status];
 
   return (
     <div
@@ -100,7 +112,7 @@ export function StatusStrip({ health, sim = null }: { health: HealthState; sim?:
       aria-label="system status"
       className="flex flex-wrap items-center gap-x-5 gap-y-1 border-b border-term-line bg-term-panel px-3 py-1 text-xs"
     >
-      <Field label="WS">
+      <Field label={STATIC_DEMO ? 'DATA' : 'WS'}>
         <span className={ws.className}>● {ws.text}</span>
       </Field>
       <ApiFields health={health} />

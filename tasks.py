@@ -19,6 +19,7 @@ tasks:
   mpc-report     write docs/MPC_BACKTEST.md: the MPC predictor's backtest on the real seed
   replays        build data/replays: the episodes' series from the seed and the Bank of England
   screenshots    drive a headless Chrome through the demo into docs/screenshots
+  record-demo    record the simulator's replies and ticks for the static web demo (GitHub Pages)
   check-secrets  scan files git would commit for secrets; --staged scans only the index
   clean          remove caches and build output
 """
@@ -237,6 +238,10 @@ def task_screenshots(_: argparse.Namespace) -> None:
     run([venv_python(), ROOT / "scripts" / "screenshots.py"])
 
 
+def task_record_demo(_: argparse.Namespace) -> None:
+    run([venv_python(), ROOT / "scripts" / "record_demo.py"])
+
+
 def task_clean(_: argparse.Namespace) -> None:
     junk = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".hypothesis"}
     for dirpath, dirnames, _files in os.walk(ROOT):
@@ -354,6 +359,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     add("mpc-report", task_mpc_report)
     add("replays", task_replays).add_argument("episodes", nargs="*", help="episode ids (all)")
     add("screenshots", task_screenshots)
+    add("record-demo", task_record_demo)
     add("seed", task_seed).add_argument(
         "--sources", help="comma-separated subset of fred,treasury,fiscaldata,tic"
     )

@@ -6,6 +6,7 @@ import { CommandBar } from '../components/CommandBar';
 import { EventLog } from '../components/EventLog';
 import { StatusStrip } from '../components/StatusStrip';
 import { TickerTape } from '../components/TickerTape';
+import { REPO_URL, STATIC_DEMO } from '../lib/staticDemo';
 import { PanelGrid } from '../panels/PanelGrid';
 import { DEFAULT_LAYOUT, lastLayout, layoutOf, rememberLayout, useLayout } from '../store/layouts';
 import { SLOT_COUNT, useMarket } from '../store/market';
@@ -99,6 +100,18 @@ export function App() {
         </h1>
         <CommandBar onSubmit={submit} commands={commands} />
       </header>
+      {STATIC_DEMO && (
+        <p role="note" className="border-b border-term-amber bg-term-panel px-3 py-1 text-[11px] text-term-text">
+          <span className="text-term-amber">STATIC DEMO.</span> Every reply and tick here was recorded from the
+          real simulator on the committed data (19 Oct 2026), and plays back in your browser: try{' '}
+          <span className="text-term-amber">PY 10Y · QT 95B · SHOCK JP 200B 10D LONG · SHOCK FED 50BP · REPLAY
+          TAPER2013 · TAXCAL · MPC · HELP</span>, and RESET to start over. For the live simulator, run it locally:{' '}
+          <a href={REPO_URL} target="_blank" rel="noreferrer" className="text-term-accent underline">
+            github.com/adityashukla2615/sovereigndesk
+          </a>
+          .
+        </p>
+      )}
       <StatusStrip health={health} sim={sim} />
       <TickerTape />
       <main className="grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)_minmax(6rem,20%)]">

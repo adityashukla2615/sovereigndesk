@@ -2,9 +2,11 @@ import { runExport } from '../app/exportPanel';
 import { runLayout } from '../app/layoutCommand';
 import { exportRequestOf, isCommandReply, isInTick, isUsTick, layoutRequestOf } from '../market/types';
 import { useConnection } from '../store/connection';
+import { STATIC_DEMO } from '../lib/staticDemo';
 import { useMarket } from '../store/market';
 import { WsClient, type WsClientOptions, defaultWsUrl } from './client';
 import type { ClientMessage, Envelope } from './protocol';
+import { StaticClient } from './staticClient';
 
 export const SESSION_TOPICS = ['events', 'status', 'us.tick', 'in.tick'];
 
@@ -28,19 +30,22 @@ export function route(message: Envelope): void {
   }
 }
 
-let client: WsClient | null = null;
+let client: WsClient | StaticClient | null = null;
 
 /** Opens the app's single WebSocket session and wires it to the store. Returns a stop function. */
 export function startSession(overrides: Partial<WsClientOptions> = {}): () => void {
   client?.stop();
   const store = useConnection.getState();
-  const session = new WsClient({
-    url: defaultWsUrl(),
-    topics: SESSION_TOPICS,
-    onMessage: route,
-    onStatus: store.setStatus,
-    ...overrides,
-  });
+  // The static web demo plays back a recording instead of talking to a backend.
+  const session = STATIC_DEMO
+    ? new StaticClient({ onMessage: route, onStatus: store.setStatus })
+    : new WsClient({
+        url: defaultWsUrl(),
+        topics: SESSION_TOPICS,
+        onMessage: route,
+        onStatus: store.setStatus,
+        ...overrides,
+      });
   client = session;
   session.start();
   return () => {

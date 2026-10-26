@@ -524,6 +524,16 @@ Other panels give their largest table, or their fields as name/value pairs. Nest
 
 **EXPORT PNG** stacks the panel's charts under its title and each chart's label, as drawn: ECharts' SVG and Lightweight Charts' canvas. Diagrams and tables are not drawn; their data is in the CSV. Files are named `sovereigndesk-<panel>[-<table>]-<simulated time>`.
 
+## The web demo (GitHub Pages)
+
+The public site is the terminal built in demo mode (`npm run build:demo`). It has no backend, so it computes nothing; it plays back a recording made by `py tasks.py record-demo`. The recorder runs the whole app offline on the committed seed, with seed 7, starting at 09:30 IST on Tuesday 27 October 2026, and saves:
+
+- **The ticks.** The opening three minutes (three simulated hours) at one frame a second, played in a loop.
+- **Every view.** Each panel's command (PY, FED, WACR, CALL, TAXCAL, CCIL, MPC, the five replays, IMPACT's presets, HELP for every code…), answered from that opening state.
+- **Each command that moves the markets.** Each one is recorded from a fresh RESET: HIKE and CUT, QT, three foreign sales, SHOCK FED with each RBI answer, REPO, CRR, VRR, VRRR and the policy mode. With it come its narrative, twelve seconds of ticks after it, and the panels it changes, as they then read.
+
+So the site answers one shock at a time. A second shock replaces the first rather than adding to it, and RESET returns to the opening. A command or variant that was not recorded (`HIKE 75BP`, say) gets a reply saying so and listing what was. SAVE, LOAD, SPEED and editing IMPACT's portfolio need the live terminal. LAYOUT and EXPORT work, because they run in the browser anyway. The page carries a STATIC DEMO banner, and the status strip reads PLAYBACK instead of LIVE.
+
 ## Bond conventions (engine, Phase 2)
 
 Each convention is defined in `engine/src/sovereign_engine/bonds/conventions.py`, with its sources and the date it was checked.
