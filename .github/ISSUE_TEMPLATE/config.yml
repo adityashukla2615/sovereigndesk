@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Try the live terminal
+    url: https://sovereigndesk.onrender.com/
+    about: The real simulator; the free server may take a minute to wake.
+  - name: How every model works
+    url: https://github.com/adityashukla2615/sovereigndesk/blob/main/ASSUMPTIONS.md
+    about: Every source, fit, parameter and known limitation.

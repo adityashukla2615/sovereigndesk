@@ -1,0 +1,16 @@
+name: Idea or question
+description: A market, model or function you would like to see, or a question about how something works
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to see, or know?
+      description: For a model question, the panel or function it concerns helps, e.g. LINK or MPC.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would it help?
+      description: Optional. A source or paper is welcome if it is about a model or data.

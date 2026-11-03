@@ -1,0 +1,37 @@
+name: Something looks wrong
+description: A command that fails, a number that looks off, or a panel that misbehaves
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying SovereignDesk. The exact command and what came back are usually enough to find the cause.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where did it happen?
+      options:
+        - The live terminal (sovereigndesk.onrender.com)
+        - The web demo (GitHub Pages)
+        - My own copy (local or Docker)
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: What did you type?
+      placeholder: SHOCK FED 50BP VIX+10
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: What came back, and what did you expect?
+      description: The event log line at the bottom of the screen helps most. A screenshot is welcome.
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: Chrome 141 on Windows 11

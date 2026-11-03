@@ -1,20 +1,47 @@
+<div align="center">
+
 # SovereignDesk
+
+**A live rates terminal for US Treasuries and India's money market, anchored to real data.**<br>
+Type a shock into the command bar and watch it travel: from the Fed, through foreign flows and the rupee, to India's overnight rate.
+
+[![Open the live terminal](https://img.shields.io/badge/%E2%96%B6%20Live%20terminal-sovereigndesk.onrender.com-FFB020?style=for-the-badge&labelColor=0b0c0e)](https://sovereigndesk.onrender.com/)
+[![Open the web demo](https://img.shields.io/badge/%E2%96%B6%20Web%20demo-opens%20instantly-4EA8FF?style=for-the-badge&labelColor=0b0c0e)](https://adityashukla2615.github.io/sovereigndesk/)
+[![Command reference](https://img.shields.io/badge/PDF-36%20function%20codes-3DDC84?style=for-the-badge&labelColor=0b0c0e)](docs/SovereignDesk-Commands.pdf)
 
 [![CI](https://github.com/adityashukla2615/sovereigndesk/actions/workflows/ci.yml/badge.svg)](https://github.com/adityashukla2615/sovereigndesk/actions/workflows/ci.yml)
 [![Pages](https://github.com/adityashukla2615/sovereigndesk/actions/workflows/pages.yml/badge.svg)](https://adityashukla2615.github.io/sovereigndesk/)
+![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-React%2019-3178C6?logo=typescript&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-400%2B-3DDC84)
 
-A live, Bloomberg-style terminal that simulates the **US Treasury market** and **India's money market**, each anchored to real data, and shows how a shock in one reaches the other.
+<img src="docs/media/demo.gif" alt="The terminal: SHOCK FED 50BP VIX+10 typed into the command bar, the US to India chain filling in node by node, then shown full screen with each link's estimate and interval" width="800">
 
-**[Open the live terminal →](https://sovereigndesk.onrender.com/)**  ·  **[Open the web demo →](https://adityashukla2615.github.io/sovereigndesk/)**
+<sub><code>SHOCK FED 50BP VIX+10</code>: a Fed hike and a risk-off shock, run through a calibrated chain from the US 10-year to India's call rate.</sub>
 
-- **Live terminal**: the real simulator on Render's free plan, computing everything as you type on the committed data (no API key needed). It sleeps after 15 idle minutes, so the first visit after that takes a minute or two to wake it. Everyone connected shares one market: a shock you send moves it for all, and `RESET` puts it back.
-- **Web demo**: runs entirely in your browser and is always up. Every reply and price tick in it was recorded from the real simulator on the committed data, and is played back.
+</div>
 
-To run your own copy, clone the repo and start it (two commands, below), or deploy it to Render free:
+---
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/adityashukla2615/sovereigndesk)
+**Contents:** [Try it in 60 seconds](#try-it-in-60-seconds) · [What it shows](#what-it-shows) · [Under the hood](#under-the-hood) · [Gallery](#gallery) · [Commands](#features-and-commands) · [Run it yourself](#run-it-yourself) · [Data](#data) · [How it fits together](#how-it-fits-together) · [FAQ](#faq)
 
-![The terminal: price–yield, Fed corridor with a QT plan, India's call money corridor and the Treasury curve after a foreign sale](docs/screenshots/mvp-3-india.png)
+## Try it in 60 seconds
+
+Open the **[live terminal](https://sovereigndesk.onrender.com/)** or the **[web demo](https://adityashukla2615.github.io/sovereigndesk/)**, click the command bar at the top, and type:
+
+| # | Type | What you'll see |
+|:-:|---|---|
+| 1 | `SHOCK FED 50BP` | The Fed hikes, and the chain runs to India: US 10Y → India 10Y → foreign flows → RBI's dollar sales → rupee → liquidity → WACR |
+| 2 | `LINK` | That chain node by node, each link with its estimate, 90% interval and sample size |
+| 3 | `REPLAY GILT2022`, then **PLAY** | The 2022 UK gilt crisis replayed: the model against the 30-year gilt, with every policy event marked and sourced |
+| 4 | `MPC` | RBI's next decision as probabilities from three models, and their backtest against naive baselines |
+| 5 | `IMPACT RETAIL +100BP` | What a 100 bp rise does to a bond portfolio, repriced exactly and by duration and convexity |
+| 6 | `RESET` | Back to the real starting data. On the live terminal everyone shares one market, so please reset when you're done |
+
+`HELP` lists every function and `HELP SHOCK` explains one. **Alt+Enter** shows a panel full screen, **F1** explains it, and `TEACH` adds the economics behind every panel. Keep the [printable command reference](docs/SovereignDesk-Commands.pdf) open beside you.
+
+> [!TIP]
+> **Live terminal or web demo?** The live terminal is the real simulator, computing everything as you type. It runs on a free server that sleeps after 15 idle minutes, so the first visit can take a minute or two. The web demo opens instantly: every reply and price tick in it was recorded from the simulator and is played back, so only the recorded commands work there.
 
 ## What it shows
 
@@ -28,55 +55,48 @@ The terminal tells one economic story, from a single bond to a central bank's ne
 6. **History.** Five real episodes (the 2013 taper tantrum, the 2020 dash for cash, the 2022 gilt crisis, the 2022–23 hiking cycle, and advance-tax squeezes) replayed against what actually happened.
 7. **What comes next.** A forecast of RBI's next policy decision, backtested honestly against naive baselines.
 
-Every number is either real data, shown with its source and date, or the output of a model that is documented in [ASSUMPTIONS.md](ASSUMPTIONS.md). The banks are labelled SYNTHETIC, and the example portfolios ILLUSTRATIVE.
+Every number is either real data, shown with its source and date, or the output of a model documented in [ASSUMPTIONS.md](ASSUMPTIONS.md). The banks are labelled SYNTHETIC, and the example portfolios ILLUSTRATIVE.
 
-## Quick start
+## Under the hood
 
-Needs Python 3.12+ and Node 22.12+. On Linux or macOS use `python3` instead of `py`, or `make <task>`.
+| Area | Model | Calibration (October 2026 snapshot) |
+|---|---|---|
+| Bond maths | Exact cash-flow repricing against duration and convexity estimates; DV01 | Tested against published examples |
+| Curves | Bootstrapping and Nelson–Siegel–Svensson | India's G-sec curve within about 3 bp in a calm market; bootstrapping reproduces FBIL's own zero curve to 0.7 bp |
+| US rates | One-factor Hull–White (a = 0.10, σ = 85 bp/√yr) plus an OU term premium on the Kim–Wright level | Opens exactly on the official par curve |
+| Fed plumbing | Logistic reserve demand: EFFR − IORB against reserves / bank assets; EFFR as a logit-OU inside the range | Weekly since 2017, RMSE 2.4 bp |
+| India liquidity | Logistic map of WACR − repo against surplus / NDTL, with bootstrapped AR(1) deviations | 1,045 days, RMSE 17.4 bp; corridor breaches match RBI's data |
+| India call market | 40 synthetic banks in a uniform-price auction every 15 minutes, under CRR averaging, MSF access and participation limits | RBI's rules, each with its circular |
+| Repo pass-through | Event study of RBI's repo changes, fitted to an expectations and term-premium loading | 11 changes, bootstrapped bands |
+| US → India | One OLS regression with Newey–West errors per link; reduced-form, not causal | 90% intervals and sample sizes shown in `LINK` |
+| Price impact | Beltran et al. with a square-root temporary component; a fire-sale λ fitted on the gilt crisis | λ = 66 bp per day's turnover, cross-checked against Treasuries |
+| RBI forecast | Ordered logit, XGBoost and a Taylor rule | Walk-forward on 54 decisions; none beats "repeat the last decision" on hit rate, both models beat every baseline on Brier ([report](docs/MPC_BACKTEST.md)) |
 
-```sh
-git clone https://github.com/adityashukla2615/sovereigndesk.git
-cd sovereigndesk
-py tasks.py setup                       # .venv, the engine and backend, npm packages, git hooks
-py tasks.py dev --offline               # from the committed data alone: no key, no network
-```
+**Engineering.** Python (FastAPI, pandas, statsmodels, XGBoost) and React with TypeScript, streaming over WebSockets. The simulator steps on simulated time with a recorded seed, so any saved run replays exactly. 400+ automated tests, mypy strict, and CI that builds the Docker image, drives the terminal in Chrome and scans for secrets.
 
-Open **http://localhost:5173**. Keep that window running while you use the terminal; Ctrl+C stops it.
+## Gallery
 
-For live data, get a free [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html), copy `backend/.env.example` to `backend/.env`, put the key in it, and run `py tasks.py dev`. The key stays in `backend/.env`, which git ignores. It is never committed, logged or shown.
-
-With Docker, either:
-
-- `docker compose up --build` (or `make up`) starts the backend, the nginx-served terminal, TimescaleDB and Redis. Then open http://localhost:8080.
-- `docker build -t sovereigndesk . && docker run -p 10000:10000 sovereigndesk` runs everything in one container on the committed data. Then open http://localhost:10000. This is the image `render.yaml` deploys.
-
-[DEMO.md](DEMO.md) is a three-minute walk-through in seven beats, with what to type and what to say.
-
-## Using the terminal
-
-- **Command bar** (top). Type a function code, then its arguments, then Enter: for example `QT 95B` or `SHOCK FED 50BP`. Upper or lower case both work. Suggestions appear as you type: arrow keys pick one, Tab completes it, and with an empty bar the arrows walk your history. `/` jumps to the bar from anywhere; don't type it into the command itself.
-- **Four panels.** Each function opens in the focused panel (amber border), or refreshes the panel already showing it. Drag the borders to resize.
-- **Ticker and status strip.** These show live prices that blink as they move, the simulated time in Mumbai and New York, and data-quality badges:
-  - **LIVE**: fetched within 36 hours.
-  - **CACHED**: an older fetch, or the source is down.
-  - **SEED**: the committed snapshot.
-  - **STALE**: an input whose own date is old.
-- **Event log** (bottom). Every shock and policy move is narrated with its computed numbers. For example: "Japan sells $200bn … 10Y +3 bp … interest cost +$0.4bn/yr".
-
-| Key | Does |
-|---|---|
-| `/` | Focus the command bar (Esc from a panel does too) |
-| Alt+1 … Alt+4 | Focus panel 1–4; the next function opens there |
-| Alt+← → ↑ ↓ | Move to the neighbouring panel |
-| Alt+Enter | Show the focused panel full screen, and back |
-| F1 | Explain the focused panel's function |
-| Alt+T | Teach mode: every panel explains its own economics |
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/link-1-chain.png" alt="LINK and MPC panels"><br><b>LINK · MPC</b>: a 50 bp Fed hike six simulated days in, node by node; the next RBI decision and the backtest</td>
+    <td width="50%"><img src="docs/screenshots/replay-1-gilt.png" alt="REPLAY panel for the 2022 gilt crisis"><br><b>REPLAY GILT2022</b>: the 30-year gilt against forced selling × λ, with λ under every specification</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/mvp-3-india.png" alt="PY, FED, WACR and UST panels"><br><b>PY · FED · WACR · UST</b>: price–yield, the Fed's corridor with a QT plan, India's call money corridor, the curve after a foreign sale</td>
+    <td><img src="docs/screenshots/terminal-1-india.png" alt="CALL, TAXCAL, CCIL and LAF panels"><br><b>CALL · TAXCAL · CCIL · LAF</b>: India's money market against repo, the tax cycle, how overnight markets settle, RBI's operations</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/gsec-1-curve.png" alt="GSEC and SPRD panels"><br><b>GSEC · SPRD</b>: India's G-sec curve after a 25 bp repo cut, with pass-through by maturity; India's 10Y against the US 10Y</td>
+    <td><img src="docs/screenshots/impact-1-retail.png" alt="IMPACT panel for a bond portfolio"><br><b>IMPACT</b>: an illustrative bond portfolio after a 100 bp rise, each holding repriced exactly and by duration and convexity</td>
+  </tr>
+</table>
 
 ## Features and commands
 
-`HELP` lists every function; `HELP SHOCK` explains one.
+`HELP` lists every function; `HELP SHOCK` explains one. Click a group to open it.
 
-### US Treasuries and the Fed
+<details>
+<summary><b>US Treasuries and the Fed</b> · <code>PY</code> <code>UST</code> <code>FED</code> <code>HIKE</code> <code>CUT</code> <code>QT</code> <code>SHOCK</code> <code>DEBT</code> <code>TIC</code></summary>
 
 | Command | What it does |
 |---|---|
@@ -89,7 +109,10 @@ With Docker, either:
 | `DEBT` | The federal interest bill over ten years, on today's curve against the simulated one, in dollars, % of GDP or % of receipts |
 | `TIC` | Major foreign holders from Treasury's TIC data, with live holdings after any sale |
 
-### India's money market
+</details>
+
+<details>
+<summary><b>India's money market</b> · <code>WACR</code> <code>CALL</code> <code>LAF</code> <code>REPO</code> <code>CRR</code> <code>VRR</code> <code>VRRR</code> <code>NDTL</code> <code>TAXCAL</code> <code>CCIL</code> <code>GSEC</code> <code>SPRD</code> <code>MPC</code></summary>
 
 | Command | What it does |
 |---|---|
@@ -106,7 +129,10 @@ With Docker, either:
 | `SPRD` | India's 10-year against the US 10-year: real history and simulated days |
 | `MPC` | The next MPC decision as probabilities from a Taylor rule, an ordered logit and boosted trees, with a walk-forward backtest since 2018 against "repeat the last decision" and "always hold" ([report](docs/MPC_BACKTEST.md)) |
 
-### Across the two markets
+</details>
+
+<details>
+<summary><b>Across the two markets</b> · <code>SHOCK FED</code> <code>LINK</code> <code>CORR</code> <code>IMPACT</code></summary>
 
 | Command | What it does |
 |---|---|
@@ -116,11 +142,17 @@ With Docker, either:
 | `IMPACT RETAIL +100BP` | What a rise in yields does to an editable, illustrative bond portfolio: each holding repriced exactly and by duration and convexity, held against sold |
 | `IMPACT BUSINESS IMPORTER +25BP INR+5` | A small shop and an electronics importer with repo-linked (EBLR) and MCLR loans: interest cost, margin and sales after a repo move and a weaker rupee |
 
-### History
+</details>
+
+<details>
+<summary><b>History</b> · <code>REPLAY TAPER2013</code> <code>DASH2020</code> <code>GILT2022</code> <code>HIKE2022</code> <code>ADVTAX</code></summary>
 
 `REPLAY TAPER2013`, `REPLAY DASH2020`, `REPLAY GILT2022`, `REPLAY HIKE2022` and `REPLAY ADVTAX` each drive the model with what actually moved in a real episode, and set its path against what happened. The panel has play, pause, speed and scrub controls, an annotated timeline with sources, scores (typical error, direction week by week, peak and lag), and a plain summary of what the model got right and wrong. The 2022 gilt crisis also calibrates the fire-sale price impact, λ, with its confidence interval.
 
-### The terminal itself
+</details>
+
+<details>
+<summary><b>The terminal itself</b> · <code>TEACH</code> <code>SPEED</code> <code>RESET</code> <code>LAYOUT</code> <code>SAVE</code> <code>LOAD</code> <code>EXPORT</code></summary>
 
 | Command | What it does |
 |---|---|
@@ -131,17 +163,57 @@ With Docker, either:
 | `SAVE TAPER`, `LOAD TAPER`, `LOAD` | Save this run (its random seed and every command that changed the markets, with when) and replay it exactly; `LOAD` alone lists them |
 | `EXPORT CSV`, `EXPORT PNG` | Save the focused panel's main table as CSV, or its charts as one PNG |
 
-![CALL, TAXCAL, CCIL and LAF: India's money market against repo, the tax cycle with the government's balance at RBI, how the overnight markets settle, and RBI's operations](docs/screenshots/terminal-1-india.png)
+</details>
 
-![DEBT, TIC, CORR and HELP: the interest bill on the simulated curve, foreign holders during a sale, the two corridors, and every function](docs/screenshots/terminal-2-us.png)
+<details>
+<summary><b>Screen and keys</b> · command bar, panels, badges, shortcuts</summary>
 
-![GSEC: India's G-sec curve after a 25 bp repo cut, with the event study's pass-through by maturity; SPRD: India's 10Y against the US 10Y since 2023](docs/screenshots/gsec-1-curve.png)
+- **Command bar** (top). Type a function code, then its arguments, then Enter: for example `QT 95B` or `SHOCK FED 50BP`. Upper or lower case both work. Suggestions appear as you type: arrow keys pick one, Tab completes it, and Enter runs it (or completes it, when the function needs a value); with an empty bar the arrows walk your history. `/` jumps to the bar from anywhere; don't type it into the command itself.
+- **Four panels.** Each function opens in the focused panel (amber border), or refreshes the panel already showing it. Drag the borders to resize.
+- **Ticker and status strip.** Live prices that blink as they move, the simulated time in Mumbai and New York, and data-quality badges:
+  - **LIVE**: fetched within 36 hours.
+  - **CACHED**: an older fetch, or the source is down.
+  - **SEED**: the committed snapshot.
+  - **STALE**: an input whose own date is old.
+- **Event log** (bottom). Every shock and policy move is narrated with its computed numbers. For example: "Japan sells $200bn … 10Y +3 bp … interest cost +$0.4bn/yr".
 
-![LINK: a 50 bp Fed hike run through to India, node by node, six simulated days in; MPC: the next decision's probabilities and the backtest](docs/screenshots/link-1-chain.png)
+| Key | Does |
+|---|---|
+| `/` | Focus the command bar (Esc from a panel does too) |
+| Alt+1 … Alt+4 | Focus panel 1–4; the next function opens there |
+| Alt+← → ↑ ↓ | Move to the neighbouring panel |
+| Alt+Enter | Show the focused panel full screen, and back |
+| F1 | Explain the focused panel's function |
+| Alt+T | Teach mode: every panel explains its own economics |
 
-![IMPACT: an illustrative bond portfolio after a 100 bp rise in yields, each holding repriced exactly and by duration and convexity, held against sold](docs/screenshots/impact-1-retail.png)
+</details>
 
-![REPLAY: the September 2022 gilt crisis, the 30-year gilt against forced selling × λ, with λ under every specification](docs/screenshots/replay-1-gilt.png)
+## Run it yourself
+
+Needs Python 3.12+ and Node 22.12+. On Linux or macOS use `python3` instead of `py`, or `make <task>`.
+
+```sh
+git clone https://github.com/adityashukla2615/sovereigndesk.git
+cd sovereigndesk
+py tasks.py setup                       # .venv, the engine and backend, npm packages, git hooks
+py tasks.py dev --offline               # from the committed data alone: no key, no network
+```
+
+Open **http://localhost:5173**. Keep that window running while you use the terminal; Ctrl+C stops it. [DEMO.md](DEMO.md) is a three-minute walk-through in seven beats, with what to type and what to say.
+
+For live data, get a free [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html), copy `backend/.env.example` to `backend/.env`, put the key in it, and run `py tasks.py dev`. The key stays in `backend/.env`, which git ignores. It is never committed, logged or shown.
+
+<details>
+<summary><b>With Docker, or your own free copy on Render</b></summary>
+
+- `docker compose up --build` (or `make up`) starts the backend, the nginx-served terminal, TimescaleDB and Redis. Then open http://localhost:8080.
+- `docker build -t sovereigndesk . && docker run -p 10000:10000 sovereigndesk` runs everything in one container on the committed data. Then open http://localhost:10000. This is the image `render.yaml` deploys.
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/adityashukla2615/sovereigndesk)
+
+Render's free plan runs it on the committed data, with no API key. It sleeps after 15 idle minutes; the image fits the slow MPC model at build time so a tenth of a CPU stays responsive.
+
+</details>
 
 ## Data
 
@@ -158,7 +230,8 @@ With Docker, either:
 
 Live data comes first. If a request fails, the last good response is used; failing that, the committed snapshot in `data/seed`. Every series carries its source URL and fetch time (`data/seed/manifest.json`), and the badges say which tier each panel runs on. Policy values are never hard-coded: they are fetched, or kept with a source and a date where only a document gives them. [ASSUMPTIONS.md](ASSUMPTIONS.md) lists every source, fit and assumption.
 
-### Keeping the snapshot current
+<details>
+<summary><b>Keeping the snapshot current</b></summary>
 
 The live site and the web demo run on the snapshot (`MODE OFFLINE · SEED`); a local `py tasks.py dev` without `--offline` fetches every day instead. None of the sources is real-time: they publish end-of-day figures (FBIL's about a week late), and moves within a day are simulated. To bring the snapshot up to date:
 
@@ -173,7 +246,9 @@ It needs `FRED_API_KEY` in `backend/.env` and takes about 40 minutes, half an ho
 schtasks /Create /SC WEEKLY /D SUN /ST 10:00 /TN "SovereignDesk refresh" /TR "cmd /c cd /d C:\dev\sovereigndesk && py tasks.py refresh --push >> data\cache\refresh.log 2>&1"
 ```
 
-The web demo is a recording; `py tasks.py record-demo` re-records it on the new snapshot. Figures quoted in this README and in ASSUMPTIONS.md are those of the snapshot they were written on.
+A local terminal keeps its own database (`backend/var/sovereigndesk.db`), which loads the seed only into empty series: delete it after a refresh to run locally on the new snapshot. The web demo is a recording; `py tasks.py record-demo` re-records it. Figures quoted in this README and in ASSUMPTIONS.md are those of the snapshot they were written on.
+
+</details>
 
 ## How it fits together
 
@@ -211,7 +286,8 @@ flowchart LR
 - **Backend** (`backend/`): FastAPI with REST under `/api` and a WebSocket at `/ws`. Holds the data adapters, the two market simulators (stepped on simulated time, so a saved run replays exactly), the command registry and the database (SQLite, or TimescaleDB in Docker).
 - **Terminal** (`frontend/`): React and TypeScript with Vite, Tailwind and Zustand. Time series are drawn with TradingView Lightweight Charts and curves and heatmaps with ECharts. REST types are generated from the backend's OpenAPI schema.
 
-## Configuration
+<details>
+<summary><b>Configuration</b></summary>
 
 Settings are read from `backend/.env` or the environment.
 
@@ -225,7 +301,10 @@ Settings are read from `backend/.env` or the environment.
 | `SD_FAIL_SOURCES` | `[]` | Treat sources as down, to see the CACHED and STALE badges: `["fred"]` |
 | `SD_SCHEDULER_ENABLED` | `true` | Refresh data in the background |
 
-## Checks
+</details>
+
+<details>
+<summary><b>Checks</b></summary>
 
 | Command | What it runs |
 |---|---|
@@ -235,9 +314,12 @@ Settings are read from `backend/.env` or the environment.
 | `py tasks.py screenshots` | Re-captures [docs/screenshots](docs/screenshots) in headless Chrome |
 | `py tasks.py record-demo` | Re-records the web demo from the simulator; the Pages workflow publishes it |
 
-CI also builds and probes the Docker stack and runs gitleaks over the whole history.
+CI also builds and probes the Docker stack and the one-service image, and runs gitleaks over the whole history.
 
-## Repository layout
+</details>
+
+<details>
+<summary><b>Repository layout</b></summary>
 
 | Path | Contents |
 |---|---|
@@ -246,8 +328,54 @@ CI also builds and probes the Docker stack and runs gitleaks over the whole hist
 | `frontend/` | The terminal; `frontend/demo/` is the recorded web demo |
 | `data/` | The committed real-data seed and the replay episode datasets |
 | `scripts/` | Seed and replay builders, the demo check and recorder, the MPC report, screenshots |
-| `docs/` | The original brief, the build plan with every decision taken, the MPC backtest report, screenshots |
+| `docs/` | The original brief, the build plan with every decision taken, the MPC backtest report, the command reference, screenshots |
 | `tasks.py` | The task runner (standard library only); the Makefile and CI call it |
+
+</details>
+
+## FAQ
+
+<details>
+<summary><b>Is the data real-time?</b></summary>
+
+No. The sources publish end-of-day figures (FBIL's T-bills and G-sec curve about a week late), and the live site runs on a committed snapshot of them, refreshed with `py tasks.py refresh`. The prices that tick are simulated from that snapshot; the `SEED` badges show its date.
+
+</details>
+
+<details>
+<summary><b>Why does the live terminal take a minute to open?</b></summary>
+
+It runs on Render's free plan, which sleeps after 15 minutes without visitors. The first visit wakes it; after that it answers at once. The [web demo](https://adityashukla2615.github.io/sovereigndesk/) is always instant.
+
+</details>
+
+<details>
+<summary><b>Why did the market move when I didn't touch it?</b></summary>
+
+Everyone connected to the live terminal shares one simulated market, so a shock someone else sends moves it for you too. `RESET` puts it back to the real starting data.
+
+</details>
+
+<details>
+<summary><b>Why does it answer "Usage: HIKE 25BP"?</b></summary>
+
+Some functions need a value after the code: `HIKE 25BP`, `CUT 25BP`, `QT 95B`, `SHOCK JP 200B 10D`, `SAVE name`. On its own the code gets its usage back. `HELP <code>` explains any function.
+
+</details>
+
+<details>
+<summary><b>Where are the models and their limitations written down?</b></summary>
+
+[ASSUMPTIONS.md](ASSUMPTIONS.md) has every source, fit, parameter and known limitation; [docs/MPC_BACKTEST.md](docs/MPC_BACKTEST.md) has the full forecast backtest; [docs/PLAN.md](docs/PLAN.md) records every decision taken while building it.
+
+</details>
+
+<details>
+<summary><b>Found a bug or have an idea?</b></summary>
+
+[Open an issue](https://github.com/adityashukla2615/sovereigndesk/issues/new/choose): the forms ask for what was typed and what came back.
+
+</details>
 
 ## Third-party notices
 
